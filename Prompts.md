@@ -297,9 +297,250 @@ No corrijas nada por tu cuenta: listalo para que yo decida.
 
 **Prompt 1:**
 
+```text
+[Sección 5 · Prompt 1]
+
+## Objetivo
+Partir las épicas del PRD en historias de usuario y dejar armado el backlog en `docs/backlog/`. En este paso **no** se escriben criterios de aceptación, ni el camino feliz, ni estimaciones: eso viene después.
+
+La base es `docs/prd/tabbie-waiter-mvp.md` y `docs/context/panel-mozos-actual.md`. No leas el código de Tabbie.
+
+## Decisiones (ya tomadas)
+- **Épicas:** son E1 a E7 del PRD, tal como están. No inventes épicas nuevas ni cambies su prioridad.
+- **Usuario de todas las historias:** el mozo. No hay historias del comensal, del simulador ni técnicas: el walking skeleton y la infraestructura no van en este backlog.
+- **Granularidad:** una historia es un objetivo concreto del mozo que entra en 1 o 2 días de trabajo y en una sola sesión de un agente sin que se le rompa el contexto.
+- **Cobertura:** cada RF (RF-1 a RF-32) pertenece a **exactamente una** historia.
+- **Los RNF no son historias:** cada historia lista los RNF que la condicionan (por ejemplo, RNF-6 y RNF-9 en las de cobros).
+- **Prioridad:** la historia hereda la prioridad de sus RF. Una historia no mezcla RF Must y Should.
+- **Meta de cantidad:** entre 3 y 5 historias Must y 1 o 2 Should. El PRD tiene más capacidades que eso. Si al cortar por Small salen más historias, no fuerces la meta ni recortes el alcance: proponé las opciones (qué agrupar, o qué pasaría al no-alcance del MVP) para que yo decida.
+
+## Pasos
+1. **Clasificar antes de escribir.** Armá una tabla con las historias candidatas: título, épica, RF que cubre, complejidad (S, M o L) y el motivo en una línea (por ejemplo, depende de avisos en tiempo real, toca cobros o tiene comportamiento entre tablets).
+2. **Cuestionamiento (una sola ronda).** Antes de escribir los archivos, devolveme en un único mensaje:
+   - la tabla del paso 1;
+   - las opciones para la meta de cantidad, si no se cumple;
+   - una propuesta, con su motivo, para cada punto de "Pendiente para las historias" del PRD: desde qué pantalla se llega a la impresora virtual (RF-32), cómo se verifican los comportamientos entre tablets (RF-16, RF-22, RF-26) y el tamaño y la resolución de la tablet (RNF-10);
+   - hasta 5 cuestionamientos más, solo si hay una ambigüedad o una contradicción real en el PRD que afecte el corte.
+
+   Esperá mis respuestas una vez y después escribí.
+3. **Escribir el backlog.**
+   - `docs/backlog/README.md`:
+     - cómo se lee el backlog;
+     - la tabla de épicas → historias;
+     - la tabla de cobertura RF → historia, con todos los RF;
+     - lo que se decidió sobre los pendientes del PRD.
+   - Un archivo por historia, `docs/backlog/historias/HU-NN-<titulo-corto>.md`, con esta estructura:
+     - título con el ID (`HU-01`, `HU-02`…);
+     - épica, prioridad, RF que cubre y RNF que la condicionan;
+     - complejidad (S, M o L) con su motivo;
+     - la historia en tres líneas: **Como** / **Quiero** / **Para**;
+     - `## Camino feliz`, con el texto "_Lo escribe el humano._";
+     - `## Criterios de aceptación`, con el texto "_Pendiente._";
+     - `## INVEST`: una tabla con los 6 criterios, cada uno con ✔ o ✘ y una nota corta. Si una historia falla dos o más, o falla Small o Testable, partila o señalalo, y explicá por qué;
+     - `## Estimación`, con el texto "_Pendiente._".
+
+## Reglas
+- En español.
+- Sin endpoints, tablas, eventos, códigos de error ni tecnologías: las historias son de producto.
+- El "Para" dice el valor para el mozo o el restaurante, no repite el "Quiero".
+- Si tenés que tomar una decisión que no está en este prompt ni en mis respuestas, no la tomes: listala al final de `docs/backlog/README.md`, en "Decisiones abiertas".
+- Al terminar, commit en la rama `feature/entrega-1-mc` con un mensaje en español. **No hagas push.**
+
+## Criterios de éxito
+- Todos los RF, de RF-1 a RF-32, aparecen en una sola historia en la tabla de cobertura.
+- Ninguna historia mezcla Must y Should, ni tiene criterios, camino feliz ni estimación escritos.
+- Cada historia tiene su tabla INVEST, y ninguna falla Small o Testable sin una nota que lo explique.
+- Los tres pendientes del PRD quedan resueltos con mi respuesta.
+- Al final me devolvés un resumen de 5 líneas como máximo: cuántas historias Must y Should, cuáles quedaron L y las decisiones abiertas.
+```
+
+**Ajuste humano:** Acepté el corte en 8 historias Must y 3 Should, aunque supera la meta de 3 a 5 Must y 1 o 2 Should, porque agrupar daba historias que no pasaban Small. Acepté las propuestas de la IA para los pendientes del PRD y sus 4 cuestionamientos, incluido que el walking skeleton se encargue de los avisos en tiempo real, la reconexión y la recuperación después de un corte.
+
 **Prompt 2:**
 
+```text
+[Sección 5 · Prompt 2]
+
+## Objetivo
+Completar los criterios de aceptación de las historias de `docs/backlog/historias/`. El camino feliz lo escribí yo; vos lo pasás a Given / When / Then y buscás lo que falta.
+
+## Mis decisiones sobre las "Decisiones abiertas" del backlog
+1. **Dónde están las acciones de cobro y cierre, y el indicador de solicitudes:** igual que en el panel actual.
+   - La navegación principal tiene "Órdenes", "Pagos" y la impresora virtual. Estos nombres reemplazan a "Mesas" y "Cobros" en todo el backlog.
+   - "Registrar cobro" está en la tarjeta de cada mesa, en "Órdenes".
+   - "Cerrar mesa" está en "Pagos", al pie de los cobros de esa mesa, donde se ve lo pagado antes de cerrar.
+   - El indicador de solicitudes va sobre "Pagos" en la navegación principal.
+2. **Cronómetro de demora (RF-8):** igual que en el panel actual. Cuenta desde el pedido confirmado más antiguo de la mesa, incluidos los que ya están en "Ingresadas", y deja de mostrarse cuando la mesa queda saldada.
+   - Además, cada mesa muestra cuánto tiempo lleva ocupada, como hoy el panel en el encabezado de la tarjeta. Esto se suma a RF-7 (ver el paso 0).
+3. **Camino de RF-25 incompleto:**
+   - si el cobro manual se registra pero la solicitud no se puede eliminar, la app avisa que el cobro quedó registrado y que la solicitud sigue en la lista, para eliminarla desde ahí con la acción normal (RF-26). Nunca ofrece repetir el cobro (RNF-6);
+   - si la solicitud ya no existe, por ejemplo porque el cobro dejó la mesa saldada y el sistema la quitó, no es un error: la app confirma el cobro y actualiza la lista.
+4. **Cuentas para las pruebas entre tablets:** los datos iniciales de la réplica traen un restaurante con dos mozos, mesas y menú. Así cualquiera, incluido el evaluador, repite la prueba sin preparar nada. Las credenciales de prueba se documentan en el `Readme.md`.
+
+## Mi camino feliz por historia
+**HU-01 · Iniciar sesión y mantenerla todo el turno**
+- El mozo entra con su email y contraseña.
+- Al entrar, ve la sección "Órdenes" de su restaurante.
+- Si entra alguien que no es mozo, la app le explica que no tiene acceso, cierra la sesión y no le muestra ninguna pantalla de la operación.
+- La sesión se renueva sola durante todo el turno, sin que el mozo se entere.
+- Si la renovación falla, la app vuelve al inicio de sesión.
+
+**HU-02 · Ver las mesas activas y sus pedidos**
+- Una vez dentro, el mozo ve la navegación principal con "Órdenes" y "Pagos".
+- En "Órdenes" hay una tarjeta por cada mesa ocupada, con sus pedidos agrupados por categoría.
+- "Órdenes" tiene dos pestañas:
+  - "Pendientes", con los pedidos que el comensal confirmó y todavía no se mandaron a cocina;
+  - "Ingresadas", con los que ya se mandaron y están en preparación.
+- Cada tarjeta muestra los comensales, el total, lo pagado, cuánto tiempo lleva ocupada la mesa y si pidió ayuda.
+- Cada tarjeta cambia de color según la demora, que se cuenta desde el pedido confirmado más antiguo de la mesa, con los umbrales del restaurante.
+
+**HU-03 · Enterarme de cada pedido confirmado**
+- Cuando un comensal confirma un pedido, el pedido aparece en "Pendientes", en la tarjeta de su mesa, y la app muestra un aviso con el número de mesa.
+- La app emite un sonido propio de "Nuevo pedido".
+- Si el mozo está en otra sección, el botón "Órdenes" parpadea de forma llamativa y muestra cuántos pedidos hay sin mandar a cocina.
+- Si el mozo está en "Ingresadas", la pestaña "Pendientes" parpadea y muestra el mismo contador.
+
+**HU-04 · Mandar a cocina y cancelar pedidos**
+- En "Pendientes", la tarjeta de cada mesa tiene el botón "Mandar a cocina", que manda todos los pedidos confirmados de esa mesa.
+- Al mandarlos, los pedidos pasan de "Pendientes" a "Ingresadas".
+- La tarjeta de cada mesa tiene una acción para eliminar pedidos: el mozo elige uno, varios o todos los platos de la mesa y los cancela.
+- Los pedidos cancelados dejan de verse y el total de la mesa se actualiza.
+- Un pedido que ya tiene algo cobrado no se puede cancelar, y la app explica por qué.
+
+**HU-05 · Registrar un cobro manual**
+- La tarjeta de la mesa en "Órdenes" tiene el botón "Registrar cobro".
+- El diálogo propone el saldo pendiente de la mesa y permite sumar propina.
+- Al registrarlo, lo pagado de la mesa se actualiza.
+- En "Pagos", el cobro aparece en la mesa como "Pago manual".
+
+**HU-06 · Ver las solicitudes y los cobros de cada mesa**
+- En "Pagos" hay una tarjeta por cada mesa activa. Si la mesa no tiene solicitudes ni cobros, la tarjeta aparece vacía.
+- Cuando un comensal pide pagar en persona, en la tarjeta de su mesa aparece un ítem con los datos de la solicitud (comensal, monto y tipo de pago) y los botones "Confirmar pago" y "Eliminar".
+- Los cobros ya registrados aparecen en la tarjeta marcados como pagados. Los manuales figuran como "Pago manual".
+- El botón "Pagos" de la navegación muestra cuántas solicitudes hay, sin contar las de MercadoPago.
+
+**HU-07 · Confirmar o eliminar una solicitud de cobro**
+- Cuando el mozo cobra en persona, aprieta "Confirmar pago" en el ítem de la solicitud.
+- Aparece un diálogo de confirmación con los datos del cobro.
+- Si confirma, el ítem queda marcado como pagado y lo pagado de la mesa se actualiza.
+- Si la solicitud no corresponde, el mozo aprieta "Eliminar" y la solicitud desaparece.
+- Las solicitudes de MercadoPago se ven, pero no tienen "Confirmar pago".
+
+**HU-08 · Cerrar una mesa**
+- En "Pagos", la tarjeta de cada mesa tiene el botón "Cerrar mesa".
+- Al apretarlo, aparece un diálogo de confirmación que informa si la mesa pagó el total.
+- Si queda saldo pendiente, el diálogo muestra una advertencia clara, pero deja cerrar.
+- Al confirmar, la mesa deja de aparecer entre las activas.
+
+**HU-09 · Cerrar sesión al terminar el turno**
+- Hay un botón "Cerrar sesión".
+- Al apretarlo, la app pide confirmación.
+- Al confirmar, la app vuelve al inicio de sesión y otro mozo puede entrar.
+- Si un mozo cierra sesión en medio del turno y vuelve a entrar, ve el salón igual que antes: las mesas, los pedidos y las marcas de "Atendido".
+
+**HU-10 · Dar por atendido un pedido de ayuda**
+- Cuando una mesa pide ayuda, su tarjeta muestra un ícono llamativo, en "Órdenes" y en "Pagos".
+- Al tocar el ícono en cualquiera de las dos tarjetas, la ayuda queda atendida y el ícono desaparece de las dos.
+- La marca vale solo en esta tablet: las demás siguen mostrando el ícono.
+
+**HU-11 · Consultar la impresora virtual**
+- En la navegación principal hay un botón para ir a la impresora virtual.
+- La impresora lista los pedidos confirmados de todas las mesas activas que todavía no se mandaron a cocina.
+- Al tocar un pedido se ve su detalle.
+- Es solo de consulta: no tiene acciones.
+
+## Pasos
+0. **Correcciones del backlog.** En `docs/backlog/README.md`:
+   - pasá mis 4 decisiones a la sección de decisiones y sacalas de "Decisiones abiertas";
+   - en "Comportamientos entre tablets", cambiá "el piloto tiene una sola tablet por restaurante" por "inicialmente hay una sola tablet por restaurante (PRD, sección 9)";
+   - en "Tamaño y resolución", el motivo pasa a ser un supuesto: "Se supone que es el tamaño habitual de las tablets que entrega un restaurante; se confirma cuando haya un modelo definido".
+
+   En `docs/prd/tabbie-waiter-mvp.md`, aplicá estas decisiones mías (mantené la numeración de RF y RNF):
+   - **Qué es un pedido:** agregá, antes de la sección 4, que un pedido es un plato que pide el comensal, con su cantidad y sus opciones. Lo que el comensal manda junto es un conjunto de pedidos. Así lo hace hoy la app del comensal, y por eso cancelar pedidos es cancelar platos.
+   - **Acceso solo con email y contraseña:** RF-1 y E1 dejan de mencionar Google. "Iniciar sesión con Google" pasa al no-alcance con este motivo: el MVP ofrece un único modo de acceso. Sumá a los supuestos: "Todo mozo tiene una cuenta con email y contraseña".
+   - **RNF-9 cambia de lista.** Las únicas acciones que piden confirmación son cerrar sesión, cerrar una mesa y confirmar una solicitud de cobro (incluido el camino de RF-25, con una sola confirmación). El motivo pasa a ser que estas acciones cierran algo: la sesión, la mesa o un cobro.
+     - Cancelar pedidos, registrar un cobro manual, eliminar una solicitud y "Atendido" no piden confirmación.
+     - Ajustá las épicas y los RF que remiten a RNF-9 (por ejemplo, RF-26) para que no contradigan la nueva lista.
+   - **Pedido de ayuda en las dos vistas:** el aviso se ve en la tarjeta de la mesa en "Órdenes" y en "Pagos", y "Atendido" se usa desde cualquiera de las dos (RF-7, RF-16 y E4).
+   - RF-7 suma "y cuánto tiempo lleva ocupada", y E2 lo menciona en "Mesas activas".
+   - En la tabla de cobertura, C4 cambia "al instante" por "en el tiempo de RNF-1".
+
+   En `docs/backlog/`, reemplazá "Mesas" y "Cobros" por "Órdenes" y "Pagos" (decisión 1), y actualizá en cada historia la lista de RNF que la condicionan según la nueva RNF-9.
+
+   En `docs/backlog/historias/HU-02-mesas-activas.md`, el "Quiero" incluye el tiempo que lleva ocupada la mesa.
+1. **Camino feliz.** Copiá mis bullets en `## Camino feliz` de cada historia, sin cambiarlos.
+2. **Huecos.** Por cada historia, listá hasta 8 candidatos: casos límite, supuestos implícitos, escenarios que faltan y riesgos no mencionados. Priorizá los que salen del contexto: los huecos O1 a O4, los comportamientos entre tablets, los cortes de conexión (RNF-4), las repeticiones (RNF-6) y las confirmaciones (RNF-9). Cada candidato lleva:
+   - un ID (`HU-01.h1`, `HU-01.h2`…);
+   - la evidencia (ID de capacidad, observación, RF o RNF), o la marca "(propuesto, revisar)" si no tiene;
+   - el criterio G/W/T que propondrías.
+
+   No reescribas la historia ni mi camino feliz. Devolveme la lista en un único mensaje y esperá mis decisiones una vez: por cada ID, acepto, edito o descarto.
+3. **Escribir.** En `## Criterios de aceptación` de cada historia:
+   - primero, los criterios de mi camino feliz, en G/W/T;
+   - después, los huecos que acepté o edité, con su ID;
+   - al final, `### Descartados`: los IDs descartados con mi motivo, en una línea cada uno.
+4. **INVEST.** Volvé a pasar la tabla INVEST. Si una historia ahora falla Small o Testable, proponé cómo partirla, pero no la partas sin mi OK.
+
+## Reglas
+- Criterios en español: **Dado** / **Cuando** / **Entonces** / **Y**.
+- Declarativos: el Entonces describe un resultado observable para el mozo. Sin endpoints, códigos HTTP, nombres de campos ni tecnologías.
+- Un criterio que no se pueda convertir en una prueba sin interpretarlo no es un criterio: reformulalo o señalalo.
+- Commit en la rama con un mensaje en español. **No hagas push.**
+
+## Criterios de éxito
+- Cada historia tiene mi camino feliz literal y sus criterios G/W/T.
+- Todos los huecos de la lista quedaron aceptados, editados o descartados, sin ninguno sin decidir.
+- No queda ninguna marca "(propuesto, revisar)" en un criterio que yo haya aceptado.
+- El README ya no tiene "Decisiones abiertas" ni menciona el piloto.
+- Las historias con comportamiento entre tablets (HU-06, HU-07 y HU-10) tienen su criterio "con dos tablets".
+```
+
+**Ajuste humano:** Escribí el camino feliz de cada historia y tomé las 4 decisiones abiertas a partir del código del panel actual. Cambié el PRD: acceso solo con email y contraseña, una nueva lista de acciones que piden confirmación, la definición de pedido (un plato) y el pedido de ayuda en las dos vistas. Acepté en bloque los 81 huecos de la IA y después repasé los que no tenían evidencia: descarté 5. Aprobé partir HU-07 por Small, pero después cuestioné que existieran solicitudes sin comensal. El código mostró que es un defecto de la app del comensal, así que simplifiqué RF-25 y la historia nueva desapareció. Sumé un segundo restaurante a los datos de prueba para RNF-7 y moví un criterio para que HU-01 fuera independiente.
+
 **Prompt 3:**
+
+```text
+[Sección 5 · Prompt 3]
+
+## Objetivo
+Estimar y priorizar las 11 historias de `docs/backlog/` (HU-01 a HU-11). Vamos a hacer planning poker: yo ya estimé por mi cuenta y no te voy a decir mis números hasta que me des los tuyos.
+
+## Pasos
+1. Leé `docs/backlog/`, con los criterios de aceptación de cada historia. Si te hace falta, también el PRD y el contexto. No leas nada fuera del repo ni el historial de git.
+2. Devolveme en un único mensaje, y esperá mi respuesta, una tabla con cada historia:
+   - tu estimación en la escala 1, 2, 3, 5, 8, 13, sin decimales;
+   - el motivo en una línea: qué la hace compleja, qué es incierto o qué es riesgoso;
+   - el impacto que le asignás (alto, medio o bajo), según cuánto aporta a operar el turno completo (M-1) y a cobrar sin errores (M-2, M-3).
+
+   Los avisos en tiempo real, la reconexión y la recuperación después de un corte los deja el walking skeleton (ver el README del backlog): no los cuentes dentro de las historias.
+3. Te paso mis estimaciones. En cada historia donde estemos a dos o más posiciones de distancia en la escala (por ejemplo, 2 y 5), explicá qué complejidad ves que yo quizá no vi, o qué te falta saber. **No promedies.** Esperá mi decisión final.
+4. Si una historia queda en 13, no es Small: proponé cómo partirla, usando la nota de su tabla INVEST si la tiene. No la partas sin mi OK. Si la parto, la nueva historia toma el siguiente ID libre (HU-12…), sin renumerar las demás, y se estima en esta misma ronda.
+5. Escribí en `## Estimación` de cada historia:
+   - el valor acordado;
+   - tu estimación y la mía;
+   - el motivo de la decisión, si hubo discusión.
+6. En `docs/backlog/README.md`, agregá:
+   - la estimación acordada en la tabla de historias, y el total de puntos Must y Should;
+   - la matriz impacto/complejidad en Mermaid (`quadrantChart`), con los cuadrantes "Quick wins", "Planificar", "Relleno" y "Evitar / aplazar". La complejidad sale de la estimación acordada; el impacto, del que decidí. Usá los IDs como etiquetas;
+   - el orden del backlog, después del walking skeleton:
+     - primero, las historias Must del flujo principal: el comensal confirma, el mozo manda a cocina, cobra y cierra la mesa;
+     - después, el resto de las Must y al final las Should;
+     - dentro de cada grupo, los quick wins primero;
+     - el orden no puede poner una historia antes de otra de la que depende (columna Independiente de su tabla INVEST). Si mi priorización choca con una dependencia, avisame.
+
+## Reglas
+- En español.
+- La estimación es complejidad relativa, no horas ni días.
+- No cambies criterios de aceptación ni caminos felices: si al estimar ves un problema en un criterio, listalo al final de tu mensaje del paso 2.
+- Commit en la rama con un mensaje en español. **No hagas push.**
+
+## Criterios de éxito
+- Cada historia tiene la estimación acordada, con la mía y la de la IA, y ninguna queda en 13 sin partir o sin una decisión mía.
+- Las diferencias de dos o más posiciones quedaron discutidas y decididas por mí.
+- La matriz y el orden del backlog están en `docs/backlog/README.md`, y el orden respeta las dependencias.
+```
+
+**Ajuste humano:** Decidí no hacer planning poker y acepté las estimaciones y el impacto de la IA (48 puntos). Resolví los 5 problemas que la IA vio al estimar, después de verificarlos en el código: las carreras entre tablets pasan a ser un riesgo aceptado, las solicitudes de MercadoPago se pueden eliminar como en el panel actual y sumé las dependencias de HU-06. Acepté que HU-08 vaya antes que HU-07 por la regla de quick wins.
 
 ---
 

@@ -145,11 +145,138 @@ Se completa con el desarrollo.
 
 > Documenta 3 de las historias de usuario principales utilizadas durante el desarrollo, teniendo en cuenta las buenas prácticas de producto al respecto.
 
+El backlog completo tiene 11 historias (8 Must y 3 Should) y se ve en [docs/backlog/README.md](docs/backlog/README.md), con la cobertura de los RF, la matriz impacto/complejidad, el orden del backlog y los riesgos aceptados.
+
 **Historia de Usuario 1**
+
+**[HU-02. Ver las mesas activas y sus pedidos](docs/backlog/historias/HU-02-mesas-activas.md)**
+
+- **Épica:** E2. Vista del salón en tiempo real
+- **Prioridad:** Must
+- **Estimación:** 5 puntos
+
+**Como** mozo,
+**quiero** ver las mesas ocupadas con sus pedidos, sus comensales, el total, lo pagado, cuánto tiempo lleva ocupada cada una y la demora,
+**para** saber en todo momento qué mesa necesita atención y darle prioridad a la que más espera.
+
+Criterios de aceptación del camino feliz:
+
+**HU-02.c1 · Navegación principal**
+
+- **Dado** que el mozo inició sesión
+- **Cuando** mira la pantalla de la operación
+- **Entonces** ve la navegación principal con "Órdenes" y "Pagos"
+
+**HU-02.c2 · Una tarjeta por mesa ocupada**
+
+- **Dado** que el restaurante tiene tres mesas ocupadas, cada una con pedidos sin mandar a cocina, y dos libres
+- **Cuando** el mozo abre la pestaña "Pendientes" de "Órdenes"
+- **Entonces** ve tres tarjetas, una por cada mesa ocupada, y ninguna de las mesas libres
+- **Y** en cada tarjeta los pedidos aparecen agrupados por categoría
+
+**HU-02.c3 · Pestañas "Pendientes" e "Ingresadas"**
+
+- **Dado** que una mesa tiene un pedido confirmado que no se mandó a cocina y otro que ya se mandó
+- **Cuando** el mozo mira las dos pestañas de "Órdenes"
+- **Entonces** en "Pendientes" ve solo el primero
+- **Y** en "Ingresadas" ve solo el segundo
+
+**HU-02.c4 · Datos de la tarjeta**
+
+- **Dado** que una mesa está ocupada hace 25 minutos, tiene dos comensales, un total de $5000, $2000 pagados y un pedido de ayuda
+- **Cuando** el mozo mira su tarjeta
+- **Entonces** ve los dos comensales, el total de $5000, $2000 pagados, 25 minutos de ocupación y el ícono de ayuda
+
+**HU-02.c5 · Color según la demora**
+
+- **Dado** que el restaurante configuró sus tres umbrales de demora
+- **Cuando** el pedido confirmado más antiguo de la mesa supera cada umbral
+- **Entonces** la tarjeta pasa a amarillo al superar el primero, a rojo al superar el segundo y a rojo parpadeante al superar el tercero
+- **Y** el cronómetro muestra el tiempo transcurrido desde ese pedido
+
+Tiene 8 criterios más para los huecos (HU-02.h1 a HU-02.h8), que se ven en [su archivo](docs/backlog/historias/HU-02-mesas-activas.md).
 
 **Historia de Usuario 2**
 
+**[HU-04. Mandar a cocina y cancelar pedidos](docs/backlog/historias/HU-04-cocina-y-cancelacion.md)**
+
+- **Épica:** E3. Gestión de pedidos
+- **Prioridad:** Must
+- **Estimación:** 8 puntos
+
+**Como** mozo,
+**quiero** mandar a cocina los pedidos confirmados de una mesa y cancelar los que no van,
+**para** que la cocina reciba a tiempo lo que tiene que preparar y la cuenta de la mesa refleje solo lo que se sirve, sin descuadrar lo ya cobrado.
+
+Criterios de aceptación del camino feliz:
+
+**HU-04.c1 · Mandar a cocina**
+
+- **Dado** que la mesa 4 tiene tres pedidos en "Pendientes" y la mesa 5 tiene uno
+- **Cuando** el mozo aprieta "Mandar a cocina" en la tarjeta de la mesa 4
+- **Entonces** los tres pedidos de la mesa 4 dejan de verse en "Pendientes" y aparecen en "Ingresadas"
+- **Y** el pedido de la mesa 5 sigue en "Pendientes"
+
+**HU-04.c2 · Cancelar pedidos**
+
+- **Dado** que una mesa tiene pedidos sin nada cobrado
+- **Cuando** el mozo elige uno, varios o todos con la acción para eliminar pedidos y los cancela
+- **Entonces** los pedidos cancelados dejan de verse
+- **Y** el total de la mesa baja en la suma de sus importes
+- **Y** la app no pide confirmación antes de cancelar
+
+**HU-04.c3 · No se cancela lo que tiene algo cobrado**
+
+- **Dado** que un pedido tiene algo cobrado, total o parcialmente
+- **Cuando** el mozo intenta cancelarlo
+- **Entonces** la app no lo cancela
+- **Y** le explica que ese pedido ya tiene algo cobrado
+
+Tiene 8 criterios más para los huecos (HU-04.h1 a HU-04.h8), que se ven en [su archivo](docs/backlog/historias/HU-04-cocina-y-cancelacion.md).
+
 **Historia de Usuario 3**
+
+**[HU-07. Confirmar o eliminar una solicitud de cobro](docs/backlog/historias/HU-07-confirmar-o-eliminar-solicitud.md)**
+
+- **Épica:** E5. Cobros
+- **Prioridad:** Must
+- **Estimación:** 5 puntos
+
+**Como** mozo,
+**quiero** confirmar las solicitudes de cobro que cobro en persona y eliminar las que no corresponden,
+**para** que cada cobro quede registrado una sola vez, sin errores, y la lista de lo que falta cobrar esté al día.
+
+Criterios de aceptación del camino feliz:
+
+**HU-07.c1 · Diálogo de confirmación**
+
+- **Dado** que una solicitud presencial identifica al comensal
+- **Cuando** el mozo aprieta "Confirmar pago" en su ítem
+- **Entonces** aparece un diálogo de confirmación con el comensal, el monto, la propina y el tipo de pago de la solicitud
+
+**HU-07.c2 · Confirmar el pago**
+
+- **Dado** que el diálogo de confirmación está abierto
+- **Cuando** el mozo confirma
+- **Entonces** el ítem queda marcado como pagado
+- **Y** lo pagado de la mesa sube en el monto de la solicitud sin la propina
+
+**HU-07.c3 · Eliminar una solicitud**
+
+- **Dado** que una solicitud no corresponde
+- **Cuando** el mozo aprieta "Eliminar"
+- **Entonces** la solicitud desaparece de la tarjeta de su mesa
+- **Y** el número de "Pagos" baja en uno
+- **Y** la app no pide confirmación antes de eliminarla
+
+**HU-07.c4 · Solicitudes de MercadoPago**
+
+- **Dado** que una mesa tiene una solicitud de MercadoPago
+- **Cuando** el mozo mira su tarjeta en "Pagos"
+- **Entonces** ve la solicitud
+- **Y** la solicitud no tiene el botón "Confirmar pago"
+
+Tiene 5 criterios más para los huecos (HU-07.h1 a HU-07.h5), que se ven en [su archivo](docs/backlog/historias/HU-07-confirmar-o-eliminar-solicitud.md).
 
 ---
 
