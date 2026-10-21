@@ -206,6 +206,7 @@ Cada capacidad describe cómo funciona hoy, cómo la resuelve la Waiter App, el 
 - **Diálogo:** "Registrar pago" propone el monto pendiente (`total - amountPaid`), permite agregar propina y envía `{amount, noTipAmount}`.
 - **Validación en el back:** rechaza montos que superan el total.
 - **Pago guardado:** `method = 'cash'` (en minúsculas) y sin `userId`.
+- **Lo pagado y la propina:** el back suma a `table_session.amountPaid` solo el monto sin propina (`noTipAmount`). La propina (`amount - noTipAmount`) se acumula aparte en `table_session.tips`. `/pay` (C11) hace lo mismo (`BE/table-sessions/table-session.service.ts`, `addManualPayment` y `confirmPaymentRequest`).
 - **Pedidos pagados:** se marcan como pagados solo cuando la mesa queda saldada (`BE/table-sessions/table-session.service.ts`, `addManualPayment`).
 
 **Waiter App:** mismo comportamiento, sin reintentos automáticos.
@@ -238,6 +239,7 @@ Cada capacidad describe cómo funciona hoy, cómo la resuelve la Waiter App, el 
 
 - En la vista "Pagos", el panel lista los pagos confirmados de la sesión junto con las solicitudes pendientes.
 - Los pagos manuales vienen con `user: null`, y el panel los muestra como "Usuario desconocido".
+- **Qué guarda cada pago:** la sesión de mesa (`sessionId`), el monto con propina (`amount`), la moneda (`currency`), el método (`method`), el comensal (`userId`, vacío en los pagos manuales), si fue prepago (`prepaid`) y la fecha (`createdAt`) (`BE/payments/payment.entity.ts`).
 
 **Waiter App:**
 
