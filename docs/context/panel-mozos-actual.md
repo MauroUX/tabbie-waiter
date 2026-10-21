@@ -89,7 +89,7 @@ Cada capacidad describe cómo funciona hoy, cómo la resuelve la Waiter App, el 
 
 **Waiter App:**
 
-- Ofrece login con email y contraseña o con Google; en ambos casos el ID token incluye `email`.
+- Ofrece login con email y contraseña; el ID token incluye `email`.
 - Envía siempre el JWT del backend.
 - Usa el ID token de Firebase solo como body de `POST /auth/login`.
 - **Renovación del JWT:** antes de que venza (según el `exp` del token) o ante un 401, pide un ID token nuevo a Firebase (`getIdToken`) y vuelve a llamar a `POST /auth/login`. Si falla, envía al mozo al login.
@@ -405,7 +405,7 @@ Una fila por llamada o evento **del panel actual**. "J" = `JwtAuthGuard`, "R" = 
 
 En la Waiter App, los tres eventos de `/sse/waiters` llegan por **una sola conexión**.
 
-**Servicio externo:** Firebase Authentication (SDK en el navegador): `signInWithEmailAndPassword`, `signInWithPopup` (Google), `getIdToken` y `onAuthStateChanged` (T19). Lo usan el panel actual y la Waiter App. En el back, `POST /auth/login` verifica el ID token con Firebase Admin.
+**Servicio externo:** Firebase Authentication (SDK en el navegador): `signInWithEmailAndPassword`, `signInWithPopup` (Google), `getIdToken` y `onAuthStateChanged` (T19). Lo usa el panel actual, y la Waiter App usa todo menos `signInWithPopup`. En el back, `POST /auth/login` verifica el ID token con Firebase Admin.
 
 ### 3.2 Tablas usadas (13)
 

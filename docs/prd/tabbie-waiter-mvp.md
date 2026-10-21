@@ -55,6 +55,10 @@ Para el mozo, una app propia que cubre el turno completo, separada de la app de 
 
 **Para el restaurante:** reemplaza la herramienta actual sin cambiar cómo trabaja el resto del sistema. La app usa las mismas operaciones y los mismos datos que la herramienta actual, y el backend no se modifica.
 
+## Qué es un pedido
+
+Un **pedido** es un plato que pide el comensal, con su cantidad y sus opciones. Lo que el comensal manda junto es un **conjunto de pedidos**. Así lo hace hoy la app del comensal, y por eso cancelar pedidos es cancelar platos.
+
 ## 4. Alcance del MVP
 
 **Definición:** el MVP incluye las capacidades necesarias para que un restaurante opere un turno completo **sin usar el panel web**. Son las capacidades C1 y C3 a C14 del contexto, con el comportamiento descrito en cada bloque "Waiter App".
@@ -72,11 +76,12 @@ Son requisitos no funcionales y están en la sección 7.
 
 Cubre: **C1**.
 
-- **Iniciar sesión (Must):** con email y contraseña o con Google (C1).
+- **Iniciar sesión (Must):** con email y contraseña (C1).
 - **Solo mozos (Must):** si inicia sesión un usuario con otro rol, la app le muestra un mensaje y cierra la sesión.
 - **Sesión durante todo el turno (Must):** la app renueva la sesión antes de que venza, sin que el mozo lo note. Si no puede renovarla, lo lleva al inicio de sesión.
 - **Cerrar sesión (Should):**
   - El mozo cierra su sesión al terminar el turno, para que otro mozo inicie la suya en la misma tablet.
+  - Pide confirmación antes de cerrar la sesión (RNF-9).
   - Al cerrar sesión, las marcas de "Atendido" se mantienen en la tablet, porque son de la mesa, no del mozo.
   - No es una capacidad del contexto: se agrega porque, con una sola tablet por restaurante al inicio, varios mozos la comparten entre turnos.
   - Es Should porque el sistema no registra qué mozo hace cada acción: los cobros quedan a nombre del comensal o sin usuario, y las cancelaciones con un texto genérico. Compartir la sesión no altera los datos.
@@ -87,7 +92,7 @@ Cubre: **C3, C4**.
 
 - **Mesas activas (Must, C3):**
   - Muestra las mesas ocupadas, con sus pedidos agrupados por categoría y separados en dos pestañas: "Pendientes" (confirmados por el comensal) e "Ingresadas" (ya enviados a cocina). Los pedidos cancelados no se muestran.
-  - De cada mesa muestra los comensales, el total, lo pagado y si hay un pedido de ayuda.
+  - De cada mesa muestra los comensales, el total, lo pagado, cuánto tiempo lleva ocupada y si hay un pedido de ayuda.
   - Un cronómetro cuenta desde el pedido confirmado más antiguo de la mesa y cambia de color según los umbrales de demora que configura el restaurante.
   - No muestra datos sensibles de los comensales ni del restaurante.
 - **Aviso de pedido confirmado (Must, C4):**
@@ -103,15 +108,15 @@ Cubre: **C5, C6**.
 - **Cancelar pedidos (Must, C6):**
   - El mozo selecciona uno o más pedidos de la mesa y los cancela. Cada pedido queda registrado como "Cancelada por el restaurante".
   - La app no deja cancelar un pedido que tenga algo cobrado, ni total ni parcialmente, y le explica al mozo por qué.
-- **Confirmaciones:** las acciones de esta épica que piden confirmación están en RNF-9.
+- **Confirmaciones:** ninguna acción de esta épica pide confirmación (RNF-9).
 
 ### E4. Pedidos de ayuda (Should)
 
 Cubre: **C7**.
 
 - **Marcar como atendido (Should, C7):**
-  - El banner de pedido de ayuda tiene la acción "Atendido".
-  - "Atendido" vale solo para esa tablet: oculta el aviso en esa tablet hasta que se cierra la mesa. Las demás tablets siguen mostrándolo.
+  - El aviso de pedido de ayuda se ve en la tarjeta de la mesa en "Órdenes" y en "Pagos", y tiene la acción "Atendido" en las dos.
+  - "Atendido" se usa desde cualquiera de las dos vistas y vale solo para esa tablet: oculta el aviso en las dos vistas de esa tablet hasta que se cierra la mesa. Las demás tablets siguen mostrándolo.
   - Si la misma mesa vuelve a pedir ayuda después de marcarla como atendida, la app no lo detecta.
 
 ### E5. Cobros (Must)
@@ -131,7 +136,7 @@ Cubre: **C8, C9, C10, C11, C12**.
   - El mozo confirma una solicitud cuando cobra en persona. Las solicitudes de MercadoPago se ven, pero no se confirman: ese pago lo hace el comensal.
   - Si la solicitud no identifica al comensal, la app no la confirma: ofrece registrar el monto como cobro manual y después eliminar la solicitud.
 - **Eliminar una solicitud de cobro (Must, C12):** la solicitud desaparece en todas las tablets.
-- **Confirmaciones:** las acciones de esta épica que piden confirmación están en RNF-9.
+- **Confirmaciones:** de esta épica, solo confirmar una solicitud de cobro pide confirmación, también en el camino de la solicitud que no identifica al comensal, con una sola confirmación (RNF-9).
 
 ### E6. Cierre de mesa (Must)
 
@@ -158,7 +163,7 @@ Cubre: **C14**.
 | C1. Iniciar sesión | E1 | Must | Sin sesión no hay operación. |
 | C2. Continuar como invitado | No-alcance | — | La app es solo para personal del restaurante. |
 | C3. Ver las mesas activas con sus pedidos | E2 | Must | Es la vista central del turno. |
-| C4. Recibir aviso de pedido confirmado | E2 | Must | El mozo se entera al instante de cada pedido nuevo. |
+| C4. Recibir aviso de pedido confirmado | E2 | Must | El mozo se entera de cada pedido nuevo en el tiempo de RNF-1. |
 | C5. Enviar a cocina | E3 | Must | Sin esto el pedido no llega a cocina. |
 | C6. Cancelar pedidos | E3 | Must | Corrige pedidos que no van. |
 | C7. Marcar como atendido un pedido de ayuda | E4 | Should | Hoy no funciona y el turno se opera igual. |
@@ -176,6 +181,7 @@ Cubre: **C14**.
 |---|---|
 | **Tomar pedidos desde la app del mozo.** | El pedido lo crea y lo confirma el comensal desde su app. Es una decisión de producto, no un recorte. |
 | **Acceso como invitado (C2).** | La app es solo para personal del restaurante. |
+| **Iniciar sesión con Google.** | El MVP ofrece un único modo de acceso. |
 | **Imprimir comandas en una impresora Bluetooth.** | Depende de hardware y no es necesario para reemplazar el panel actual. La impresora virtual (C14) sí entra. |
 | **Operar sin conexión.** | Exige sincronizar datos y resolver conflictos entre tablets. El MVP supone que el salón tiene red durante el turno. |
 | **Avisos con la pantalla bloqueada.** | El MVP supone que la tablet se configura al desplegar para mantener la pantalla encendida y la app en primer plano, así que los avisos se ven en la app. |
@@ -192,13 +198,13 @@ Hay un requisito por cada comportamiento observable de las épicas E1 a E7. "Ori
 
 | ID | Requisito | Épica | Origen | Prioridad |
 |---|---|---|---|---|
-| RF-1 | El mozo inicia sesión con email y contraseña o con su cuenta de Google. | E1 | C1 | Must |
+| RF-1 | El mozo inicia sesión con su email y su contraseña. | E1 | C1 | Must |
 | RF-2 | Si inicia sesión un usuario que no tiene el rol de mozo, la app le muestra un mensaje que lo explica y cierra la sesión, sin mostrarle ninguna pantalla de la operación. | E1 | C1 | Must |
 | RF-3 | La app renueva la sesión antes de que venza, sin pedirle datos al mozo. Si no puede renovarla, lo lleva al inicio de sesión. | E1 | C1 | Must |
-| RF-4 | El mozo cierra su sesión desde la app. Al hacerlo, la app vuelve al inicio de sesión y otro mozo puede iniciar la suya en la misma tablet. Las marcas de "Atendido" se mantienen en la tablet, porque son de la mesa, no del mozo. | E1 | Nuevo | Should |
+| RF-4 | El mozo cierra su sesión desde la app, previa confirmación (RNF-9). Al hacerlo, la app vuelve al inicio de sesión y otro mozo puede iniciar la suya en la misma tablet. Las marcas de "Atendido" se mantienen en la tablet, porque son de la mesa, no del mozo. | E1 | Nuevo | Should |
 | RF-5 | La app muestra todas las mesas ocupadas del restaurante y ninguna mesa libre ni cerrada. | E2 | C3 | Must |
 | RF-6 | Los pedidos de cada mesa se ven agrupados por categoría, en dos pestañas: "Pendientes", con los pedidos confirmados por el comensal, e "Ingresadas", con los ya enviados a cocina. Los pedidos cancelados no se muestran. | E2 | C3 | Must |
-| RF-7 | Cada mesa muestra sus comensales, el total, lo pagado y si hay un pedido de ayuda. | E2 | C3 | Must |
+| RF-7 | Cada mesa muestra sus comensales, el total, lo pagado, cuánto tiempo lleva ocupada y si hay un pedido de ayuda. El aviso de pedido de ayuda se ve en la tarjeta de la mesa en "Órdenes" y en "Pagos". | E2 | C3 | Must |
 | RF-8 | Cada mesa muestra un cronómetro que cuenta desde su pedido confirmado más antiguo y cambia de color al superar cada umbral de demora que configuró el restaurante. | E2 | C3 | Must |
 | RF-9 | Ninguna pantalla muestra datos sensibles de los comensales ni del restaurante, como los emails de los comensales o las credenciales de cobro del restaurante. | E2 | C3 | Must |
 | RF-10 | Cuando un comensal confirma un pedido, la app muestra un aviso con el número de mesa y actualiza esa mesa. | E2 | C4 | Must |
@@ -207,7 +213,7 @@ Hay un requisito por cada comportamiento observable de las épicas E1 a E7. "Ori
 | RF-13 | Con una sola acción, el mozo manda a cocina todos los pedidos confirmados de una mesa, que pasan a "Ingresadas". La acción no envía pedidos en otro estado. | E3 | C5 | Must |
 | RF-14 | El mozo selecciona uno o más pedidos de una mesa y los cancela. Cada pedido cancelado queda registrado como "Cancelada por el restaurante". | E3 | C6 | Must |
 | RF-15 | La app no deja cancelar un pedido que tenga algo cobrado, total o parcialmente, y le explica al mozo por qué. | E3 | C6 | Must |
-| RF-16 | El aviso de pedido de ayuda tiene la acción "Atendido". Al usarla, el aviso de esa mesa deja de verse en esa tablet hasta que se cierra la mesa; las demás tablets lo siguen mostrando. | E4 | C7 | Should |
+| RF-16 | El aviso de pedido de ayuda tiene la acción "Atendido", en la tarjeta de la mesa en "Órdenes" y en "Pagos". Al usarla desde cualquiera de las dos, el aviso de esa mesa deja de verse en las dos vistas de esa tablet hasta que se cierra la mesa; las demás tablets lo siguen mostrando. | E4 | C7 | Should |
 | RF-17 | Al registrar un cobro manual, la app propone como monto el saldo pendiente de la mesa y permite agregar propina. | E5 | C8 | Must |
 | RF-18 | La app no registra un cobro manual cuyo monto, sin contar la propina, supere el saldo pendiente de la mesa. | E5 | C8 | Must |
 | RF-19 | El cobro manual queda registrado como efectivo y sin comensal asociado. Los pedidos de la mesa figuran como pagados recién cuando la mesa queda saldada. | E5 | C8 | Must |
@@ -215,9 +221,9 @@ Hay un requisito por cada comportamiento observable de las épicas E1 a E7. "Ori
 | RF-21 | Un indicador muestra cuántas solicitudes de cobro hay, sin contar las de MercadoPago. | E5 | C9 | Must |
 | RF-22 | Una solicitud de cobro deja de verse cuando se elimina o se resuelve, también si lo hizo otro mozo desde otra tablet. | E5 | C9 | Must |
 | RF-23 | Cada mesa lista sus cobros registrados junto con sus solicitudes pendientes. Los cobros manuales figuran como "Pago manual". | E5 | C10 | Must |
-| RF-24 | El mozo confirma una solicitud de cobro presencial cuando cobra en persona. Las solicitudes de MercadoPago se ven, pero no se pueden confirmar. | E5 | C11 | Must |
-| RF-25 | Si una solicitud no identifica al comensal, la app no la confirma: ofrece registrar el monto como cobro manual y después eliminar la solicitud. | E5 | C11 | Must |
-| RF-26 | El mozo elimina una solicitud de cobro, previa confirmación (RNF-9). La solicitud deja de verse en todas las tablets. | E5 | C12 | Must |
+| RF-24 | El mozo confirma una solicitud de cobro presencial cuando cobra en persona, previa confirmación (RNF-9). Las solicitudes de MercadoPago se ven, pero no se pueden confirmar. | E5 | C11 | Must |
+| RF-25 | Si una solicitud no identifica al comensal, la app no la confirma: ofrece registrar el monto como cobro manual y después eliminar la solicitud, con una sola confirmación para las dos acciones (RNF-9). | E5 | C11 | Must |
+| RF-26 | El mozo elimina una solicitud de cobro. La solicitud deja de verse en todas las tablets. | E5 | C12 | Must |
 | RF-27 | La acción de cerrar una mesa solo se ofrece para mesas activas. | E6 | C13 | Must |
 | RF-28 | Cerrar una mesa siempre pide confirmación (RNF-9). Si la mesa tiene saldo pendiente, la app además lo advierte. | E6 | C13 | Must |
 | RF-29 | Mientras el cierre de una mesa está en curso, la acción no se puede repetir. Al terminar, la app actualiza las mesas. | E6 | C13 | Must |
@@ -239,7 +245,7 @@ Aplican a todas las épicas.
 | RNF-6 | Sin repeticiones automáticas | Una acción que cambia datos (mandar a cocina, cancelar pedidos, registrar un cobro manual, confirmar o eliminar una solicitud de cobro, cerrar una mesa) **nunca** se repite sola. Si falla o no responde, la app actualiza las mesas y las solicitudes de cobro antes de dejar intentarla de nuevo. |
 | RNF-7 | Aislamiento por restaurante | Un mozo solo ve y opera datos de su restaurante. |
 | RNF-8 | Datos en la tablet | En la tablet solo quedan guardadas la sesión del mozo y las marcas de "Atendido" (RF-16). Ningún otro dato de la operación queda en el dispositivo. |
-| RNF-9 | Confirmación de acciones irreversibles | Cancelar pedidos, cerrar una mesa, confirmar o eliminar una solicitud de cobro y registrar un cobro manual piden confirmación antes de ejecutarse, porque son irreversibles. Es la única lista de acciones que piden confirmación: las épicas y los RF remiten a ella. |
+| RNF-9 | Confirmación de las acciones que cierran algo | Cerrar sesión, cerrar una mesa y confirmar una solicitud de cobro piden confirmación antes de ejecutarse, porque cierran algo: la sesión, la mesa o un cobro. En el camino de RF-25, registrar el cobro manual y eliminar la solicitud piden una sola confirmación. Cancelar pedidos, registrar un cobro manual, eliminar una solicitud de cobro y marcar "Atendido" no piden confirmación. Es la única lista de acciones que piden confirmación: las épicas y los RF remiten a ella. |
 | RNF-10 | Dispositivo e idioma | Todas las pantallas se usan en una tablet en orientación horizontal, y todos los textos de la app están en español. |
 
 ## 8. Métricas de éxito
@@ -265,6 +271,7 @@ Se miden con el **simulador de comensales**, en un turno simulado. Probar la app
 - El salón tiene red disponible durante el turno.
 - La tablet se configura al desplegar para mantener la pantalla encendida y la app en primer plano.
 - Inicialmente hay una sola tablet por restaurante, que comparten los mozos.
+- Todo mozo tiene una cuenta con email y contraseña.
 - El restaurante entrega y configura las tablets.
 - Los comensales siguen pidiendo desde la app web actual.
 
