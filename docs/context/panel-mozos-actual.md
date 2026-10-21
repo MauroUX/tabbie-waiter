@@ -121,6 +121,7 @@ Cada capacidad describe cómo funciona hoy, cómo la resuelve la Waiter App, el 
   - pestaña "Ingresadas" = `in_kitchen`.
 - **Datos de cada mesa:** usuarios de la sesión, total, monto pagado y el pedido de ayuda.
 - **Cronómetro:** cuenta desde el `confirmedAt` más antiguo de la mesa. Usa los umbrales del restaurante `yellowTicketSeconds`, `redTicketSeconds` y `redPulseTicketSeconds` (300, 420 y 600 s por defecto).
+- **Origen de los umbrales y del tiempo de ocupación:** el panel toma los umbrales del restaurante de cada mesa (`table.restaurant`), y el tiempo de ocupación cuenta desde el `createdAt` de la sesión de mesa activa. Las dos cosas llegan con las mesas activas (T05) (`wpc/table-orders-card/table-orders-card.tsx:44-52`).
 - **Filtrado en el back:** descarta los pedidos `pending` y mantiene los `canceled` (`BE/restaurants/restaurants.service.ts:92-143`).
 - **Chequeo de restaurante:** rechaza solo si el usuario tiene un restaurante distinto del pedido (`BE/restaurants/restaurants.controller.ts:81-89`). Como todo `waiter` tiene restaurante, para ese rol el chequeo siempre aplica.
 

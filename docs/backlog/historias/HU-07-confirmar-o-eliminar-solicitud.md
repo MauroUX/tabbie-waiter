@@ -6,7 +6,7 @@
 | **Prioridad** | Must |
 | **RF que cubre** | RF-24, RF-25, RF-26 |
 | **RNF y reglas que la condicionan** | RNF-3, RNF-6, RNF-9, RNF-10, RF-9 |
-| **Complejidad** | M: toca cobros, con confirmación y sin repeticiones automáticas, y confirmar la misma solicitud en dos tablets no puede duplicar el cobro. Eliminar una solicitud tiene efecto en las demás tablets, y las solicitudes que no identifican al comensal no se confirman. |
+| **Complejidad** | M: toca cobros, con confirmación y sin repeticiones automáticas, y antes de confirmar revisa que la solicitud siga pendiente, para no duplicar el cobro si ya se confirmó en otra tablet. Eliminar una solicitud tiene efecto en las demás tablets, y las solicitudes que no identifican al comensal no se confirman. |
 
 ## Historia
 
@@ -64,19 +64,21 @@
 - **Y** actualiza las solicitudes antes de dejar intentarla de nuevo
 - **Y** si el cobro se había registrado, el ítem aparece como pagado y ya no tiene "Confirmar pago"
 
-**HU-07.h2 · Con dos tablets: la misma solicitud se confirma en las dos** (M-2, RNF-2, README)
+**HU-07.h2 · Con dos tablets: la misma solicitud se confirma en las dos** (M-2, RNF-2, README: comportamientos entre tablets y riesgos aceptados)
 
 - **Dado** que las tablets A y B muestran la misma solicitud
-- **Cuando** la tablet A la confirma y enseguida la tablet B también
-- **Entonces** queda un solo cobro registrado
-- **Y** la tablet B avisa que la solicitud ya no está
-- **Y** actualiza su lista
+- **Cuando** la tablet A la confirma y, antes de que la tablet B se actualice, el mozo de la tablet B también la confirma
+- **Entonces** la tablet B actualiza las solicitudes antes de confirmar
+- **Y** como la solicitud ya no está, no la confirma
+- **Y** avisa que la solicitud ya no está
+- **Y** queda un solo cobro registrado
 
-**HU-07.h3 · MercadoPago sin acciones**
+**HU-07.h3 · MercadoPago solo se elimina** (RF-26, C12)
 
 - **Dado** que una solicitud es de MercadoPago
 - **Cuando** el mozo mira el ítem
-- **Entonces** el ítem no tiene "Confirmar pago" ni "Eliminar"
+- **Entonces** el ítem no tiene "Confirmar pago"
+- **Y** sí tiene "Eliminar", igual que las solicitudes presenciales
 
 **HU-07.h4 · Cancelar el diálogo** (RNF-9)
 
@@ -110,4 +112,4 @@ Ninguno.
 
 ## Estimación
 
-_Pendiente._
+**5 puntos.** Estimación de la IA, aceptada por el humano sin planning poker.

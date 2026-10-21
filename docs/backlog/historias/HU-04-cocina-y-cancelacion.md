@@ -94,13 +94,13 @@
 - **Entonces** quedan seleccionados solo los que no tienen nada cobrado
 - **Y** la app explica por qué los otros no se pueden cancelar
 
-**HU-04.h7 · Cobro que llega durante la selección** (RF-15, RNF-2)
+**HU-04.h7 · Cobro que llega durante la selección** (RF-15, RNF-2, README: riesgos aceptados)
 
 - **Dado** que el mozo eligió un pedido para cancelarlo
-- **Cuando** antes de cancelarlo, ese pedido recibe un cobro desde otro lugar
-- **Entonces** ese pedido no se cancela
-- **Y** la app explica por qué
-- **Y** actualiza la mesa
+- **Cuando** antes de cancelarlo, ese pedido recibe un cobro desde otro lugar, y el mozo confirma la cancelación
+- **Entonces** la app actualiza los cobros del pedido antes de cancelar
+- **Y** como el pedido ya tiene algo cobrado, no lo cancela
+- **Y** explica por qué
 
 **HU-04.h8 · Cancelar en "Ingresadas"** (RF-14, C6)
 
@@ -126,4 +126,4 @@ Ninguno.
 
 ## Estimación
 
-_Pendiente._
+**8 puntos.** Estimación de la IA, aceptada por el humano sin planning poker.

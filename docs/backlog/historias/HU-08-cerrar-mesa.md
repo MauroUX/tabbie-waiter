@@ -73,11 +73,12 @@
 - **Y** actualiza las mesas
 - **Y** la mesa deja de verse si se cerró, o sigue con "Cerrar mesa" disponible si no se cerró
 
-**HU-08.h4 · Mesa ya cerrada en otra tablet** (C13, RNF-2)
+**HU-08.h4 · Mesa ya cerrada en otra tablet** (C13, RNF-2, README: riesgos aceptados)
 
 - **Dado** que la tablet A tiene abierto el diálogo de cierre de una mesa
 - **Cuando** la tablet B ya la cerró y el mozo de la tablet A confirma
-- **Entonces** la app no la vuelve a cerrar
+- **Entonces** la app actualiza las mesas antes de cerrar
+- **Y** como la mesa ya no está activa, no la vuelve a cerrar
 - **Y** avisa que la mesa ya estaba cerrada
 - **Y** la quita de la lista
 
@@ -108,7 +109,7 @@ Ninguno.
 
 | Criterio | | Nota |
 |---|---|---|
-| Independiente | ✘ | Solo se ofrece para las mesas activas de HU-02, y usa su saldo para advertir. |
+| Independiente | ✘ | Solo se ofrece para las mesas activas de HU-02, y usa su saldo para advertir. El botón "Cerrar mesa" está en "Pagos", de HU-06. |
 | Negociable | ✔ | El texto de la advertencia y de la confirmación se puede ajustar. |
 | Valiosa | ✔ | Libera la mesa al final de la atención. |
 | Estimable | ✔ | Las condiciones del cierre están definidas en el PRD. |
@@ -117,4 +118,4 @@ Ninguno.
 
 ## Estimación
 
-_Pendiente._
+**3 puntos.** Estimación de la IA, aceptada por el humano sin planning poker.

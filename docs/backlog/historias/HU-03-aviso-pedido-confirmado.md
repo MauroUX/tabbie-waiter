@@ -40,7 +40,7 @@
 
 **HU-03.c3 · El botón "Órdenes" parpadea con el contador**
 
-- **Dado** que el mozo está en "Pagos" o en la impresora virtual y hay 2 pedidos sin mandar a cocina
+- **Dado** que el mozo está en "Pagos" y hay 2 pedidos sin mandar a cocina
 - **Cuando** un comensal confirma otro pedido
 - **Entonces** el botón "Órdenes" parpadea
 - **Y** muestra el número 3
@@ -119,4 +119,4 @@
 
 ## Estimación
 
-_Pendiente._
+**3 puntos.** Estimación de la IA, aceptada por el humano sin planning poker.

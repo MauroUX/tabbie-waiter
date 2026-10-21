@@ -53,11 +53,12 @@
 
 ### Huecos
 
-**HU-05.h1 · Tope por el saldo** (RF-18)
+**HU-05.h1 · Tope por el saldo** (RF-18, README: riesgos aceptados)
 
 - **Dado** que la mesa tiene un saldo pendiente de $100
 - **Cuando** el mozo intenta registrar $120 sin propina
-- **Entonces** la app no registra el cobro
+- **Entonces** la app actualiza el saldo de la mesa antes de registrar
+- **Y** como $120 supera el saldo, no registra el cobro
 - **Y** le indica que el máximo es $100
 
 **HU-05.h2 · Cobro parcial** (RF-19)
@@ -103,11 +104,12 @@
 - **Cuando** el mozo mira su tarjeta
 - **Entonces** "Registrar cobro" no está disponible
 
-**HU-05.h8 · El saldo cambia con el diálogo abierto** (RF-18, RNF-2)
+**HU-05.h8 · El saldo cambia con el diálogo abierto** (RF-18, RNF-2, README: riesgos aceptados)
 
 - **Dado** que el diálogo propone $100
 - **Cuando** antes de registrar, entra un cobro de $60 desde otro lugar y el mozo registra los $100
-- **Entonces** la app no registra el cobro
+- **Entonces** la app actualiza el saldo de la mesa antes de registrar
+- **Y** como el saldo ya es $40, no registra el cobro
 - **Y** muestra el saldo actual de $40
 
 ### Descartados
@@ -118,7 +120,7 @@ Ninguno.
 
 | Criterio | | Nota |
 |---|---|---|
-| Independiente | ✘ | Necesita el saldo de la mesa que muestra HU-02. |
+| Independiente | ✘ | Necesita el saldo de la mesa que muestra HU-02. HU-05.c4 se verifica en "Pagos", de HU-06. |
 | Negociable | ✔ | La forma de cargar el monto y la propina se puede ajustar. |
 | Valiosa | ✔ | Es el cobro en persona sin solicitud, y evita los cobros duplicados (M-2). |
 | Estimable | ✔ | El tope, la propina y cómo queda registrado el cobro están definidos en el PRD. |
@@ -127,4 +129,4 @@ Ninguno.
 
 ## Estimación
 
-_Pendiente._
+**5 puntos.** Estimación de la IA, aceptada por el humano sin planning poker.

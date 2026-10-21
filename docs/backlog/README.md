@@ -16,7 +16,11 @@
   - **L:** combina avisos en tiempo real, comportamiento entre tablets y más de una lista. Está en el límite de Small.
 - **INVEST:** cada historia tiene su tabla con los 6 criterios. "Independiente" se evalúa respecto de las demás historias sin contar HU-01, porque todas necesitan una sesión iniciada.
 - **Criterios de aceptación:** cada historia tiene primero los de su camino feliz (`HU-NN.cN`) y después los huecos aceptados (`HU-NN.hN`), con la evidencia entre paréntesis (ID de capacidad, observación, RF, RNF o decisión del README). Al final lista los huecos descartados.
-- **Pendiente de escribir:** la estimación de todas las historias.
+- **Estimación:** complejidad relativa en la escala 1, 2, 3, 5, 8, 13, no horas ni días. Son las estimaciones de la IA, aceptadas por el humano sin planning poker. No cuentan los avisos en tiempo real, la reconexión ni la recuperación después de un corte, porque los deja el walking skeleton. Ninguna historia quedó en 13, así que no se partió ninguna.
+- **Impacto:** alto, medio o bajo, según cuánto aporta la historia a operar el turno completo (M-1) y a cobrar sin errores (M-2 y M-3). Lo asignó la IA y lo aceptó el humano.
+  - **Alto:** todas las Must, porque M-1 pide todos los RF Must. HU-04, HU-05, HU-07 y HU-08 además cuentan para M-2 y M-3.
+  - **Medio:** HU-10, porque el simulador pide ayuda durante el turno y, sin "Atendido", el aviso queda encendido hasta el cierre de la mesa.
+  - **Bajo:** HU-09 y HU-11, que no cuentan para ninguna métrica.
 
 ## Épicas e historias
 
@@ -30,24 +34,87 @@
 | E6. Cierre de mesa | Must | [HU-08](historias/HU-08-cerrar-mesa.md) Cerrar una mesa |
 | E7. Impresora virtual de comandas | Should | [HU-11](historias/HU-11-impresora-virtual.md) Consultar la impresora virtual |
 
-| ID | Historia | Épica | Prioridad | Complejidad |
-|---|---|---|---|---|
-| HU-01 | Iniciar sesión y mantenerla todo el turno | E1 | Must | M |
-| HU-02 | Ver las mesas activas y sus pedidos | E2 | Must | M |
-| HU-03 | Enterarme de cada pedido confirmado | E2 | Must | M |
-| HU-04 | Mandar a cocina y cancelar pedidos | E3 | Must | M |
-| HU-05 | Registrar un cobro manual | E5 | Must | M |
-| HU-06 | Ver las solicitudes y los cobros de cada mesa | E5 | Must | L |
-| HU-07 | Confirmar o eliminar una solicitud de cobro | E5 | Must | M |
-| HU-08 | Cerrar una mesa | E6 | Must | S |
-| HU-09 | Cerrar sesión al terminar el turno | E1 | Should | S |
-| HU-10 | Dar por atendido un pedido de ayuda | E4 | Should | S |
-| HU-11 | Consultar la impresora virtual | E7 | Should | S |
+| ID | Historia | Épica | Prioridad | Complejidad | Estimación | Impacto |
+|---|---|---|---|---|---|---|
+| HU-01 | Iniciar sesión y mantenerla todo el turno | E1 | Must | M | 5 | Alto |
+| HU-02 | Ver las mesas activas y sus pedidos | E2 | Must | M | 5 | Alto |
+| HU-03 | Enterarme de cada pedido confirmado | E2 | Must | M | 3 | Alto |
+| HU-04 | Mandar a cocina y cancelar pedidos | E3 | Must | M | 8 | Alto |
+| HU-05 | Registrar un cobro manual | E5 | Must | M | 5 | Alto |
+| HU-06 | Ver las solicitudes y los cobros de cada mesa | E5 | Must | L | 8 | Alto |
+| HU-07 | Confirmar o eliminar una solicitud de cobro | E5 | Must | M | 5 | Alto |
+| HU-08 | Cerrar una mesa | E6 | Must | S | 3 | Alto |
+| HU-09 | Cerrar sesión al terminar el turno | E1 | Should | S | 2 | Bajo |
+| HU-10 | Dar por atendido un pedido de ayuda | E4 | Should | S | 2 | Medio |
+| HU-11 | Consultar la impresora virtual | E7 | Should | S | 2 | Bajo |
+
+**Puntos:** 48 en total, 42 Must y 6 Should.
 
 **Cantidad:** 8 historias Must y 3 Should. Supera la meta inicial (3 a 5 Must y 1 o 2 Should), por estos motivos:
 
 - **Must:** ningún RF Must puede pasar al no-alcance, porque sin ellos no se reemplaza el panel web. Agruparlos más daría historias L o mayores que no entran en una sola sesión de un agente.
 - **Should:** cada épica Should da una historia, y las tres son S.
+
+## Matriz impacto/complejidad
+
+```mermaid
+quadrantChart
+    title Impacto y complejidad de las historias
+    x-axis Menor complejidad --> Mayor complejidad
+    y-axis Menor impacto --> Mayor impacto
+    quadrant-1 Planificar
+    quadrant-2 Quick wins
+    quadrant-3 Relleno
+    quadrant-4 Evitar / aplazar
+    HU-01: [0.54, 0.92]
+    HU-02: [0.62, 0.84]
+    HU-05: [0.54, 0.76]
+    HU-07: [0.62, 0.68]
+    HU-04: [0.71, 0.88]
+    HU-06: [0.79, 0.76]
+    HU-03: [0.38, 0.88]
+    HU-08: [0.42, 0.76]
+    HU-10: [0.25, 0.38]
+    HU-09: [0.20, 0.18]
+    HU-11: [0.29, 0.10]
+```
+
+- **Complejidad (eje horizontal):** sale de la estimación. Cada valor de la escala ocupa una franja del mismo ancho: 1, 2 y 3 quedan a la izquierda, y 5, 8 y 13 a la derecha.
+- **Impacto (eje vertical):** el alto queda en la mitad superior; el medio y el bajo, en la inferior, con el medio más arriba.
+- **Posición:** dentro de cada franja los puntos se separan solo para que se lean las etiquetas.
+- **Resultado:**
+  - **Quick wins:** HU-03 y HU-08.
+  - **Planificar:** HU-01, HU-02, HU-04, HU-05, HU-06 y HU-07.
+  - **Relleno:** HU-09, HU-10 y HU-11.
+  - **Evitar / aplazar:** ninguna.
+
+## Orden del backlog
+
+Después del walking skeleton, las historias se hacen en este orden. Todas dependen de HU-01; la columna "Depende de" muestra las demás dependencias, tomadas de la columna Independiente de cada tabla INVEST.
+
+| # | Historia | Grupo | Cuadrante | Puntos | Depende de |
+|---|---|---|---|---|---|
+| 1 | HU-01 Iniciar sesión y mantenerla todo el turno | Flujo principal | Planificar | 5 | — |
+| 2 | HU-02 Ver las mesas activas y sus pedidos | Flujo principal | Planificar | 5 | — |
+| 3 | HU-04 Mandar a cocina y cancelar pedidos | Flujo principal | Planificar | 8 | HU-02 |
+| 4 | HU-03 Enterarme de cada pedido confirmado | Flujo principal | Quick wins | 3 | HU-02 y HU-04 |
+| 5 | HU-06 Ver las solicitudes y los cobros de cada mesa | Flujo principal | Planificar | 8 | HU-02 |
+| 6 | HU-08 Cerrar una mesa | Flujo principal | Quick wins | 3 | HU-02 y HU-06 |
+| 7 | HU-07 Confirmar o eliminar una solicitud de cobro | Flujo principal | Planificar | 5 | HU-06 |
+| 8 | HU-05 Registrar un cobro manual | Resto de las Must | Planificar | 5 | HU-02 y HU-06 |
+| 9 | HU-10 Dar por atendido un pedido de ayuda | Should | Relleno | 2 | HU-02 y HU-06 |
+| 10 | HU-09 Cerrar sesión al terminar el turno | Should | Relleno | 2 | HU-10 |
+| 11 | HU-11 Consultar la impresora virtual | Should | Relleno | 2 | HU-02 |
+
+- **Flujo principal:** el comensal confirma un pedido y el mozo lo ve (HU-02 y HU-03), lo manda a cocina (HU-04), cobra la solicitud del comensal (HU-06 y HU-07) y cierra la mesa (HU-08). HU-01 va primero porque todas necesitan la sesión.
+  - **Cobro del flujo:** es la confirmación de la solicitud de cobro (HU-07), porque es el cobro en persona habitual.
+- **Resto de las Must:** HU-05, el cobro manual sin solicitud.
+- **Should:** las tres son relleno. HU-10 va primero porque tiene más impacto, y HU-09 va después porque depende de HU-10.
+- **Quick wins primero:** dentro de cada grupo, un quick win va en cuanto sus dependencias están hechas.
+- **Donde las dependencias cambian el orden del flujo:**
+  - HU-03 es quick win y corresponde al primer paso del flujo, pero va después de HU-04, porque HU-03.h5 necesita los envíos y las cancelaciones.
+  - HU-08 es quick win, pero va después de HU-06, porque su botón está en "Pagos".
+  - HU-04.h7 necesita un cobro. Como HU-05 llega después, se prueba con un cobro del comensal.
 
 ## Cobertura RF → historia
 
@@ -141,6 +208,17 @@ Toda solicitud de cobro tiene un comensal. Una llega sin comensal identificado s
   - HU-06 (RF-22) se encarga de lo que se ve en la otra tablet cuando una solicitud se elimina o se resuelve, sea cual sea la causa.
   - HU-07 (RF-26) se encarga de la acción de eliminar, y verifica solo la tablet donde se elimina.
 - **Datos sensibles (RF-9):** pertenece a HU-02 para la cobertura, y también figura como regla que condiciona a HU-06 y HU-07, porque muestran datos de comensales.
+
+## Riesgos aceptados
+
+### Dos tablets que actúan casi al mismo tiempo
+
+- **Qué controla la app:** antes de actuar, actualiza el estado que la acción necesita: la solicitud, el saldo, los cobros del pedido o la mesa. Si la acción ya no corresponde, avisa y no actúa.
+- **Qué no controla el backend:** confirmar una solicitud no revisa que siga existiendo, y el cobro manual solo se controla contra el total de la mesa, no contra el saldo.
+- **Riesgo:** entre esa revisión y la acción queda un margen. Si otra tablet actúa en ese margen, el resultado puede ser un cobro duplicado, un cobro manual que supera el saldo, un pedido cancelado que acaba de recibir un cobro o una mesa que se cierra dos veces.
+- **Historias afectadas:** HU-04 (HU-04.h7), HU-05 (HU-05.h1 y HU-05.h8), HU-07 (HU-07.h2) y HU-08 (HU-08.h4).
+- **Por qué se acepta:** el backend no se modifica, e inicialmente hay una sola tablet por restaurante (PRD, sección 9).
+- **Dónde se documenta:** en la arquitectura, en las prácticas de seguridad.
 
 ## Requisitos de prueba
 

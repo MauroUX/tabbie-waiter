@@ -125,4 +125,4 @@ Ninguno.
 
 ## Estimación
 
-_Pendiente._
+**8 puntos.** Estimación de la IA, aceptada por el humano sin planning poker.
