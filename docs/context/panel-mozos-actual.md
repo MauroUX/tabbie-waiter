@@ -263,13 +263,12 @@ Cada capacidad describe cómo funciona hoy, cómo la resuelve la Waiter App, el 
 - Antes de llamar a `/pay`, verifica que `userId` sea un número mayor que cero.
 - **Si no lo es:**
   - no llama a `/pay`;
-  - ofrece registrar el monto como pago manual (T11) y después eliminar la solicitud (T13);
-  - en ese camino el pago queda sin usuario y con `method = 'cash'`.
+  - le explica al mozo que registre el monto como pago manual (C8) y que después elimine la solicitud (C12).
 - No reintenta automáticamente.
 
 **Origen:** `wpc/table-payments-card/table-payments-item-card.tsx`, `wpc/confirm-payment-modal.tsx`, `wp/hooks/use-confirm-payment.ts`.
 
-**Filas:** T12 (y T11, T13 en el camino alternativo).
+**Filas:** T12.
 
 ### C12. Eliminar una solicitud de pago presencial
 

@@ -4,9 +4,9 @@
 |---|---|
 | **Épica** | E5. Cobros |
 | **Prioridad** | Must |
-| **RF que cubre** | RF-24, RF-26 |
+| **RF que cubre** | RF-24, RF-25, RF-26 |
 | **RNF y reglas que la condicionan** | RNF-3, RNF-6, RNF-9, RNF-10, RF-9 |
-| **Complejidad** | M: toca cobros, con confirmación y sin repeticiones automáticas, y confirmar la misma solicitud en dos tablets no puede duplicar el cobro. Eliminar una solicitud tiene efecto en las demás tablets. |
+| **Complejidad** | M: toca cobros, con confirmación y sin repeticiones automáticas, y confirmar la misma solicitud en dos tablets no puede duplicar el cobro. Eliminar una solicitud tiene efecto en las demás tablets, y las solicitudes que no identifican al comensal no se confirman. |
 
 ## Historia
 
@@ -85,6 +85,14 @@
 - **Entonces** no se registra ningún cobro
 - **Y** la solicitud sigue en la lista, sin cambios
 
+**HU-07.h5 · Solicitud sin comensal identificado** (RF-25, C11, README)
+
+- **Dado** que una solicitud no identifica al comensal
+- **Cuando** el mozo intenta confirmarla
+- **Entonces** la app no la confirma
+- **Y** le explica que registre el monto como cobro manual y después elimine la solicitud
+- **Y** lo pagado de la mesa no cambia
+
 ### Descartados
 
 Ninguno.
@@ -94,11 +102,11 @@ Ninguno.
 | Criterio | | Nota |
 |---|---|---|
 | Independiente | ✘ | Actúa sobre las solicitudes que muestra HU-06. |
-| Negociable | ✔ | La forma del diálogo de confirmación y de la eliminación se puede ajustar. |
-| Valiosa | ✔ | Es el cobro en persona habitual, registrado una sola vez. |
-| Estimable | ✔ | La confirmación, la eliminación y el comportamiento ante fallos están definidos en el PRD. |
-| Pequeña | ✔ | Dos acciones sobre la misma solicitud. Entra en 1 o 2 días. |
-| Testeable | ✔ | Se prueba con solicitudes presenciales y de MercadoPago. La eliminación se verifica en la tablet donde se elimina, y en las demás tablets se verifica por HU-06. HU-07.h2 se prueba con dos tablets. |
+| Negociable | ✔ | La forma del diálogo de confirmación, de la eliminación y de la explicación de RF-25 se puede ajustar. |
+| Valiosa | ✔ | Es el cobro en persona habitual, registrado una sola vez. Además, evita que una confirmación que falla sume el monto igual (problema 2 del PRD). |
+| Estimable | ✔ | La confirmación, la eliminación, la regla de RF-25 y el comportamiento ante fallos están definidos en el PRD. |
+| Pequeña | ✔ | Dos acciones sobre la misma solicitud, más un bloqueo con un mensaje para las que no identifican al comensal. Entra en 1 o 2 días. |
+| Testeable | ✔ | Se prueba con solicitudes presenciales, de MercadoPago y sin comensal identificado, que crea el simulador. La eliminación se verifica en la tablet donde se elimina, y en las demás tablets se verifica por HU-06. HU-07.h2 se prueba con dos tablets. |
 
 ## Estimación
 

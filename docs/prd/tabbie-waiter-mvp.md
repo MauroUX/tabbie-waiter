@@ -134,9 +134,9 @@ Cubre: **C8, C9, C10, C11, C12**.
 - **Ver los cobros de cada mesa (Must, C10):** la mesa lista los cobros ya registrados junto con las solicitudes pendientes. Los cobros manuales figuran como "Pago manual".
 - **Confirmar una solicitud de cobro (Must, C11):**
   - El mozo confirma una solicitud cuando cobra en persona. Las solicitudes de MercadoPago se ven, pero no se confirman: ese pago lo hace el comensal.
-  - Si la solicitud no identifica al comensal, la app no la confirma: ofrece registrar el monto como cobro manual y después eliminar la solicitud.
+  - Si la solicitud no identifica al comensal, la app no la confirma: le explica al mozo que registre el monto como cobro manual y que después elimine la solicitud.
 - **Eliminar una solicitud de cobro (Must, C12):** la solicitud desaparece en todas las tablets.
-- **Confirmaciones:** de esta épica, solo confirmar una solicitud de cobro pide confirmación, también en el camino de la solicitud que no identifica al comensal, con una sola confirmación (RNF-9).
+- **Confirmaciones:** de esta épica, solo confirmar una solicitud de cobro pide confirmación (RNF-9).
 
 ### E6. Cierre de mesa (Must)
 
@@ -222,7 +222,7 @@ Hay un requisito por cada comportamiento observable de las épicas E1 a E7. "Ori
 | RF-22 | Una solicitud de cobro deja de verse cuando se elimina o se resuelve, también si lo hizo otro mozo desde otra tablet. | E5 | C9 | Must |
 | RF-23 | Cada mesa lista sus cobros registrados junto con sus solicitudes pendientes. Los cobros manuales figuran como "Pago manual". | E5 | C10 | Must |
 | RF-24 | El mozo confirma una solicitud de cobro presencial cuando cobra en persona, previa confirmación (RNF-9). Las solicitudes de MercadoPago se ven, pero no se pueden confirmar. | E5 | C11 | Must |
-| RF-25 | Si una solicitud no identifica al comensal, la app no la confirma: ofrece registrar el monto como cobro manual y después eliminar la solicitud, con una sola confirmación para las dos acciones (RNF-9). | E5 | C11 | Must |
+| RF-25 | Si una solicitud no identifica al comensal, la app no la confirma: le explica al mozo que registre el monto como cobro manual (RF-17) y que después elimine la solicitud (RF-26). | E5 | C11 | Must |
 | RF-26 | El mozo elimina una solicitud de cobro. La solicitud deja de verse en todas las tablets. | E5 | C12 | Must |
 | RF-27 | La acción de cerrar una mesa solo se ofrece para mesas activas. | E6 | C13 | Must |
 | RF-28 | Cerrar una mesa siempre pide confirmación (RNF-9). Si la mesa tiene saldo pendiente, la app además lo advierte. | E6 | C13 | Must |
@@ -245,7 +245,7 @@ Aplican a todas las épicas.
 | RNF-6 | Sin repeticiones automáticas | Una acción que cambia datos (mandar a cocina, cancelar pedidos, registrar un cobro manual, confirmar o eliminar una solicitud de cobro, cerrar una mesa) **nunca** se repite sola. Si falla o no responde, la app actualiza las mesas y las solicitudes de cobro antes de dejar intentarla de nuevo. |
 | RNF-7 | Aislamiento por restaurante | Un mozo solo ve y opera datos de su restaurante. |
 | RNF-8 | Datos en la tablet | En la tablet solo quedan guardadas la sesión del mozo y las marcas de "Atendido" (RF-16). Ningún otro dato de la operación queda en el dispositivo. |
-| RNF-9 | Confirmación de las acciones que cierran algo | Cerrar sesión, cerrar una mesa y confirmar una solicitud de cobro piden confirmación antes de ejecutarse, porque cierran algo: la sesión, la mesa o un cobro. En el camino de RF-25, registrar el cobro manual y eliminar la solicitud piden una sola confirmación. Cancelar pedidos, registrar un cobro manual, eliminar una solicitud de cobro y marcar "Atendido" no piden confirmación. Es la única lista de acciones que piden confirmación: las épicas y los RF remiten a ella. |
+| RNF-9 | Confirmación de las acciones que cierran algo | Cerrar sesión, cerrar una mesa y confirmar una solicitud de cobro piden confirmación antes de ejecutarse, porque cierran algo: la sesión, la mesa o un cobro. Cancelar pedidos, registrar un cobro manual, eliminar una solicitud de cobro y marcar "Atendido" no piden confirmación. Es la única lista de acciones que piden confirmación: las épicas y los RF remiten a ella. |
 | RNF-10 | Dispositivo e idioma | Todas las pantallas se usan en una tablet en orientación horizontal, y todos los textos de la app están en español. |
 
 ## 8. Métricas de éxito

@@ -1,4 +1,4 @@
-# HU-12. Consultar la impresora virtual
+# HU-11. Consultar la impresora virtual
 
 | | |
 |---|---|
@@ -25,26 +25,26 @@
 
 ### Camino feliz
 
-**HU-12.c1 · Acceso desde la navegación principal**
+**HU-11.c1 · Acceso desde la navegación principal**
 
 - **Dado** que el mozo está en "Órdenes" o en "Pagos"
 - **Cuando** toca el botón de la impresora virtual en la navegación principal
 - **Entonces** ve la impresora virtual
 
-**HU-12.c2 · Pedidos sin mandar a cocina de todas las mesas**
+**HU-11.c2 · Pedidos sin mandar a cocina de todas las mesas**
 
 - **Dado** que tres mesas activas tienen pedidos confirmados sin mandar a cocina y también pedidos en "Ingresadas"
 - **Cuando** el mozo abre la impresora virtual
 - **Entonces** ve todos los pedidos sin mandar a cocina de las tres mesas
 - **Y** no ve ninguno de los que están en "Ingresadas"
 
-**HU-12.c3 · Detalle de un pedido**
+**HU-11.c3 · Detalle de un pedido**
 
 - **Dado** que el mozo está en la impresora virtual
 - **Cuando** toca un pedido
 - **Entonces** ve el detalle de ese pedido
 
-**HU-12.c4 · Solo de consulta**
+**HU-11.c4 · Solo de consulta**
 
 - **Dado** que el mozo está en la lista o en el detalle de la impresora virtual
 - **Cuando** recorre la pantalla
@@ -52,44 +52,31 @@
 
 ### Huecos
 
-**HU-12.h1 · Pedido nuevo en la impresora** (RNF-1)
+**HU-11.h1 · Pedido nuevo en la impresora** (RNF-1)
 
 - **Dado** que el mozo está en la impresora virtual
 - **Cuando** un comensal confirma un pedido
 - **Entonces** el pedido aparece en la lista en 2 segundos o menos
 
-**HU-12.h2 · Pedido mandado a cocina o cancelado** (RF-30, RNF-2)
+**HU-11.h2 · Pedido mandado a cocina o cancelado** (RF-30, RNF-2)
 
 - **Dado** que un pedido está en la impresora
 - **Cuando** se manda a cocina o se cancela, también desde otra tablet
 - **Entonces** deja de verse en 30 segundos o menos
 
-**HU-12.h3 · Mesa cerrada** (C14, RF-30)
+**HU-11.h3 · Mesa cerrada** (C14, RF-30)
 
 - **Dado** que una mesa tiene pedidos sin mandar a cocina
 - **Cuando** se cierra la mesa
 - **Entonces** sus pedidos dejan de verse en la impresora
 
-**HU-12.h4 · Qué muestra cada fila y en qué orden**
-
-- **Dado** que hay pedidos sin mandar a cocina
-- **Cuando** el mozo abre la impresora
-- **Entonces** cada pedido muestra el número de mesa, el plato, la cantidad y la hora de confirmación
-- **Y** aparecen del más antiguo al más nuevo
-
-**HU-12.h5 · Contenido del detalle** ("Qué es un pedido" (PRD), RF-30)
+**HU-11.h5 · Contenido del detalle** ("Qué es un pedido" (PRD), RF-30)
 
 - **Dado** que el mozo toca un pedido
 - **Cuando** se abre el detalle
 - **Entonces** muestra el plato, la cantidad, las opciones elegidas, el número de mesa y la hora de confirmación
 
-**HU-12.h6 · Lista vacía**
-
-- **Dado** que no hay pedidos sin mandar a cocina
-- **Cuando** el mozo abre la impresora
-- **Entonces** ve el mensaje "No hay pedidos sin mandar a cocina"
-
-**HU-12.h7 · Sin datos sensibles** (RF-9, O4)
+**HU-11.h7 · Sin datos sensibles** (RF-9, O4)
 
 - **Dado** que el mozo abre el detalle de un pedido
 - **Cuando** lo mira
@@ -97,7 +84,8 @@
 
 ### Descartados
 
-Ninguno.
+- **HU-11.h4 · Qué muestra cada fila y en qué orden:** las columnas y el orden de la lista son diseño de pantalla.
+- **HU-11.h6 · Lista vacía:** el estado vacío lo cubre la DoD de frontend.
 
 ## INVEST
 

@@ -95,32 +95,20 @@
 - **Cuando** entra un mozo del restaurante A
 - **Entonces** en "Órdenes" ve solo las mesas del restaurante A
 
-**HU-01.h7 · La renovación falla y las marcas se conservan** (RF-4, RNF-8)
-
-- **Dado** que la tablet tiene marcas de "Atendido" y la renovación de la sesión falló
-- **Cuando** el mozo vuelve a entrar
-- **Entonces** las mesas que tenía marcadas siguen sin el ícono de ayuda
-
-**HU-01.h8 · Campos vacíos**
-
-- **Dado** que falta el email o la contraseña
-- **Cuando** el mozo mira el inicio de sesión
-- **Entonces** la acción de entrar no está disponible
-
 ### Descartados
 
-Ninguno.
+- **HU-01.h8 · Campos vacíos:** es un detalle de pantalla, no una regla del acceso.
 
 ## INVEST
 
 | Criterio | | Nota |
 |---|---|---|
-| Independiente | ✘ | Es la base de las demás historias, pero HU-01.h7 solo se verifica cuando existen las marcas de "Atendido" de HU-11. |
+| Independiente | ✔ | Es la base de las demás historias y no depende de ninguna. |
 | Negociable | ✔ | La forma de presentar el rechazo, los errores de acceso y la renovación se puede ajustar. |
 | Valiosa | ✔ | Sin sesión no hay operación del turno. |
 | Estimable | ✔ | La forma de entrar, los casos de rechazo y la renovación están definidos en el PRD. |
 | Pequeña | ✔ | Tres RF de un solo flujo de acceso. Los huecos suman casos de error, no pantallas nuevas. Entra en 1 o 2 días. |
-| Testeable | ✔ | Se prueba con una cuenta de mozo, una de otro rol, un vencimiento de sesión corto en la réplica y cortes de red provocados. HU-01.h6 necesita un segundo restaurante en los datos iniciales. |
+| Testeable | ✔ | Se prueba con una cuenta de mozo, una de otro rol, un vencimiento de sesión corto en la réplica y cortes de red provocados. HU-01.h6 se prueba con el segundo restaurante de los datos iniciales (README, requisitos de prueba). |
 
 ## Estimación
 

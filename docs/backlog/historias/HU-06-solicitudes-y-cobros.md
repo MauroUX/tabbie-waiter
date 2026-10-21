@@ -121,7 +121,7 @@ Ninguno.
 | Valiosa | ✔ | Es como el mozo sabe que tiene que ir a cobrar y qué falta cobrar. |
 | Estimable | ✔ | El canal de avisos lo deja el walking skeleton. Las dos listas y el indicador están definidos en el PRD. |
 | Pequeña | ✔ | Es la historia más grande del backlog, pero es solo de consulta. Entra en 1 o 2 días porque no construye el canal de avisos. Si al estimarla se pasa, se separa RF-23 (los cobros de cada mesa: HU-06.c3 y HU-06.h8). |
-| Testeable | ✔ | El simulador crea solicitudes presenciales, de MercadoPago y sin comensal identificado. Lo que pasa en otra tablet se prueba con dos tablets (HU-06.h3), según el README. El vencimiento de una solicitud (HU-06.h4) necesita un vencimiento corto en la réplica. |
+| Testeable | ✔ | El simulador crea solicitudes presenciales, de MercadoPago y sin comensal identificado. Lo que pasa en otra tablet se prueba con dos tablets (HU-06.h3), según el README. El vencimiento de una solicitud (HU-06.h4) necesita un vencimiento corto en la réplica (README, requisitos de prueba). |
 
 ## Estimación
 

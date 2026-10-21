@@ -1,4 +1,4 @@
-# HU-10. Cerrar sesión al terminar el turno
+# HU-09. Cerrar sesión al terminar el turno
 
 | | |
 |---|---|
@@ -25,20 +25,20 @@
 
 ### Camino feliz
 
-**HU-10.c1 · Cerrar sesión pide confirmación**
+**HU-09.c1 · Cerrar sesión pide confirmación**
 
 - **Dado** que el mozo inició sesión
 - **Cuando** aprieta "Cerrar sesión"
 - **Entonces** la app le pide confirmación antes de cerrarla
 
-**HU-10.c2 · Otro mozo puede entrar**
+**HU-09.c2 · Otro mozo puede entrar**
 
 - **Dado** que la app pide confirmación para cerrar sesión
 - **Cuando** el mozo confirma
 - **Entonces** la app muestra el inicio de sesión
 - **Y** otro mozo puede entrar con su cuenta
 
-**HU-10.c3 · Volver a entrar en medio del turno**
+**HU-09.c3 · Volver a entrar en medio del turno**
 
 - **Dado** que un mozo cerró sesión en medio del turno
 - **Cuando** vuelve a entrar
@@ -46,52 +46,46 @@
 
 ### Huecos
 
-**HU-10.h1 · Cancelar la confirmación** (RNF-9)
+**HU-09.h1 · Cancelar la confirmación** (RNF-9)
 
 - **Dado** que la app pide confirmación para cerrar sesión
 - **Cuando** el mozo la cancela
 - **Entonces** sigue en la pantalla donde estaba, con la sesión iniciada
 
-**HU-10.h2 · Sin vuelta atrás** (RF-4, RNF-8)
+**HU-09.h2 · Sin vuelta atrás** (RF-4, RNF-8)
 
 - **Dado** que el mozo cerró sesión
 - **Cuando** alguien usa el botón "Atrás" de la tablet o vuelve a abrir la app
 - **Entonces** se ve el inicio de sesión
 - **Y** no se ve ninguna pantalla de la operación
 
-**HU-10.h3 · Sin avisos después de cerrar sesión**
+**HU-09.h3 · Sin avisos después de cerrar sesión**
 
 - **Dado** que nadie inició sesión en la tablet
 - **Cuando** un comensal confirma un pedido o pide pagar en persona
 - **Entonces** la app no muestra ningún aviso ni emite ningún sonido
 
-**HU-10.h4 · Cerrar sesión sin conexión**
+**HU-09.h4 · Cerrar sesión sin conexión**
 
 - **Dado** que la tablet no tiene conexión
 - **Cuando** el mozo cierra sesión y confirma
 - **Entonces** la app vuelve igual al inicio de sesión
 
-**HU-10.h5 · Otro mozo ve las mismas marcas** (RF-4)
+**HU-09.h5 · Otro mozo ve las mismas marcas** (RF-4)
 
 - **Dado** que el mozo A marcó como atendida una mesa y cerró sesión
 - **Cuando** el mozo B entra en la misma tablet
 - **Entonces** esa mesa sigue sin el ícono de ayuda
 
-**HU-10.h6 · Dónde está el botón**
-
-- **Dado** que el mozo está en "Órdenes", en "Pagos" o en la impresora virtual
-- **Cuando** busca "Cerrar sesión"
-- **Entonces** lo encuentra en la navegación principal
-
 ### Descartados
 
-Ninguno.
+- **HU-09.h6 · Dónde está el botón:** dónde está el botón es diseño de pantalla.
 
 ## INVEST
 
 | Criterio | | Nota |
 |---|---|---|
-| Independiente | ✘ | Que las marcas de "Atendido" se mantengan (HU-10.c3 y HU-10.h5) solo se puede verificar con HU-11. |
+| Independiente | ✘ | Que las marcas de "Atendido" se mantengan (HU-09.c3 y HU-09.h5) solo se puede verificar con HU-10. |
 | Negociable | ✔ | Dónde está la acción y el texto de la confirmación se pueden ajustar. |
 | Valiosa | ✔ | Permite que varios mozos compartan la tablet entre turnos. |
 | Estimable | ✔ | El comportamiento está definido en RF-4 y RNF-9. |

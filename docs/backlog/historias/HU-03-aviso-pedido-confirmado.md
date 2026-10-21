@@ -102,16 +102,9 @@
 - **Entonces** la app no muestra ningún aviso ni emite el sonido
 - **Y** el contador no cambia
 
-**HU-03.h8 · Ya está en "Pendientes"**
-
-- **Dado** que el mozo está en "Pendientes"
-- **Cuando** un comensal confirma un pedido
-- **Entonces** la app muestra el aviso y emite el sonido
-- **Y** no parpadea nada
-
 ### Descartados
 
-Ninguno.
+- **HU-03.h8 · Ya está en "Pendientes":** ya lo dice el camino feliz: el parpadeo es solo cuando el mozo está en otra sección.
 
 ## INVEST
 
@@ -122,7 +115,7 @@ Ninguno.
 | Valiosa | ✔ | El mozo se entera de cada pedido nuevo en el tiempo de RNF-1, aunque esté en otra sección. |
 | Estimable | ✔ | El canal de avisos lo deja el walking skeleton. Para HU-03.h4, el diseño define cómo se reconocen los pedidos de un mismo conjunto. |
 | Pequeña | ✔ | Un único tipo de aviso, con su sonido y su contador en dos lugares. Entra en 1 o 2 días. |
-| Testeable | ✔ | El simulador confirma pedidos sueltos y conjuntos de pedidos, y se mide el tiempo de RNF-1. El aviso ilegible se prueba con un aviso inválido, y el corte, sacándole la red a la tablet. |
+| Testeable | ✔ | El simulador confirma pedidos sueltos y conjuntos de pedidos, y se mide el tiempo de RNF-1. El aviso ilegible se prueba con un aviso inválido, y el corte, sacándole la red a la tablet. HU-03.h7 se prueba con el segundo restaurante de los datos iniciales (README, requisitos de prueba). |
 
 ## Estimación
 

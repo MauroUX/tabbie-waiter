@@ -36,8 +36,8 @@
 
 **HU-02.c2 · Una tarjeta por mesa ocupada**
 
-- **Dado** que el restaurante tiene tres mesas ocupadas y dos libres
-- **Cuando** el mozo abre "Órdenes"
+- **Dado** que el restaurante tiene tres mesas ocupadas, cada una con pedidos sin mandar a cocina, y dos libres
+- **Cuando** el mozo abre la pestaña "Pendientes" de "Órdenes"
 - **Entonces** ve tres tarjetas, una por cada mesa ocupada, y ninguna de las mesas libres
 - **Y** en cada tarjeta los pedidos aparecen agrupados por categoría
 
@@ -65,15 +65,16 @@
 
 **HU-02.h1 · Una mesa que se ocupa** (RNF-2)
 
-- **Dado** que el mozo está en "Órdenes"
+- **Dado** que el mozo está en la pestaña "Pendientes" de "Órdenes"
 - **Cuando** un comensal ocupa una mesa libre
-- **Entonces** la tarjeta de esa mesa aparece en 30 segundos o menos
+- **Entonces** la tarjeta de esa mesa aparece en 30 segundos o menos, con el texto "Sin pedidos"
 
-**HU-02.h2 · Una mesa con pedidos en una sola pestaña**
+**HU-02.h2 · Una mesa sin pedidos en una pestaña** (RF-5, RF-6)
 
-- **Dado** que una mesa ocupada no tiene pedidos en la pestaña abierta
-- **Cuando** el mozo mira esa pestaña
-- **Entonces** la tarjeta de la mesa aparece igual, con el texto "Sin pedidos"
+- **Dado** que la mesa 3 está ocupada y tiene pedidos solo en "Ingresadas", y la mesa 6 está ocupada y todavía no tiene ningún pedido
+- **Cuando** el mozo mira las dos pestañas de "Órdenes"
+- **Entonces** en "Pendientes" ve la tarjeta de la mesa 6, con el texto "Sin pedidos", y no ve la de la mesa 3
+- **Y** en "Ingresadas" ve la tarjeta de la mesa 3 y no ve la de la mesa 6
 
 **HU-02.h3 · El cronómetro sigue con todo en "Ingresadas"** (decisión del README sobre el cronómetro)
 
@@ -129,7 +130,7 @@ Ninguno.
 | Valiosa | ✔ | Es la vista con la que el mozo sigue el salón. |
 | Estimable | ✔ | Los datos de cada mesa, los umbrales y el cronómetro están definidos en el PRD y en el README. |
 | Pequeña | ✔ | Es solo de consulta, sin acciones que cambien datos. Los cortes y la actualización periódica vienen del walking skeleton. Entra en 1 o 2 días. |
-| Testeable | ✔ | El simulador ocupa mesas, confirma y cancela pedidos, y se compara lo que muestra la tablet. HU-02.h7 necesita un segundo restaurante en los datos iniciales. |
+| Testeable | ✔ | El simulador ocupa mesas, confirma y cancela pedidos, y se compara lo que muestra la tablet. HU-02.h7 se prueba con el segundo restaurante de los datos iniciales (README, requisitos de prueba). |
 
 ## Estimación
 
