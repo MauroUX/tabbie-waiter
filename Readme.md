@@ -298,6 +298,8 @@ Cada práctica con su porqué, cada riesgo con lo que hace la app para acotarlo,
 
 > Describe brevemente algunos de los tests realizados
 
+Se completa con el desarrollo. La estrategia está en la [Definition of Done](docs/backlog/definition-of-done.md): el test de cada scenario se escribe primero y falla, la réplica se prueba por HTTP contra MySQL y Redis reales, y la app se prueba en el dispositivo contra la réplica. Los criterios del [walking skeleton](docs/architecture/walking-skeleton.md) dicen cómo se provoca y se mide cada uno.
+
 ---
 
 ## 3. Modelo de Datos
@@ -901,6 +903,8 @@ Lo que se guarda fuera de la base (las solicitudes de cobro en Redis, y la sesi�
 ## 4. Especificación de la API
 
 > Si tu backend se comunica a través de API, describe los endpoints principales (máximo 3) en formato OpenAPI. Opcionalmente puedes añadir un ejemplo de petición y de respuesta para mayor claridad
+
+Se completa en la Entrega 2. La app usa el contrato del backend actual, sin cambios: los endpoints y eventos que usa están en el [inventario del contexto](docs/context/panel-mozos-actual.md#31-endpoints-y-eventos-usados).
 
 ---
 

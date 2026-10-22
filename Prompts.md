@@ -2,6 +2,54 @@
 Puedes añadir adicionalmente la conversación completa como link o archivo adjunto si así lo consideras
 
 
+## Flujo de trabajo con IA
+
+**Herramientas**
+- Claude Code, en la app de escritorio, en dos sesiones con roles distintos.
+- **Sesión A (diseño):** corre en el repo de apuntes del máster, no en este. Ahí se discute cada decisión, se contrasta con las lecciones del máster, se escribe cada prompt, se revisa lo que produjo la sesión B y se lleva una bitácora. Nunca escribe en este repo.
+- **Sesión B (trabajo):** corre en este repo y ejecuta cada prompt tal como sale de A, empezando con `[Sección X · Prompt N]`. Cada prompt corre en una sesión B nueva.
+
+**Modelos**
+- Claude Opus 5.5 en las dos sesiones: en A, para el diseño, la revisión y la documentación; en B, para leer el código de Tabbie y escribir los documentos.
+
+**Skills, subagentes, rules y comandos**
+- Todavía no hay ninguno propio.
+- En `1·P1` (sección 1, prompt 1) se usaron subagentes `Explore` para leer en paralelo el front y el back de Tabbie.
+- Los propios llegan con la configuración del proyecto, en la Entrega 2: `AGENTS.md` con la Definition of Done, OpenSpec, un hook que bloquea datos sensibles en el commit, un subagente de revisión adversarial y una skill de commit.
+
+**Workflow**: desarrollo guiado por especificaciones (SDD), en este orden:
+1. contexto del sistema actual, trazado hasta el código;
+2. PRD por capas;
+3. historias;
+4. estimación y prioridad;
+5. arquitectura (ADRs, C4, componentes, walking skeleton, estructura, infraestructura y seguridad);
+6. modelo de datos;
+7. Definition of Done y tickets.
+
+Así quedan los documentos de `docs/`; el `Readme.md` los resume y los enlaza.
+
+**Cómo se escriben los prompts**
+- Un solo objetivo por prompt.
+- Las decisiones ya tomadas, escritas en el prompt para que la IA no las vuelva a decidir.
+- En los prompts de producto y arquitectura, una sola ronda de cuestionamiento, en la que la IA discute antes de escribir.
+- Criterios de éxito verificables.
+- Lo que la IA no puede decidir con los documentos se lista como "Decisiones pendientes", sin decidirlo.
+- El código de Tabbie se lee solo en un commit fijo, sin modificarlo, y nunca se leen archivos `.env` ni datos.
+
+**Cómo se revisa**
+- A lee el resultado contra la lección que rige cada paso y comprueba en el código de Tabbie, en solo lectura, los hallazgos que más pesan.
+- Lo que hay que corregir vuelve a B como un prompt nuevo; A nunca edita el repo.
+- En la arquitectura, cinco prompts corrieron en paralelo, y un prompt de ajustes corrigió las inconsistencias entre los documentos.
+
+**Ajustes humanos más importantes** (el detalle está debajo de cada prompt)
+- Se mantuvo la app nativa Android aunque la IA proponía una PWA o React Native.
+- El humano escribió el camino feliz de cada historia, y la IA buscó los huecos.
+- Se descartó el planning poker y se aceptó la estimación de la IA.
+- La app no tiene base local (sale Room), y la réplica valida con el Firebase de Tabbie, contra la recomendación de la IA.
+- Por la fecha, los tickets viven en el repo y el gestor queda para la Entrega 2.
+
+---
+
 ## Índice
 
 1. [Descripción general del producto](#1-descripción-general-del-producto)
