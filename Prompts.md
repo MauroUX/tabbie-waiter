@@ -227,7 +227,131 @@ No corrijas nada por tu cuenta: listalo para que yo decida.
 
 **Prompt 1:**
 
+```text
+[Sección 2.1 · Prompt 1]
+
+## Objetivo
+Registrar las decisiones de arquitectura de **Tabbie Waiter App** como ADRs en `docs/adr/`, en formato Nygard: título, contexto, decisión, estado y consecuencias. Las decisiones ya están tomadas y van abajo: tu trabajo es transcribirlas, no decidirlas.
+
+La base es `docs/prd/tabbie-waiter-mvp.md`, `docs/context/panel-mozos-actual.md` y `docs/backlog/README.md`. No leas el código de Tabbie.
+
+## ADRs que hay que escribir
+Un archivo por decisión, `docs/adr/NNNN-<titulo-corto>.md`, y un `docs/adr/README.md` con el índice (número, título y estado) y el formato que se usa.
+
+1. **0001 · App nativa Android para tablet.**
+   - Contexto: el mozo opera todo el turno en una tablet que entrega el restaurante, en modo kiosco. Más adelante la operación va a necesitar imprimir comandas por Bluetooth, operar sin conexión y recibir avisos con la pantalla bloqueada. Están en el no-alcance del MVP (PRD, sección 5), pero condicionan la plataforma.
+   - Decisión: app nativa Android en Kotlin con Jetpack Compose, solo para tablet en horizontal (RNF-10).
+   - Alternativas descartadas: una app web instalable (PWA) y React Native. Las dos reemplazan el panel, pero el navegador limita la impresora Bluetooth y los avisos con la pantalla bloqueada, y React Native agrega una capa sobre las mismas APIs nativas.
+   - Consecuencias: hay que compilar y distribuir un APK, y el proyecto mantiene Kotlin además de TypeScript.
+2. **0002 · Réplica del backend: copia sin cambios y simulador de comensales.**
+   - Contexto: la app no se puede probar contra el backend productivo de Tabbie, y el backend no se modifica (PRD, sección 9).
+   - Decisión:
+     - la réplica es una **copia sin cambios** del backend actual (`order-pay-backend`, rama `main`, commit `c18b0f7`, el mismo que documenta el contexto): mismo contrato, mismos eventos y mismo comportamiento, incluidos sus huecos O1 a O4. No agrega guards, eventos ni endpoints;
+     - se copian el código y su configuración de build. No se copian datos, variables de entorno ni la configuración de despliegue de Tabbie;
+     - se suma un **simulador de comensales** que usa los mismos endpoints que la app del comensal (unirse a la mesa, crear y confirmar pedidos, pedir ayuda, pedir un cobro presencial y cancelar);
+     - la réplica valida el inicio de sesión con el **mismo proyecto de Firebase de Tabbie**. Así la app pasa al backend real cambiando solo la URL base;
+     - los datos iniciales de la réplica son propios y sintéticos;
+     - lo que la réplica necesita para las pruebas (datos iniciales, vencimientos cortos y fallos provocados) se resuelve fuera de su código: con datos, variables de entorno, el simulador y un proxy de red;
+     - **predicción del límite** (un apartado propio dentro de "Decisión"): "Los cambios de la Waiter App no van a requerir cambios en el backend de Tabbie, y el contrato de los endpoints y eventos que usa la app (contexto, sección 3.1, columna Waiter App) no va a cambiar mientras dure el MVP." **Cómo se comprueba:** antes de cada entrega y antes de pasar al backend real, se compara ese contrato entre el commit copiado y el `main` de Tabbie. Si cambió, la réplica se actualiza a un commit nuevo, con un ADR que reemplaza a este. Si el cambio rompe la app, la ventana de compatibilidad la abre el backend de Tabbie, con fecha de cierre.
+   - Consecuencias:
+     - la app hereda O1 a O4 y los rodea con su comportamiento;
+     - la réplica necesita las credenciales del proyecto de Firebase de Tabbie, como secreto del entorno;
+     - las cuentas de prueba existen en ese proyecto de Firebase;
+     - la copia puede quedar atrás del backend real, y la predicción es la que lo vigila.
+3. **0003 · Stack.**
+   - Réplica: lo que trae la copia (NestJS 10, TypeORM, MySQL 8, Redis 7 y Node 20). No es una elección: viene con la copia.
+   - App: Kotlin, Jetpack Compose, MVVM con flujo de datos unidireccional, Hilt, Retrofit y OkHttp, OkHttp SSE para los eventos, Firebase Authentication y DataStore.
+   - Simulador: TypeScript sobre Node 20, un cliente HTTP por línea de comandos. Motivo: el mismo lenguaje que la réplica, y no comparte código con la app.
+   - Pruebas de red: Toxiproxy, un proxy TCP que se controla por API, entre la app y la réplica.
+4. **0004 · Autenticación y renovación de la sesión.**
+   - Contexto: el backend canjea el ID token de Firebase por un JWT propio en `POST /auth/login`. El JWT de un mozo dura `JWT_EXPIRATION_WAITERS` (16 h por defecto) y **el backend no tiene endpoint de renovación**. El stream de eventos recibe el JWT en la URL (contexto, C1 y sección 5).
+   - Decisión:
+     - inicio de sesión solo con email y contraseña en Firebase, y canje en `POST /auth/login`. El ID token de Firebase se usa solo en ese canje;
+     - si el rol no es `waiter`, la app cierra la sesión de Firebase, descarta el JWT y muestra el mensaje de RF-2;
+     - la app toma el restaurante del inicio de sesión y lo usa en todas las llamadas (RNF-7);
+     - **renovar es volver a canjear:** antes de que venza el JWT (según su `exp`) y ante un 401, la app pide un ID token nuevo a Firebase y vuelve a llamar a `POST /auth/login`. Hay una sola renovación en curso a la vez. Si falla, lleva al mozo al inicio de sesión (RF-3);
+     - un 401 en una **consulta** se repite una vez con el JWT nuevo. Un 401 en una **acción que cambia datos** no se repite: la app renueva, actualiza el estado y deja que el mozo la intente de nuevo (RNF-6);
+     - al renovar, la conexión de eventos se reabre con el JWT nuevo.
+   - Consecuencias: la sesión del turno depende de que la sesión de Firebase siga válida en la tablet. La renovación se prueba con un vencimiento corto del JWT, por variable de entorno de la réplica.
+5. **0005 · Estado de la app sin base de datos local.**
+   - Contexto: RNF-8 dice que en la tablet solo quedan la sesión y las marcas de "Atendido", y operar sin conexión está en el no-alcance. Una copia local de los datos del backend sería una segunda fuente de verdad, que tarde o temprano deja de coincidir.
+   - Decisión: el backend es la única fuente de verdad. La app tiene el estado de la operación solo en memoria y lo recarga del backend. DataStore guarda la sesión, cifrada con una clave del Android Keystore, y las marcas de "Atendido" por sesión de mesa. No se usa Room.
+   - Consecuencias: al reiniciar la app se recarga todo; sin conexión no hay datos que mostrar, y RNF-4 avisa; si en el futuro entra la operación sin conexión, un ADR nuevo reemplaza a este.
+6. **0006 · Tiempo real: eventos más consulta periódica.**
+   - Contexto: por `/sse/waiters` el backend emite solo tres eventos (`order-confirmed-notification`, `in-person-payment-request` e `in-person-payment-request-deleted`), desde la memoria de su única instancia, sin heartbeat ni replay: lo que se emite durante un corte se pierde. Los demás cambios no emiten eventos (contexto, sección 5).
+   - Decisión:
+     - una sola conexión de eventos para los tres (RNF-1);
+     - consulta periódica de mesas, solicitudes y cobros para todo lo demás (RNF-2);
+     - actualización después de cada acción (RNF-3);
+     - reconexión con espera creciente y, al reconectar, actualización de mesas, solicitudes y cobros (RNF-4);
+     - la consulta periódica también detecta los cortes, porque el stream no tiene heartbeat.
+   - Consecuencias: hay tráfico constante de consultas mientras la app está abierta. La réplica y el backend real corren en **una sola instancia**, porque con más de una, un evento no llega a los clientes conectados a otra. Un reinicio o un despliegue del backend corta todas las conexiones, y la app se recupera sola.
+
+## Cuestionamiento (una sola ronda)
+Antes de escribir, devolveme en un único mensaje hasta 5 cuestionamientos, solo si una decisión contradice el PRD, el contexto o el backlog, o si falta un ADR para algo que un desarrollador nuevo preguntaría ("¿por qué lo hicieron así?"). Esperá mi respuesta una vez y después escribí.
+
+## Reglas
+- En español.
+- Cada ADR cita por su ID los RF, RNF, capacidades u observaciones en los que se apoya.
+- El estado de todos es "Aceptado".
+- Transcribí: no agregues decisiones que no estén acá ni en mis respuestas. Si ves que falta una, listala al final de `docs/adr/README.md`, en "Decisiones pendientes".
+- No toques el PRD, el contexto ni el backlog.
+- Trabajá en la rama `feature/entrega-1-mc` y **no hagas commit**: dejá los cambios sin commitear.
+
+## Criterios de éxito
+- `docs/adr/` tiene los 6 ADRs y el README con el índice.
+- Cada ADR tiene exactamente las cinco secciones de Nygard, y el 0002 incluye la predicción del límite y cómo se comprueba.
+- Ninguna decisión contradice el PRD (en particular RNF-6, RNF-7 y RNF-8) ni el contexto.
+- Al final me devolvés un resumen de 5 líneas como máximo.
+```
+
+**Ajuste humano:** Antes de escribir el prompt tomé cuatro decisiones. La app no tiene base local (Room sale, para cumplir RNF-8). La réplica valida con el Firebase de Tabbie: la IA recomendaba un proyecto propio, pero elegí el de Tabbie para que pasar al backend real sea cambiar solo la URL. El despliegue es local más Railway, y los fallos se provocan con el simulador y Toxiproxy. En la ronda de cuestionamiento acepté las 5 propuestas de la IA, y el ADR 0007 (acciones que cambian datos) que sumó aunque no estaba pedido.
+
 **Prompt 2:**
+
+```text
+[Sección 2.1 · Prompt 2]
+
+## Objetivo
+Escribir `docs/architecture/README.md`: la vista general de la arquitectura de **Tabbie Waiter App**, con dos diagramas C4 en Mermaid (contexto y contenedores), el patrón que sigue, por qué se eligió, sus beneficios y sus sacrificios.
+
+La base son los ADRs de `docs/adr/`, el PRD y el contexto. Las decisiones están en los ADRs: no las reabras.
+
+## Contenido
+1. **Índice** de `docs/architecture/`: este archivo y los que vienen (componentes, walking skeleton, estructura, infraestructura y seguridad), aunque todavía no existan.
+2. **Diagrama de contexto (C4, nivel 1).** Personas y sistemas:
+   - el mozo, que usa la Waiter App;
+   - el comensal, que usa la app web de comensales;
+   - el backend de Tabbie, o la réplica en las pruebas, con el mismo contrato;
+   - Firebase Authentication (el proyecto de Tabbie);
+   - MercadoPago, que solo usa el comensal;
+   - el simulador de comensales, que en las pruebas reemplaza al comensal.
+3. **Diagrama de contenedores (C4, nivel 2)** del sistema de pruebas: la app Android, la réplica (NestJS), MySQL, Redis, el simulador, Toxiproxy y Firebase Authentication. En cada flecha, qué viaja: HTTP con el JWT, el stream de eventos con el JWT en la URL, el canje del ID token, y las consultas a MySQL y a Redis.
+4. **Patrón y justificación:** un cliente nativo sobre un backend existente con contrato fijo, probado contra una réplica idéntica. Explicá el porqué con los ADRs 0001, 0002 y 0005.
+5. **Beneficios y sacrificios**, en una tabla. Los sacrificios, como mínimo:
+   - la app hereda O1 a O4;
+   - no hay renovación del JWT, así que se vuelve a canjear;
+   - los eventos no tienen replay y hace falta consulta periódica;
+   - el backend corre en una sola instancia;
+   - la réplica puede quedar atrás del backend real;
+   - las cuentas de prueba viven en el proyecto de Firebase de Tabbie.
+
+## Reglas
+- En español.
+- Mermaid que renderice en GitHub: `flowchart` con la notación C4 en las etiquetas (persona, sistema o contenedor, y su tecnología). Si usás la sintaxis `C4Context`, verificá que GitHub la renderice.
+- Es una arquitectura **propuesta**, porque todavía no hay código. Decilo al principio, y que los diagramas se regeneran desde el código cuando exista.
+- Cada afirmación sobre el backend cita el ADR o la sección del contexto de donde sale.
+- Trabajá en la rama `feature/entrega-1-mc` y **no hagas commit**: dejá los cambios sin commitear.
+- Otras sesiones escriben al mismo tiempo otros archivos de `docs/`: tocá solo el tuyo.
+
+## Criterios de éxito
+- Los dos diagramas renderizan en GitHub y nombran la tecnología de cada contenedor.
+- Todo contenedor del diagrama aparece en un ADR o en el contexto; ninguno se inventa.
+- La tabla de sacrificios tiene, como mínimo, los seis de arriba, cada uno con su ADR u observación.
+- Al final me devolvés un resumen de 3 líneas como máximo.
+```
+
+**Ajuste humano:** Lo corrí en paralelo con otros cuatro prompts y sin commit, para ganar tiempo. Para eso hice que dependiera solo de los ADRs. No corregí el resultado. La IA sumó sacrificios a los seis que había pedido, y quedaron 11.
 
 **Prompt 3:**
 
@@ -235,13 +359,137 @@ No corrijas nada por tu cuenta: listalo para que yo decida.
 
 **Prompt 1:**
 
+```text
+[Sección 2.2 · Prompt 1]
+
+## Objetivo
+Escribir `docs/architecture/componentes.md`: los componentes principales de la app, de la réplica y del simulador, con su responsabilidad, su tecnología y lo que atienden del PRD.
+
+La base son los ADRs de `docs/adr/`, el PRD, el contexto y el backlog.
+
+## Decisiones (ya tomadas)
+- **App** (ADRs 0003 a 0006), por capas: interfaz en Compose → ViewModel → repositorios → clientes de red y almacenamiento. Los componentes mínimos son:
+  - **Sesión:** inicio de sesión, canje, renovación (ADR 0004), cierre de sesión y control del rol.
+  - **Cliente HTTP:** agrega el JWT, renueva ante un 401 según el ADR 0004 y **no reintenta** las acciones que cambian datos (RNF-6).
+  - **Eventos:** la única conexión al stream, la reconexión y el estado de la conexión (ADR 0006).
+  - **Salón:** mesas activas y sus pedidos (T05). Alimenta "Órdenes" y la impresora virtual.
+  - **Cobros:** solicitudes de cobro (T06) y cobros de cada mesa (T07).
+  - **Acciones:** mandar a cocina, cancelar, registrar un cobro manual, confirmar o eliminar una solicitud y cerrar la mesa. Antes de actuar, actualizan el estado que necesitan y, si la acción ya no corresponde, avisan y no actúan (backlog, "Riesgos aceptados").
+  - **Marcas de "Atendido":** por sesión de mesa, en DataStore (RF-16, RNF-8).
+  - **Monitor de conexión:** la regla de los 5 segundos de RNF-4.
+  - **Pantallas:** inicio de sesión, "Órdenes", "Pagos" e impresora virtual, con la navegación que decidió el backlog.
+- **Réplica:** los módulos de NestJS que atienden los endpoints y eventos que usa la app (contexto, sección 3.1, columna Waiter App) y los que usa el simulador. Se describen como son, porque es una copia sin cambios (ADR 0002).
+- **Simulador:** escenarios por línea de comandos que hacen lo que hace el comensal, contra la réplica. Los escenarios mínimos salen de las métricas (M-1, M-2 y M-3) y de los requisitos de prueba del backlog. Usa los endpoints del comensal que nombra el contexto ("Origen de los eventos" y sección 4). Los que el contexto no nombra (por ejemplo, unirse a la mesa) quedan pendientes para el diseño del simulador.
+
+## Contenido
+1. Una tabla por sistema (app, réplica y simulador): componente, responsabilidad, tecnología, RF y RNF que atiende, y endpoints o eventos que usa (por número del inventario o por fila de la trazabilidad).
+2. Un diagrama de componentes de la app en Mermaid.
+3. Un diagrama de secuencia en Mermaid del flujo principal: el comensal confirma un pedido, llega el aviso, el mozo lo manda a cocina, el comensal pide el cobro, el mozo lo confirma y cierra la mesa.
+4. La cobertura: cada RF y cada RNF del PRD tiene al menos un componente responsable. Si alguno no lo tiene, listalo.
+
+## Reglas
+- En español. Sin código.
+- No agregues componentes a la réplica: describí lo que trae la copia.
+- Si tenés que decidir algo que no está en los ADRs ni en este prompt, no lo decidas: listalo al final, en "Decisiones pendientes".
+- Trabajá en la rama `feature/entrega-1-mc` y **no hagas commit**: dejá los cambios sin commitear.
+- Otras sesiones escriben al mismo tiempo otros archivos de `docs/`: tocá solo el tuyo.
+
+## Criterios de éxito
+- Todo RF (RF-1 a RF-32) y todo RNF (RNF-1 a RNF-10) tiene un componente responsable en la tabla de cobertura.
+- Ningún componente de la app usa un endpoint que no esté en la columna "Waiter App" del inventario.
+- Los dos diagramas renderizan en GitHub.
+- Al final me devolvés un resumen de 3 líneas como máximo.
+```
+
+**Ajuste humano:** Lo corrí en paralelo y le saqué la lectura de la vista general, para que dependiera solo de los ADRs. No corregí el resultado. Quedaron 14 decisiones pendientes para el diseño del simulador, entre ellas cómo se autentica el comensal y cómo se une a la mesa.
+
 **Prompt 2:**
+
+```text
+[Sección 2.2 · Prompt 2]
+
+## Objetivo
+Escribir `docs/architecture/walking-skeleton.md`: la épica facilitadora que deja la app, la réplica y el simulador conectados de punta a punta, con sus propios criterios de aceptación. Las historias del backlog usan esa base y no la construyen (backlog, "Reglas para el corte").
+
+## Decisiones (ya tomadas)
+- **No es una historia del backlog:** no tiene usuario ni valor observable por sí sola. Va antes de HU-01 en el orden del backlog.
+- **Alcance:**
+  - la app arranca contra la réplica, inicia sesión con una cuenta de prueba (lo mínimo de HU-01, sin sus huecos) y muestra las mesas activas sin diseño (lo mínimo de HU-02);
+  - la conexión de eventos, la reconexión, el aviso de que no hay conexión y la recuperación después de un corte (RNF-1, RNF-2 y RNF-4, ADR 0006);
+  - la consulta periódica de mesas, solicitudes y cobros;
+  - la réplica con sus datos iniciales, y el simulador con el escenario mínimo que genera eventos;
+  - el cliente HTTP que no reintenta las acciones que cambian datos (RNF-6).
+- **Fuera del alcance:** todo lo que es de una historia: pantallas completas, acciones del mozo, avisos que ve el mozo y cobros.
+- **Cómo se mide:** los tiempos de RNF-1 y RNF-2 se miden desde la hora en que el simulador hace la acción hasta que el cambio está en el estado de la app. Los cortes se provocan con Toxiproxy (ADRs 0002 y 0003).
+
+## Contenido
+1. Objetivo, alcance y fuera del alcance.
+2. **Criterios de aceptación** en Dado / Cuando / Entonces, con el ID `WS-cN` y la evidencia entre paréntesis (RNF, ADR o sección del contexto). Como mínimo:
+   - un pedido confirmado y una solicitud de cobro presencial llegan en 2 s o menos (RNF-1);
+   - un cambio que no emite evento (un cobro, un pedido de ayuda, una mesa que se ocupa, una solicitud de MercadoPago) se ve en 30 s o menos (RNF-2);
+   - más de 5 s sin comunicación muestra el aviso, y al volver todo se actualiza en 5 s o menos, sin que el mozo haga nada (RNF-4);
+   - lo que se emitió durante un corte aparece después de reconectar;
+   - un reinicio de la réplica corta el stream, y la app se reconecta sola;
+   - al renovar el JWT, la conexión de eventos sigue con el nuevo (ADR 0004);
+   - una acción que cambia datos y no responde no se repite (RNF-6).
+3. **Riesgos técnicos** que el skeleton tiene que despejar primero. Por ejemplo: detectar un stream caído sin heartbeat, el JWT en la URL del stream, o que la réplica arranque sin las variables de MercadoPago ni de almacenamiento de archivos, que el flujo del mozo no usa.
+4. **Hecho cuando:** los criterios pasan contra la réplica en el entorno local (`docs/architecture/infraestructura.md`, que se escribe después).
+
+## Cuestionamiento (una sola ronda)
+Antes de escribir, devolveme en un único mensaje hasta 5 cuestionamientos: un criterio que no se pueda medir, un RNF que quede sin cubrir o algo que choque con una historia. Esperá mi respuesta una vez.
+
+## Reglas
+- En español. Criterios declarativos, con el Then observable, sin código ni nombres de clases.
+- No cambies el backlog ni las historias.
+- Trabajá en la rama `feature/entrega-1-mc` y **no hagas commit**: dejá los cambios sin commitear.
+
+## Criterios de éxito
+- RNF-1, RNF-2, RNF-4 y RNF-6 tienen al menos un criterio cada uno, y cada criterio dice cómo se provoca y cómo se mide.
+- Ningún criterio repite uno de una historia (por ejemplo, la solicitud eliminada en otra tablet es de HU-06).
+- Al final me devolvés un resumen de 3 líneas como máximo.
+```
+
+**Ajuste humano:** Lo pasé al segundo lugar, antes de los paralelos, porque el documento de seguridad cita sus criterios. En la ronda de cuestionamiento acepté las 5 propuestas de la IA. Quedaron 11 criterios que miden el estado de la app, y cada uno dice cómo se provoca.
 
 **Prompt 3:**
 
 ### **2.3. Descripción de alto nivel del proyecto y estructura de ficheros**
 
 **Prompt 1:**
+
+```text
+[Sección 2.3 · Prompt 1]
+
+## Objetivo
+Escribir `docs/architecture/estructura.md`: la estructura de carpetas del monorepo y el propósito de cada una. Es una propuesta: **no crees carpetas ni archivos** fuera de ese documento, porque se crean al armar el proyecto.
+
+## Decisiones (ya tomadas)
+- **Monorepo** con la app, la réplica, el simulador y la documentación, para que un cambio y su spec entren en el mismo commit.
+- **`backend/`** tiene solo la copia sin cambios del backend (ADR 0002), con un `UPSTREAM.md` que dice de qué repositorio y commit sale y cómo se compara el contrato. Nada propio entra en `backend/`: así, un `diff` contra el original da vacío.
+- **`replica/`** tiene lo propio de la réplica: los datos iniciales sintéticos, el script que crea las cuentas de prueba en Firebase, la configuración de Toxiproxy y los perfiles de variables de entorno (solo ejemplos, sin valores).
+- **`android/`**: un proyecto Gradle con un módulo `app`, organizado por funcionalidad (sesión, salón, cobros e impresora) más un paquete común (red, eventos y almacenamiento). Cada funcionalidad sigue las capas del ADR 0003.
+- **`simulator/`**: el simulador (ADR 0003).
+- **`docs/`**: `prd/`, `context/`, `backlog/`, `adr/`, `architecture/` y `api/`.
+- **Raíz:** `compose.yaml`, `Readme.md` y `Prompts.md`. `AGENTS.md`, `CLAUDE.md` y `openspec/` llegan cuando se configure el proyecto.
+
+## Contenido
+1. El árbol hasta el segundo nivel (en `android/`, hasta los paquetes de funcionalidad), con una línea por carpeta.
+2. El patrón que sigue cada parte y por qué: monorepo, copia aislada, y app por funcionalidad y por capas.
+3. Qué carpeta toca cada tipo de ticket (backend, frontend y base de datos), para que los tickets sepan dónde trabajar. En este proyecto, los tickets de base de datos son de datos iniciales y configuración, no de migraciones, porque el esquema viene con la copia.
+
+## Reglas
+- En español. Sin código.
+- Trabajá en la rama `feature/entrega-1-mc` y **no hagas commit**: dejá los cambios sin commitear.
+- Otras sesiones escriben al mismo tiempo otros archivos de `docs/`: tocá solo el tuyo.
+
+## Criterios de éxito
+- Cada contenedor de los ADRs 0002 y 0003 tiene su lugar: la app, la réplica y el simulador en su carpeta; MySQL, Redis y Toxiproxy en `compose.yaml`. Firebase no, porque es externo.
+- `backend/` no tiene nada propio.
+- No se creó ninguna carpeta fuera de `docs/`.
+- Al final me devolvés un resumen de 3 líneas como máximo.
+```
+
+**Ajuste humano:** Decidí que en `backend/` solo va la copia y que lo propio de la réplica va en `replica/`, para que el diff contra el original dé vacío. Lo corrí en paralelo, y por eso los contenedores se comprueban contra los ADRs. No corregí el resultado.
 
 **Prompt 2:**
 
@@ -251,6 +499,58 @@ No corrijas nada por tu cuenta: listalo para que yo decida.
 
 **Prompt 1:**
 
+```text
+[Sección 2.4 · Prompt 1]
+
+## Objetivo
+Escribir `docs/architecture/infraestructura.md`: los entornos, el despliegue y la configuración de la réplica para las pruebas, con un diagrama de despliegue en Mermaid.
+
+## Decisiones (ya tomadas)
+- **Local (desarrollo y pruebas):** Docker Compose con MySQL 8, Redis 7, la réplica (con el Dockerfile que trae la copia) y Toxiproxy. La app corre en un emulador o en una tablet y llega a la réplica **a través de Toxiproxy**. El simulador corre por línea de comandos contra la réplica, sin pasar por el proxy.
+- **Demo:** la réplica en Railway, en **una sola instancia**, con MySQL y Redis administrados y HTTPS, sin Toxiproxy. Es una sola instancia porque el stream de eventos vive en la memoria del proceso (ADR 0006), igual que en el backend real, que también corre en una sola instancia en Railway (contexto, sección 0).
+- **App:** variantes de build que cambian solo la URL base: réplica local, réplica de demo y Tabbie. El APK de la variante de demo se publica en GitHub Releases. Todas usan el proyecto de Firebase de Tabbie (ADR 0002), donde hay que registrar la app Android.
+- **Secretos:** las credenciales del proyecto de Firebase de Tabbie y el secreto del JWT son variables de entorno de cada entorno. Nunca entran al repo: el repo trae un archivo de ejemplo sin valores.
+- **Esquema:** la réplica crea el esquema desde sus entidades al arrancar, con la sincronización que trae activada por defecto (`DB_SYNC`). La base de la demo es desechable.
+- **Variables de entorno que lee la réplica** (verificadas en su código):
+  - base: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` y `DB_SYNC`;
+  - Redis: `REDIS_URL`, o `REDIS_HOST`, `REDIS_PORT` y `REDIS_PASSWORD`;
+  - sesión: `JWT_SECRET`, `JWT_EXPIRATION_WAITERS` y `JWT_EXPIRATION`;
+  - solicitudes de cobro: `REDIS_EXPIRATION_TIME`;
+  - Firebase: `USE_FIREBASE` y los campos de la cuenta de servicio (`FIREBASE_PROJECT_ID`, `FIREBASE_PRIVATE_KEY`, `FIREBASE_CLIENT_EMAIL` y las demás `FIREBASE_*`);
+  - servidor: `PORT` y `CORS_ORIGINS`;
+  - el flujo del mozo no usa `MP_*`, `AWS_*` ni `FRONT_URL`, que quedan vacías.
+- **Requisitos de prueba del backlog**, resueltos sin cambiar el código de la réplica:
+
+  | Requisito | Cómo se logra |
+  |---|---|
+  | Dos restaurantes, con dos mozos en el primero y uno en el segundo | Datos iniciales sintéticos propios, que se cargan después de que la réplica crea el esquema, y un script que crea esas cuentas en Firebase. Sin datos de Tabbie. |
+  | Vencimiento corto de la sesión y de las solicitudes de cobro | Las variables `JWT_EXPIRATION_WAITERS` y `REDIS_EXPIRATION_TIME`, en un perfil de pruebas. La réplica las lee al arrancar, así que cambiarlas exige reiniciarla. |
+  | Fallos parciales al mandar a cocina y al cancelar | Fallos de negocio: el simulador cancela, como comensal, uno de los pedidos justo antes de la acción del mozo, y el backend rechaza ese pedido. Falta de respuesta, demoras y cortes: Toxiproxy, controlado por su API. |
+  | Una solicitud sin comensal identificado (RF-25) | El simulador la crea con el comensal `guest`, como la crea la app del comensal cuando falla. El backend no valida ese cuerpo. |
+  | El montaje de dos tablets | Dos emuladores, o una tablet y un emulador, con mozos distintos del primer restaurante, contra la misma réplica (local o de demo). |
+
+## Contenido
+1. Diagrama de despliegue en Mermaid, con los dos entornos.
+2. Cada entorno: qué corre, dónde, con qué configuración y cómo se levanta (los pasos, sin comandos exactos, porque todavía no hay código).
+3. El proceso de despliegue de la demo: qué dispara un despliegue, qué pasa con las conexiones abiertas (se cortan y la app se recupera, ADR 0006) y cómo se publica el APK.
+4. La tabla de requisitos de prueba, con las historias que usan cada uno (backlog, "Requisitos de prueba").
+5. Las variables de entorno de la réplica: **solo los nombres** y para qué sirve cada una, sin valores.
+
+## Reglas
+- En español. Sin código ni valores de variables.
+- No leas archivos `.env` ni el código de Tabbie.
+- Trabajá en la rama `feature/entrega-1-mc` y **no hagas commit**: dejá los cambios sin commitear.
+- Otras sesiones escriben al mismo tiempo otros archivos de `docs/`: tocá solo el tuyo.
+
+## Criterios de éxito
+- Los cinco requisitos de prueba del backlog dicen cómo se logran, y ninguno cambia el código de la réplica.
+- Dice, en un lugar visible, que el backend y la réplica corren en una sola instancia, y por qué.
+- El diagrama renderiza en GitHub.
+- Al final me devolvés un resumen de 3 líneas como máximo.
+```
+
+**Ajuste humano:** Elegí Docker Compose en local y la demo en Railway, en una sola instancia. Antes se verificó en el código del backend cómo lograr cada requisito de prueba sin modificarlo: variables de entorno para los vencimientos, y el simulador para la solicitud sin comensal y los fallos parciales. No corregí el resultado.
+
 **Prompt 2:**
 
 **Prompt 3:**
@@ -258,6 +558,53 @@ No corrijas nada por tu cuenta: listalo para que yo decida.
 ### **2.5. Seguridad**
 
 **Prompt 1:**
+
+```text
+[Sección 2.5 · Prompt 1]
+
+## Objetivo
+Escribir `docs/architecture/seguridad.md`: las prácticas de seguridad de la app y de la réplica, los riesgos aceptados y cómo baja cada práctica a un criterio que se puede probar.
+
+## Decisiones (ya tomadas)
+- **El backend no se modifica** y la réplica es una copia sin cambios (ADR 0002): la seguridad del servidor es la del backend real, con sus huecos. Lo que este proyecto controla es lo que hace la app y cómo se opera la réplica.
+- **Prácticas de la app:**
+  - solo entra el rol `waiter` (RF-2);
+  - un único restaurante, el del inicio de sesión, en todas las llamadas (RNF-7);
+  - en la tablet solo quedan la sesión, cifrada con una clave del Android Keystore, y las marcas de "Atendido" (RNF-8, ADR 0005);
+  - ninguna acción que cambia datos se repite sola, tampoco en el cliente HTTP (RNF-6);
+  - no muestra datos sensibles aunque el backend los mande (RF-9, O4), y no los escribe en los registros: ni los cuerpos de las respuestas ni la URL del stream, que lleva el JWT;
+  - solo HTTPS, salvo en la variante de réplica local;
+  - la renovación de la sesión del ADR 0004.
+- **Prácticas de la réplica y del repo:**
+  - los secretos (las credenciales del proyecto de Firebase de Tabbie y el secreto del JWT) son variables de entorno y nunca entran al repo;
+  - los datos iniciales son sintéticos: ningún dato de Tabbie entra a la réplica ni al repo;
+  - las cuentas de prueba usan un dominio reservado para ejemplos (como `example.com`), para que se reconozcan en el proyecto de Firebase de Tabbie.
+- **Riesgos aceptados** (el backend no se modifica):
+  - O1 a O4 del contexto, cada uno con su efecto y lo que hace la app;
+  - las carreras entre dos tablets (backlog, "Riesgos aceptados"): confirmar la misma solicitud, superar el saldo con un cobro manual, cancelar un pedido que acaba de recibir un cobro y cerrar una mesa dos veces;
+  - el JWT viaja en la URL del stream de eventos, porque así lo pide el contrato;
+  - las cuentas de prueba existen en el proyecto de Firebase de Tabbie, y sus credenciales se publican en el `Readme.md` para el evaluador. Si una inicia sesión contra el backend real, el backend le crea un usuario de comensal y la app la rechaza (RF-2): no llega a la operación.
+- **Comprobar los huecos:** O1 a O4 están marcados "observado en el código, sin verificar en ejecución", y con la réplica se pueden verificar. Cada uno pasa a ser un criterio `SEG-cN` que lo comprueba contra la réplica, con su evidencia.
+
+## Contenido
+1. Prácticas de la app y de la réplica, cada una con su porqué y su evidencia (RF, RNF, ADR u observación).
+2. Riesgos aceptados: qué puede pasar, cuándo, qué hace la app para acotarlo y por qué se acepta.
+3. **Bajada a criterios:** una tabla de cada práctica al criterio que la prueba. Si el criterio ya existe en una historia o en el walking skeleton, citalo por su ID. Si no existe, escribilo acá en Dado / Cuando / Entonces, con el ID `SEG-cN`, para que los tickets lo hereden.
+
+## Reglas
+- En español. Sin código.
+- No cambies el backlog, las historias ni el walking skeleton.
+- Trabajá en la rama `feature/entrega-1-mc` y **no hagas commit**: dejá los cambios sin commitear.
+- Otras sesiones escriben al mismo tiempo otros archivos de `docs/`: tocá solo el tuyo.
+
+## Criterios de éxito
+- Toda práctica tiene un criterio que la prueba (de una historia, del walking skeleton o `SEG-cN`).
+- O1 a O4 y las cuatro carreras figuran como riesgo aceptado, con su motivo, y O1 a O4 tienen su criterio de comprobación.
+- Ningún criterio pide cambiar el backend.
+- Al final me devolvés un resumen de 3 líneas como máximo.
+```
+
+**Ajuste humano:** Acepté como riesgo que las cuentas de prueba vivan en el Firebase de Tabbie, consecuencia de haber elegido ese proyecto. También pedí que O1 a O4, que estaban sin verificar, se comprueben contra la réplica. No corregí el resultado.
 
 **Prompt 2:**
 
