@@ -53,7 +53,7 @@ tabbie-waiter/
 └── docs/                        La documentación del proyecto
     ├── prd/                     PRD del MVP
     ├── context/                 El panel de mozos actual y su trazabilidad hasta el código
-    ├── backlog/                 Épicas, historias de usuario y criterios de aceptación
+    ├── backlog/                 Épicas, historias de usuario, criterios de aceptación, Definition of Done y tickets
     ├── adr/                     Decisiones de arquitectura
     ├── architecture/            Vista general, componentes, walking skeleton, estructura, infraestructura y seguridad
     └── api/                     Especificación de los endpoints y eventos que usa la app

@@ -18,6 +18,7 @@
 | [estructura.md](estructura.md) | Estructura del proyecto y de sus carpetas | Escrito |
 | [infraestructura.md](infraestructura.md) | Infraestructura del entorno de prueba y despliegue | Escrito |
 | [seguridad.md](seguridad.md) | Prácticas de seguridad | Escrito |
+| [modelo-de-datos.md](modelo-de-datos.md) | Modelo de datos del backend que usa la app: diagrama ER de las 13 tablas, cada entidad, Redis y lo que guarda la tablet | Escrito |
 
 ## 1. Diagrama de contexto (C4, nivel 1)
 

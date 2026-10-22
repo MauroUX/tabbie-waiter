@@ -624,6 +624,60 @@ Escribir `docs/architecture/seguridad.md`: las prácticas de seguridad de la app
 
 **Prompt 1:**
 
+```text
+[Sección 3 · Prompt 1]
+
+## Objetivo
+Escribir `docs/architecture/modelo-de-datos.md`: el modelo de datos que usa la Waiter App, fiel al backend actual, con un diagrama ER en Mermaid y la descripción de cada entidad.
+
+## Decisiones (ya tomadas)
+- **El modelo es el del backend, no uno nuevo.** La réplica es una copia sin cambios (ADR 0002) y crea el esquema desde sus entidades al arrancar (`DB_SYNC`, `infraestructura.md`). No hay migraciones ni tablas propias, y la app no tiene base local (ADR 0005).
+- **Alcance:** las 13 tablas del inventario del contexto (sección 3.2), incluidas las dos intermedias M:N. Las tablas que el inventario deja afuera se nombran en una línea, con el motivo, sin describirlas.
+- **Lo que no es relacional va aparte, sin diagrama ER:** las solicitudes de cobro en Redis y lo que guarda la tablet (contexto, sección 3.3; ADR 0005).
+
+## Fuentes (solo lectura; no modifiques nada en `C:\Repos\Tabbie`)
+- Las entidades del backend, en `C:\Repos\Tabbie\order-pay-backend\order-pay-backend\src\`, en el commit `c18b0f7`. Si el checkout no está en ese commit, leé cada archivo con `git show c18b0f7:<ruta>`. La ruta de cada entidad está en el contexto, sección 3.2.
+- Los enums que usan esas entidades. De los servicios de la cadena del mozo (contexto, sección 2), solo los valores que escriben.
+- `docs/context/panel-mozos-actual.md`, secciones 3 y 6.
+
+## Contenido
+1. **Diagrama ER en Mermaid** con las 13 tablas:
+   - cada columna con su tipo y sus marcas `PK`, `FK` y `UK`;
+   - cada relación con su cardinalidad y un rótulo corto;
+   - `table.activeSessionId` va como columna, sin relación, porque no es una FK declarada.
+2. **Una subsección por entidad**, con:
+   - la tabla y la entidad, con su archivo y línea;
+   - una tabla de columnas: nombre, tipo en MySQL, si acepta nulos, valor por defecto, PK, FK (a qué tabla y columna), único y una descripción corta;
+   - las relaciones: con qué entidad, de qué tipo (1:1, 1:N o M:N), qué lado tiene la FK, si es eager y qué pasa al borrar (`onDelete`), si está declarado;
+   - los índices y restricciones que declara la entidad;
+   - en las columnas de estado, método o rol, **los valores que admite según el código**: los del enum y los que escriben los servicios de la cadena del mozo, aunque no estén en el enum.
+3. **Almacenamiento fuera de la base:**
+   - la clave de Redis de las solicitudes de cobro, con sus campos, su vencimiento y quién la escribe y la borra;
+   - lo que guarda la tablet: la sesión y las marcas de "Atendido", sin respuestas del backend.
+4. **Lo que hay que saber para usar el modelo:** una lista corta de lo que puede sorprender a quien escriba los datos iniciales o la app. Por ejemplo: un tipo que por JSON llega distinto de como se guarda, una columna con valores fuera de su enum o una relación sin FK.
+
+## Reglas
+- En español. Los nombres de tablas, columnas y valores, tal como están en el código.
+- **Sacá el esquema del código, sin inventar.**
+  - Si el decorador no declara un tipo, un largo o si acepta nulos, poné lo que usa TypeORM por defecto y marcalo "(por defecto de TypeORM)".
+  - Si algo no se puede saber desde el código, escribí "no se sabe desde el código" en lugar de suponerlo.
+- Los valores son los que aparecen en el código, no los que hay en la base. No tenés acceso a los datos de Tabbie y no tenés que buscarlos. Aclaralo una vez en el documento.
+- No leas archivos `.env`, volcados ni datos.
+- En el diagrama, los tipos van sin comas ni espacios (`decimal`, no `decimal(10,2)`), para que renderice en GitHub. El tipo completo va en la tabla de cada entidad.
+- No cambies el contexto ni otros documentos. Si el código no coincide con el mapa de entidades del contexto (sección 6), listalo al final del documento, en "Diferencias con el contexto".
+- Sumá el documento al índice de `docs/architecture/README.md`, con el estado "Escrito".
+- Trabajá en la rama `feature/entrega-1-mc` y **no hagas commit**: dejá los cambios sin commitear.
+
+## Criterios de éxito
+- Las 13 tablas están en el diagrama y tienen su subsección. Cada columna tiene su tipo, si acepta nulos, si es PK, FK o única, y el archivo de origen.
+- Las intermedias M:N muestran sus dos FK y su clave primaria compuesta.
+- Todo valor de una columna de estado, método o rol tiene su origen en el código.
+- El diagrama renderiza en GitHub.
+- Al final me devolvés un resumen de 3 líneas como máximo, con las diferencias con el contexto si las hay.
+```
+
+**Ajuste humano:** Decidí que el modelo sea el del backend actual, sin tablas propias, y limité el alcance a las 13 tablas que usa el mozo. Pedí que los valores de las columnas salgan del código y que se marque lo que no se puede saber sin datos, porque no se leen datos de Tabbie. No corregí el resultado: las diferencias que encontró con el documento de contexto las corrijo aparte, en el cierre de la sección.
+
 **Prompt 2:**
 
 **Prompt 3:**
@@ -894,6 +948,91 @@ Estimar y priorizar las 11 historias de `docs/backlog/` (HU-01 a HU-11). Vamos a
 ### 6. Tickets de Trabajo
 
 **Prompt 1:**
+
+```text
+[Sección 6 · Prompt 1]
+
+## Objetivo
+Definir la Definition of Done por tipo de ticket y descomponer en tickets el walking skeleton y las tres primeras historias del backlog: HU-01, HU-02 y HU-04.
+
+## Decisiones (ya tomadas)
+- **Dónde viven los tickets:** por ahora, como archivos en `docs/backlog/tickets/`, uno por ticket, con un `README.md` de índice. El gestor (GitHub Issues o Jira) todavía no está decidido. Cuando se decida, los tickets se crean ahí desde estos archivos.
+- **La DoD** va en `docs/backlog/definition-of-done.md`, por tipo de ticket. Cuando se configure el proyecto, pasa a `AGENTS.md`.
+- **Un ticket hereda los criterios y no los reescribe.** Los cita por su ID, con enlace (HU-nn.cN, HU-nn.hN, WS-cN y SEG-cN), y suma su Definition of Done. El scenario ejecutable, con el HTTP concreto, vive en la spec del cambio de OpenSpec y no en el ticket.
+- **Tipos de ticket y su DoD mínima,** adaptados a este proyecto, donde el backend no se modifica:
+  - **Backend (réplica y simulador):**
+    - los criterios heredados pasan;
+    - `backend/` queda idéntico a la copia de `c18b0f7`, y lo propio va en `replica/` o en `simulator/`;
+    - los errores se manejan;
+    - hay pruebas de integración por HTTP contra MySQL y Redis reales, desde fuera de `backend/`;
+    - los secretos van solo como variables de entorno.
+  - **Datos:** reemplaza a "migración", porque la réplica crea el esquema desde sus entidades y no hay migraciones.
+    - Los datos se cargan sobre una base recién creada y se pueden volver a cargar desde cero.
+    - Respetan los tipos, las FK y los valores que admite cada columna según `docs/architecture/modelo-de-datos.md`.
+    - Son sintéticos, sin datos de Tabbie, y las cuentas usan un dominio de ejemplo.
+    - Cada carga dice cómo se deshace: con otra carga, fallando en alto o solo recreando la base.
+  - **Frontend (app):**
+    - estados de carga, de error y vacío;
+    - sin conexión, se comporta como dice el walking skeleton;
+    - ninguna acción que cambia datos se repite sola (RNF-6, ADR 0007);
+    - tablet en horizontal y en español (RNF-10);
+    - ktlint sin errores y sin `!!`.
+  - **Bug:** un test que reproduce el fallo antes del arreglo, un arreglo mínimo, el test en verde y un 5 porqués breve.
+  - **Para todos:**
+    - el primer paso es el cambio de OpenSpec, con un scenario por criterio heredado;
+    - el test de cada scenario se escribe primero y falla;
+    - el PR se revisa y sale de una rama con las iniciales `mc`.
+- **Los tres tickets que van al `Readme.md`** tienen que salir de esta descomposición:
+  - **base de datos:** los datos iniciales sintéticos de la réplica: dos restaurantes, dos mozos en el primero y uno en el segundo, mesas, productos y lo que pidan los criterios. Si conviene, se juntan con las cuentas de prueba en Firebase;
+  - **backend:** la réplica levantada, con la copia en `backend/`, los servicios de `compose.yaml`, Toxiproxy y el contrato del inventario comprobado por HTTP;
+  - **frontend:** mandar a cocina desde la pantalla "Órdenes" (HU-04).
+
+## Fuentes
+- `docs/backlog/README.md` (orden, dependencias y requisitos de prueba) y las historias HU-01, HU-02 y HU-04.
+- En `docs/architecture/`: `walking-skeleton.md`, `componentes.md`, `estructura.md`, `infraestructura.md`, `seguridad.md` y `modelo-de-datos.md`.
+- `docs/adr/` y `docs/context/panel-mozos-actual.md`.
+
+## Contenido
+1. `docs/backlog/definition-of-done.md`: la DoD de cada tipo, con su porqué en una línea.
+2. Un archivo por ticket, `docs/backlog/tickets/TK-NN-<nombre>.md`, con:
+   - el tipo, y la historia o el walking skeleton de origen;
+   - el objetivo, en una oración;
+   - los criterios heredados: la lista de IDs con enlace, sin reescribirlos;
+   - el alcance: qué incluye y qué no, con el ticket que se ocupa de lo que queda afuera;
+   - dónde se trabaja: las carpetas de `estructura.md` y los componentes de `componentes.md`;
+   - el contrato que usa: los endpoints y eventos, por su fila del contexto (Tnn), sin redefinirlos;
+   - los requisitos de prueba del backlog que necesita;
+   - las dependencias con otros tickets;
+   - los pasos, de inicio a fin, al nivel de qué hay que hacer, sin código;
+   - la Definition of Done: la de su tipo, por enlace, más lo propio del ticket;
+   - los riesgos y decisiones pendientes que lo afectan, citados de los documentos.
+3. `docs/backlog/tickets/README.md`: una tabla con el ID, el título, el tipo, el origen y las dependencias, en el orden en que se hacen.
+4. En el árbol de `docs/architecture/estructura.md`, sumá los tickets y la DoD a la línea de `docs/backlog/`.
+
+## Cómo trabajar (por partes, escribiendo a medida que avanzás)
+1. Escribí `definition-of-done.md`. Para eso alcanza con este prompt.
+2. Escribí el índice `tickets/README.md`: la tabla de tickets y, por ticket, los IDs de los criterios que hereda. Para armarlo, leé solo los IDs y los títulos de los criterios, no los documentos enteros. Comprobá la cobertura sobre este índice.
+3. Escribí los tickets **de a uno**, empezando por los tres del `Readme.md`. Para cada uno, leé solo las partes de los documentos que necesita.
+4. Al final, el árbol de `estructura.md`.
+
+No planifiques todos los tickets en detalle antes de escribir el primero.
+
+## Reglas
+- En español. Sin código.
+- Cada ticket tiene un tamaño que un PR puede cerrar. Si uno es más grande, partilo.
+- Cada criterio de HU-01, HU-02, HU-04 y del walking skeleton queda en al menos un ticket. Los SEG-cN se heredan donde corresponda.
+- No cambies las historias, sus criterios, el walking skeleton ni los ADRs. Si algo no se puede decidir con los documentos, no lo decidas: listalo al final del índice, en "Decisiones pendientes".
+- Trabajá en la rama `feature/entrega-1-mc` y **no hagas commit**: dejá los cambios sin commitear.
+
+## Criterios de éxito
+- Ningún ticket tiene criterios Dado / Cuando / Entonces propios: todos los heredan por ID.
+- Ningún criterio de HU-01, HU-02, HU-04 ni del walking skeleton queda sin ticket.
+- Existen los tres tickets del `Readme.md` (datos iniciales, réplica y mandar a cocina), con todo el detalle.
+- Ningún ticket pide cambiar el código de `backend/`.
+- Al final me devolvés un resumen de 3 líneas como máximo, con la cantidad de tickets por tipo.
+```
+
+**Ajuste humano:** Decidí que, por la fecha, los tickets vivan por ahora en el repo y que el gestor quede para la Entrega 2. Adapté la DoD por tipo a un backend que no se modifica: "migración" pasa a "datos", porque no hay migraciones, y "endpoint" pasa a "backend (réplica y simulador)", porque no hay endpoints nuevos. Limité la descomposición al walking skeleton y a las tres primeras historias del orden, y elegí los tres tickets del `Readme.md`. No corregí el resultado: las 18 decisiones pendientes que dejó se resuelven al arrancar la Entrega 2.
 
 **Prompt 2:**
 

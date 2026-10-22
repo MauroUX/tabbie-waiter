@@ -443,7 +443,7 @@ Los nombres de las tablas salen de las entidades del backend y de sus `@JoinTabl
 
 | Clave | Qué guarda | TTL | Operaciones en la cadena del mozo |
 |---|---|---|---|
-| `in-person-request:restaurant-<restaurantId>:<requestId>` | JSON `InPersonPaymentRequestDto`: `{id, userId, userName, restaurantId, tableNumber, tableSessionId, amount, noTipAmount, method, prepaid?, orderIds?, lineItemIds?}`. Lo escribe el comensal con `POST /payments/in-person-request`. | `REDIS_EXPIRATION_TIME`, 3600 s por defecto | **T06:** `SCAN` + `GET`.<br>**T12:** `DEL` de `paymentRequestId`; además, `SCAN`/`GET`/`DEL` de las solicitudes de la sesión si queda saldada y `prepaid` es falso.<br>**T11:** `SCAN`/`GET`/`DEL` de las solicitudes de la sesión si queda saldada.<br>**T13:** `DEL` de la clave.<br>**T14:** `SCAN`/`GET`/`DEL` de las solicitudes de la sesión. |
+| `in-person-request:restaurant-<restaurantId>:<requestId>` | JSON `InPersonPaymentRequestDto`: `{id, userId, userName, restaurantId, tableNumber, tableSessionId, amount, noTipAmount, method, prepaid?, orderIds?, lineItemIds?}`. Lo escribe el comensal con `POST /payments/in-person-request`. La interfaz no declara `prepaid?`: como el body se guarda sin validar, queda guardado solo si el comensal lo envía. | `REDIS_EXPIRATION_TIME`, 3600 s por defecto | **T06:** `SCAN` + `GET`.<br>**T12:** `DEL` de `paymentRequestId`; además, `SCAN`/`GET`/`DEL` de las solicitudes de la sesión si queda saldada y `prepaid` es falso.<br>**T11:** `SCAN`/`GET`/`DEL` de las solicitudes de la sesión si queda saldada.<br>**T13:** `DEL` de la clave.<br>**T14:** `SCAN`/`GET`/`DEL` de las solicitudes de la sesión. |
 | Mismo prefijo; `requestId` con forma `mp-<userId>-<sessionId>-<timestamp>` | Solicitud generada al iniciar un checkout de MercadoPago (`BE/payments/Payment Types/MercadoPago/mercadopago.service.ts:99-110`). No emite SSE. | 60 s | Aparece en T06. No cuenta en el badge y "Confirmar Pago" está deshabilitado para ella. |
 
 **Valores del campo `method`.** Viaja desde la solicitud en Redis hasta el panel (T06, T17). El panel lo reenvía en T12, y el back lo guarda tal cual en `payment.method`, sin validarlo.
@@ -573,24 +573,24 @@ Incluye las entidades del inventario (sección 3.2), con las tablas intermedias 
 ```mermaid
 erDiagram
     RESTAURANT |o--o{ USER : "personal del restaurante"
-    RESTAURANT ||--o{ TABLE : "tiene"
-    RESTAURANT ||--o{ ORDER : "recibe"
-    RESTAURANT ||--o{ PRODUCT : "ofrece"
+    RESTAURANT |o--o{ TABLE : "tiene"
+    RESTAURANT |o--o{ ORDER : "recibe"
+    RESTAURANT |o--o{ PRODUCT : "ofrece"
     TABLE ||--o{ TABLE_SESSION : "ocupaciones"
     TABLE_SESSION ||--o{ TABLE_SESSION_USERS_USER : "participantes"
     USER ||--o{ TABLE_SESSION_USERS_USER : "participa"
-    TABLE_SESSION ||--o{ ORDER : "agrupa"
+    TABLE_SESSION |o--o{ ORDER : "agrupa"
     TABLE_SESSION ||--o{ PAYMENT : "registra"
-    USER ||--o{ ORDER : "realiza"
+    USER |o--o{ ORDER : "realiza"
     USER |o--o{ PAYMENT : "paga"
-    ORDER ||--o{ ORDER_PRODUCT_DETAILS : "items"
-    PRODUCT ||--o{ ORDER_PRODUCT_DETAILS : "pedido como"
-    ORDER_PRODUCT_DETAILS ||--o{ ORDER_PRODUCT_OPTION : "opciones elegidas"
-    PRODUCT_OPTION ||--o{ ORDER_PRODUCT_OPTION : "elegida como"
+    ORDER |o--o{ ORDER_PRODUCT_DETAILS : "items"
+    PRODUCT |o--o{ ORDER_PRODUCT_DETAILS : "pedido como"
+    ORDER_PRODUCT_DETAILS |o--o{ ORDER_PRODUCT_OPTION : "opciones elegidas"
+    PRODUCT_OPTION |o--o{ ORDER_PRODUCT_OPTION : "elegida como"
     ORDER_PRODUCT_OPTION ||--o{ ORDER_PRODUCT_OPTION_VALUES_PRODUCT_OPTION_VALUE : "valores"
     PRODUCT_OPTION_VALUE ||--o{ ORDER_PRODUCT_OPTION_VALUES_PRODUCT_OPTION_VALUE : "elegido en"
-    PRODUCT ||--o{ PRODUCT_OPTION : "opciones"
-    PRODUCT_OPTION ||--o{ PRODUCT_OPTION_VALUE : "valores"
+    PRODUCT |o--o{ PRODUCT_OPTION : "opciones"
+    PRODUCT_OPTION |o--o{ PRODUCT_OPTION_VALUE : "valores"
 ```
 
 Además de estas relaciones, `table.activeSessionId` es una columna simple (no una relación declarada) que apunta a la sesión activa.
