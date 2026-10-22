@@ -5,12 +5,12 @@ Puedes añadir adicionalmente la conversación completa como link o archivo adju
 ## Flujo de trabajo con IA
 
 **Herramientas**
-- Claude Code, en la app de escritorio, en dos sesiones con roles distintos.
-- **Sesión A (diseño):** corre en el repo de apuntes del máster, no en este. Ahí se discute cada decisión, se contrasta con las lecciones del máster, se escribe cada prompt, se revisa lo que produjo la sesión B y se lleva una bitácora. Nunca escribe en este repo.
-- **Sesión B (trabajo):** corre en este repo y ejecuta cada prompt tal como sale de A, empezando con `[Sección X · Prompt N]`. Cada prompt corre en una sesión B nueva.
+- Claude Code, en la app de escritorio.
+- Una conversación aparte, para consultar dudas, destrabarme y armar cada prompt.
+- Cada prompt corre en una sesión nueva sobre este repo, empezando con `[Sección X · Prompt N]`.
 
 **Modelos**
-- Claude Opus 5.5 en las dos sesiones: en A, para el diseño, la revisión y la documentación; en B, para leer el código de Tabbie y escribir los documentos.
+- Claude Opus 5.5 en todo el trabajo: para las consultas y el armado de los prompts, y para leer el código de Tabbie y escribir los documentos.
 
 **Skills, subagentes, rules y comandos**
 - Todavía no hay ninguno propio.
@@ -37,8 +37,8 @@ Así quedan los documentos de `docs/`; el `Readme.md` los resume y los enlaza.
 - El código de Tabbie se lee solo en un commit fijo, sin modificarlo, y nunca se leen archivos `.env` ni datos.
 
 **Cómo se revisa**
-- A lee el resultado contra la lección que rige cada paso y comprueba en el código de Tabbie, en solo lectura, los hallazgos que más pesan.
-- Lo que hay que corregir vuelve a B como un prompt nuevo; A nunca edita el repo.
+- Se lee el resultado de cada prompt y se comprueban en el código de Tabbie, en solo lectura, los hallazgos que más pesan.
+- Lo que hay que corregir va en un prompt nuevo.
 - En la arquitectura, cinco prompts corrieron en paralelo, y un prompt de ajustes corrigió las inconsistencias entre los documentos.
 
 **Ajustes humanos más importantes** (el detalle está debajo de cada prompt)
