@@ -64,7 +64,7 @@ No comprueba las filas que la app no usa: T02, T03, T04, T10, T15 y T18.
 
 1. Crear el cambio de OpenSpec, con los scenarios de SEG-c10 y de la parte de WS-c1, y una spec del contrato con una entrada por cada fila del inventario.
 2. Escribir las pruebas primero: el detector de secretos, el arranque de la réplica y el contrato. Las del arranque y el contrato fallan, porque todavía no hay réplica.
-3. Copiar `c18b0f7` en `backend/` sin tocar ningún archivo, y escribir `UPSTREAM.md`. Comprobar que el `diff` contra el commit da vacío.
+3. Exportar `c18b0f7` del repo de Tabbie y copiarlo en `backend/` sin tocar ningún archivo, y escribir `UPSTREAM.md`. Comprobar con `git diff --no-index` entre el export y `backend/` que da vacío, salvo `UPSTREAM.md`. El commit que importa la copia lleva la etiqueta `backend-base`, que se pushea (DP-46).
 4. Escribir los ejemplos de los perfiles en `replica/entornos/`, y armar el archivo local de variables, que no entra al repo, con las credenciales del proyecto de Firebase de Tabbie y un `JWT_SECRET` propio del entorno local.
 5. Escribir `compose.yaml` con la réplica, MySQL y Redis. Levantar y comprobar que la réplica se conecta a MySQL y Redis y crea el esquema desde sus entidades (`DB_SYNC` activada).
 6. Arrancar con `MP_*`, `AWS_*` y `FRONT_URL` vacías. Si la copia no arranca, usar valores de mentira, nunca cambiar su código, y dejar anotado en el ejemplo qué variable lo necesita.
@@ -77,7 +77,7 @@ No comprueba las filas que la app no usa: T02, T03, T04, T10, T15 y T18.
 
 - La de [Para todos](../definition-of-done.md#para-todos) y la de [Backend](../definition-of-done.md#backend-réplica-y-simulador).
 - **Propio del ticket:**
-  - El PR muestra que el `diff` de `backend/` contra `c18b0f7` da vacío, salvo `UPSTREAM.md`.
+  - El PR muestra que el `git diff --no-index` entre el export de `c18b0f7` y `backend/` da vacío, salvo `UPSTREAM.md`, y que la etiqueta `backend-base` está pusheada en el commit que importa la copia (DP-46).
   - La réplica arranca desde cero con `compose.yaml` y un archivo local de variables, siguiendo solo lo que dice [infraestructura.md](../../architecture/infraestructura.md).
   - Cada fila de la columna "Waiter App" del inventario tiene su entrada en `docs/api/openapi.yaml` y su prueba del contrato, y pasa.
   - Si una prueba del contrato no coincide con el contexto, se corrige el contexto, no la copia.

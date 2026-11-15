@@ -1,0 +1,42 @@
+# Node
+node_modules/
+dist/
+coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm/
+
+# Gradle y Android
+.gradle/
+build/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.jks
+*.keystore
+
+# Variables de entorno: solo entran los ejemplos
+.env*
+!.env.example
+!.env.*.example
+!*.env.example
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.fleet/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Claude Code: lo local de cada máquina
+.claude/settings.local.json
+.claude/hooks/*.local

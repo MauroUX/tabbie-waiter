@@ -1,0 +1,38 @@
+schema: spec-driven
+
+context: |
+  Idioma: español (es). Todos los artefactos se escriben en español.
+  Los encabezados estructurales de OpenSpec y las palabras SHALL/MUST quedan en inglés.
+
+  Tabbie Waiter App: app Android de tablet para el mozo de un restaurante que usa Tabbie.
+  Reemplaza el panel de mozos actual con los mismos endpoints y eventos, solo para el rol
+  waiter y en un único restaurante. Monorepo con la app (android/), la réplica del backend
+  (backend/ y replica/), el simulador de comensales (simulator/) y la documentación (docs/).
+
+  Stack (ADR 0003):
+  - Réplica: lo que trae la copia: NestJS 10, TypeORM, MySQL 8, Redis 7 y Node 20.
+  - App: Kotlin y Jetpack Compose, MVVM con flujo de datos unidireccional, Hilt,
+    Retrofit y OkHttp, OkHttp SSE, Firebase Authentication y DataStore.
+  - Simulador: TypeScript sobre Node 20, un cliente HTTP por línea de comandos.
+  - Pruebas de red: Toxiproxy.
+
+  backend/ no se toca: es la copia sin cambios de order-pay-backend en c18b0f7 (ADR 0002).
+  Lo propio va en replica/ o en simulator/.
+
+  Documentos:
+  - PRD: docs/prd/tabbie-waiter-mvp.md
+  - Backlog, historias y criterios: docs/backlog/README.md y docs/backlog/historias/
+  - Tickets: docs/backlog/tickets/
+  - Definition of Done: docs/backlog/definition-of-done.md
+
+rules:
+  proposal:
+    - 'Cita el ticket (TK-NN) y su issue (#n).'
+    - 'Incluye el no-alcance: lo que el cambio no hace.'
+  specs:
+    - 'Un scenario por criterio heredado del ticket, con su ID (HU-nn.cN, HU-nn.hN, WS-cN o SEG-cN) y su texto copiado tal cual (DP-08).'
+    - 'Nunca un criterio inventado ni reescrito.'
+  tasks:
+    - 'La primera tarea de cada scenario es su test, y tiene que fallar antes de implementar.'
+  design:
+    - 'Si el cambio toca los datos iniciales, dice cómo se deshace la carga (Definition of Done, sección "Datos").'
