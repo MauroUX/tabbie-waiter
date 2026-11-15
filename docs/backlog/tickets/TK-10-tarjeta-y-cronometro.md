@@ -1,9 +1,10 @@
-# TK-14 · Datos de la tarjeta de la mesa y cronómetro de demora
+# TK-10 · Datos de la tarjeta y cronómetro de demora
 
 | | |
 |---|---|
 | **Tipo** | Frontend (app) |
 | **Origen** | [HU-02](../historias/HU-02-mesas-activas.md) · Ver las mesas activas y sus pedidos (RF-7, RF-8, RF-9) |
+| **Wireframe** | [`docs/design/ordenes.png`](../../design/ordenes.png) (DP-10; todavía no existe) |
 
 ## Objetivo
 
@@ -27,14 +28,14 @@ Que cada tarjeta de "Órdenes" muestre los comensales, el total, lo pagado, el t
 
 **No incluye:**
 
-- La acción "Atendido" junto al ícono de ayuda: HU-10, fuera de esta descomposición.
-- "Registrar cobro" y su regla de mesa saldada: HU-05, fuera de esta descomposición.
-- Las pestañas y la lista de mesas: [TK-13](TK-13-ordenes.md).
+- La acción "Atendido" junto al ícono de ayuda (HU-10) y "Registrar cobro" (HU-05): van en la ampliación.
+- Las pestañas y la lista de mesas: [TK-09](TK-09-ordenes.md).
 
 ## Dónde se trabaja
 
 - **Carpetas** ([estructura.md](../../architecture/estructura.md)): `salon/`, con sus pruebas.
 - **Componentes** ([componentes.md](../../architecture/componentes.md), sección 1): Salón y Pantalla "Órdenes".
+- **Wireframe:** [`docs/design/ordenes.png`](../../design/ordenes.png), la tarjeta de la mesa.
 
 ## Contrato que usa
 
@@ -42,19 +43,19 @@ Por su fila de la [tabla de trazabilidad](../../context/panel-mozos-actual.md#2-
 
 ## Requisitos de prueba del backlog
 
-Ninguno de la lista del backlog. Usa los umbrales de los datos iniciales ([TK-02](TK-02-datos-iniciales.md)), dos comensales y el pedido de ayuda de [TK-03](TK-03-simulador-mesas-y-pedidos.md), y el cobro de otra tablet de [TK-04](TK-04-simulador-cobros.md) para lo pagado y la mesa saldada.
+Ninguno de la lista del backlog. Usa los umbrales de los datos iniciales ([TK-02](TK-02-datos-iniciales.md)), dos comensales de ESC-1 ([TK-03](TK-03-simulador-mesas-pedidos-y-cobros.md)), y el pedido de ayuda y el cobro de otra tablet de [TK-08](TK-08-simulador-ordenes.md) para lo pagado y la mesa saldada.
 
 ## Dependencias
 
-- [TK-13](TK-13-ordenes.md): las tarjetas de "Órdenes".
-- [TK-03](TK-03-simulador-mesas-y-pedidos.md) y [TK-04](TK-04-simulador-cobros.md): los comensales, el pedido de ayuda y los cobros.
+- [TK-09](TK-09-ordenes.md): las tarjetas de "Órdenes".
+- [TK-08](TK-08-simulador-ordenes.md): el pedido de ayuda y los cobros de otra tablet.
 
 ## Pasos
 
 1. Crear el cambio de OpenSpec, con un scenario por cada criterio heredado.
 2. Escribir las pruebas primero, y verlas fallar: pruebas locales del cálculo de la demora, del color y de la mesa saldada, con un reloj controlado; pruebas en el dispositivo contra la réplica para HU-02.c4, HU-02.h4 y HU-02.h5.
 3. Escribir en Salón los datos de la tarjeta y el cronómetro, convirtiendo los montos que llegan como string.
-4. Escribir el encabezado de la tarjeta y el cronómetro con sus colores.
+4. Escribir el encabezado de la tarjeta y el cronómetro con sus colores, siguiendo el wireframe.
 5. Comprobar que ninguna pantalla muestra un email ni los tokens de mentira de MercadoPago de los datos iniciales.
 6. Abrir el PR desde una rama `mc`, con capturas de los tres colores.
 
@@ -65,7 +66,7 @@ Ninguno de la lista del backlog. Usa los umbrales de los datos iniciales ([TK-02
   - El color y la desaparición del cronómetro se prueban con un reloj controlado, sin esperar los umbrales reales.
   - Los montos se muestran sin errores de redondeo a partir de los `decimal` que llegan como string.
 
-## Riesgos y decisiones pendientes
+## Riesgos y decisiones
 
 - **Modelo de datos, sección 4:** "Los `decimal` llegan como string … `total`, `amountPaid`, `tips`, `amount` y `price` llegan por JSON como `"1250.00"`"; "Las fechas se guardan en UTC"; "El `@Check` de los umbrales no existe en MySQL".
 - **RA-4** ([seguridad.md](../../architecture/seguridad.md)): T05 "trae los emails de los comensales y … la fila completa del restaurante con `mercadoPagoToken` y `mercadoPagoRefreshToken`".

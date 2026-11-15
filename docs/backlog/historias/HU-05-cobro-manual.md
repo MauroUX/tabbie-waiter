@@ -120,7 +120,7 @@ Ninguno.
 
 | Criterio | | Nota |
 |---|---|---|
-| Independiente | ✘ | Necesita el saldo de la mesa que muestra HU-02. HU-05.c4 se verifica en "Pagos", de HU-06. |
+| Independiente | ✘ | Necesita el saldo de la mesa que muestra HU-02. HU-05.c4 se verifica en la lista de cobros de "Pagos", de HU-13. |
 | Negociable | ✔ | La forma de cargar el monto y la propina se puede ajustar. |
 | Valiosa | ✔ | Es el cobro en persona sin solicitud, y evita los cobros duplicados (M-2). |
 | Estimable | ✔ | El tope, la propina y cómo queda registrado el cobro están definidos en el PRD. |

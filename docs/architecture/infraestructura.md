@@ -81,12 +81,14 @@ flowchart TB
 | Réplica del backend | Contenedor de Docker Compose, construido con el Dockerfile que trae la copia | Variables de entorno de la sección 5, desde un archivo local que no entra al repo |
 | MySQL 8 | Contenedor de Docker Compose | Base vacía al primer arranque; la réplica crea el esquema |
 | Redis 7 | Contenedor de Docker Compose | Sin persistencia necesaria: las solicitudes de cobro vencen solas |
-| Toxiproxy | Contenedor de Docker Compose | Un proxy hacia la réplica. Su API queda accesible solo desde la máquina de desarrollo |
-| Waiter App, variante local | Emulador en la máquina de desarrollo, o tablet en la misma red | URL base apuntando a Toxiproxy |
+| Toxiproxy | Contenedor de Docker Compose, desde la ampliación (DP-41) | Un proxy hacia la réplica. Su API queda accesible solo desde la máquina de desarrollo |
+| Carga de los datos iniciales | Servicio de Docker Compose que corre una sola vez | Espera a que la réplica cree el esquema y ejecuta el SQL de `replica/datos-iniciales/` (DP-16) |
+| Waiter App, variante local | Emulador en la máquina de desarrollo, o tablet en la misma red | URL base apuntando a la réplica en el lote 1, y a Toxiproxy desde la ampliación (DP-41) |
 | Simulador de comensales | Línea de comandos en la máquina de desarrollo | URL de la réplica, **sin pasar por Toxiproxy** |
 
 **El camino de la app:**
 
+- **En el lote 1 (DP-41):** la app llega directo a la réplica. El walking skeleton delgado prueba la reconexión y el aviso con MockWebServer (DP-04), así que Toxiproxy no hace falta hasta los cortes de punta a punta. Lo que sigue describe el entorno desde la ampliación.
 - La app llega a la réplica **siempre a través de Toxiproxy**, con una única URL base para HTTP y SSE (contexto, sección 1; 0003). Sin fallos activos, Toxiproxy reenvía el tráfico sin tocarlo, así que el mismo montaje sirve para el uso normal y para las pruebas de red.
 - Desde un emulador, la URL base usa la dirección con la que el emulador ve a la máquina anfitriona. Desde una tablet física, la dirección de la máquina en la red local.
 - El tráfico con Firebase no pasa por Toxiproxy (0003): un corte provocado afecta solo a la réplica.
@@ -98,8 +100,8 @@ flowchart TB
 2. Se elige el perfil: el normal, o el **perfil de pruebas**, con los vencimientos cortos de la sección 4.
 3. Se levanta Docker Compose. La réplica arranca, se conecta a MySQL y Redis, y crea el esquema desde sus entidades (`DB_SYNC` activada).
 4. Se corre, una sola vez por proyecto de Firebase, el script que crea las cuentas de prueba en Firebase. Si las cuentas ya existen, no las duplica.
-5. Se cargan los datos iniciales sintéticos en MySQL.
-6. Se configura en Toxiproxy el proxy hacia la réplica.
+5. El servicio de carga de Docker Compose espera a que el esquema exista y ejecuta en MySQL el SQL de los datos iniciales sintéticos (DP-16). No se usa el seeder de la copia.
+6. Desde la ampliación, se configura en Toxiproxy el proxy hacia la réplica (DP-41).
 7. Se instala la variante local de la app en el emulador o la tablet, y se inicia sesión con una cuenta de prueba.
 8. Se corre el simulador para generar mesas, pedidos, solicitudes de cobro y pedidos de ayuda.
 
@@ -130,14 +132,14 @@ flowchart TB
 2. Se cargan en Railway las variables de entorno de la réplica, con las conexiones a la base y a Redis que da Railway.
 3. Se fija la réplica en **una instancia**, sin réplicas ni autoescalado.
 4. Se despliega la réplica, que crea el esquema al arrancar.
-5. Se cargan los datos iniciales sintéticos contra la base de Railway. Las cuentas de Firebase son las mismas del entorno local: el script no se vuelve a correr.
+5. Se ejecuta el mismo SQL de `replica/datos-iniciales/` contra la base de Railway. Las cuentas de Firebase son las mismas del entorno local: el script no se vuelve a correr.
 6. Se publica el APK de la variante de demo (sección 3).
 
 ### 2.3 Variantes de la app
 
 | Variante | URL base | Dónde se usa |
 |---|---|---|
-| Réplica local | Toxiproxy, en la máquina de desarrollo | Desarrollo y pruebas, incluidas las de red |
+| Réplica local | La réplica en la máquina de desarrollo; desde la ampliación, Toxiproxy (DP-41) | Desarrollo y pruebas, incluidas las de red |
 | Réplica de demo | La réplica en Railway, por HTTPS | Demo y evaluación; su APK se publica en GitHub Releases |
 | Tabbie | El backend real de Tabbie | Cuando se pase al backend real (0002) |
 
@@ -150,7 +152,8 @@ flowchart TB
 - Nunca entran al repo. El repo trae un **archivo de ejemplo** con los nombres de la sección 5 y sin valores.
 - Cada entorno tiene su propio secreto del JWT: un JWT de la réplica local no vale en la demo.
 - La clave con la que se firma el APK tampoco entra al repo.
-- Las credenciales de las cuentas de prueba se documentan en el `Readme.md` (backlog, "Comportamientos entre tablets"). Si se acepta publicarlas sigue pendiente (ADRs, "Decisiones pendientes").
+- Las credenciales de las cuentas de prueba **no se publican**: se entregan con el formulario de entrega, y el `Readme.md` dice eso en lugar de listarlas ([0009](../adr/0009-publicacion-del-repo-y-credenciales.md); DP-35).
+- Ninguna credencial ni cuenta entra al repo, aunque el repo sea público hasta la entrega final (DP-01). El hook de pre-commit de `.claude/hooks/` bloquea `.env`, la cuenta de servicio de Firebase, `JWT_SECRET`, los tokens de MercadoPago, las contraseñas de las cuentas de prueba y los emails que no son del dominio de prueba (DP-07), y la CI corre gitleaks en cada PR (sección 6).
 
 ## 3. Despliegue de la demo
 
@@ -188,7 +191,7 @@ Los cinco requisitos del backlog ("Requisitos de prueba") se logran **sin cambia
 |---|---|---|
 | Dos restaurantes, con dos mozos en el primero y uno en el segundo | Datos iniciales sintéticos propios, con los restaurantes, sus mesas, su menú y sus mozos con rol `waiter`. Se cargan después de que la réplica crea el esquema. Un script crea las cuentas de esos mozos en el proyecto de Firebase de Tabbie. No se usan datos de Tabbie. | Dos restaurantes: HU-01, HU-02 y HU-03 (RNF-7).<br>Dos mozos: HU-03, HU-06, HU-07, HU-08, HU-09, HU-10 y HU-11. |
 | Vencimiento corto, configurable, de la sesión y de las solicitudes de cobro | Las variables `JWT_EXPIRATION_WAITERS` y `REDIS_EXPIRATION_TIME`, con valores cortos en el **perfil de pruebas** del entorno local. La réplica las lee al arrancar, así que cambiarlas exige reiniciarla. | Sesión: HU-01 y HU-10.<br>Solicitudes: HU-06. |
-| Fallos parciales al mandar a cocina y al cancelar | **Fallos de negocio:** el simulador cancela, como comensal, uno de los pedidos justo antes de la acción del mozo. La app todavía lo muestra, y el backend rechaza ese pedido y acepta los demás, porque la app manda una petición por pedido, y un pedido ya cancelado no se puede cancelar ni mandar a cocina (contexto, C5 y C6).<br>**Falta de respuesta, demoras y cortes:** Toxiproxy, controlado por su API, entre la app y la réplica. Con una demora activa, el simulador puede confirmar un pedido mientras el envío a cocina está en curso. | HU-04. |
+| Fallos parciales al mandar a cocina y al cancelar | **Fallos de negocio:** el simulador cancela, como comensal, uno de los pedidos justo antes de la acción del mozo. La app todavía lo muestra, y el backend rechaza ese pedido y acepta los demás, porque la app manda una petición por pedido, y un pedido ya cancelado no se puede cancelar ni mandar a cocina (contexto, C5 y C6).<br>**Fallo o demora de una sola petición de varias** (HU-04.h2, HU-12.h1 y HU-04.h4): en las pruebas de la app, con MockWebServer (DP-20).<br>**Cortes completos:** Toxiproxy, entre la app y la réplica, controlado por su API desde el script de la prueba. El simulador no controla Toxiproxy (DP-20). | HU-04 y HU-12. |
 | Una solicitud sin comensal identificado (RF-25) | El simulador la crea con el comensal `guest`, como la crea la app del comensal cuando no encuentra a su usuario (contexto, C11). El backend no valida ese cuerpo. | HU-06 y HU-07. |
 | El montaje de dos tablets | Dos emuladores, o una tablet y un emulador, con mozos distintos del primer restaurante, contra la misma réplica, local o de demo. El simulador genera los pedidos de ayuda y las solicitudes de cobro. | HU-03, HU-06, HU-07, HU-08, HU-10 y HU-11. |
 
@@ -196,7 +199,9 @@ Los cinco requisitos del backlog ("Requisitos de prueba") se logran **sin cambia
 
 - El perfil de pruebas existe solo en el entorno local. En la demo, cambiar un vencimiento es cambiar una variable de Railway, y eso es un despliegue que corta las conexiones (sección 3).
 - Los cortes de Toxiproxy existen solo en el entorno local. Con dos tablets en local, un corte afecta a las dos, porque comparten el proxy.
-- Las métricas M-1 a M-3 se miden en el entorno local, con el simulador y con los cortes de Toxiproxy durante los cobros (PRD, sección 8).
+- Las métricas M-1 a M-3 se miden en el entorno local, con el simulador y con los cortes de Toxiproxy durante los cobros (PRD, sección 8). La medición de M-2 y M-3 lee MySQL con consultas de solo lectura (DP-24).
+- **MercadoPago en las pruebas:** la solicitud se escribe directo en Redis y el cobro se inserta como fila en MySQL con el método de MercadoPago. No se usa la API de MercadoPago, y las variables `MP_*` siguen vacías (DP-23).
+- **Pruebas de la réplica:** viven en `replica/tests/`, en TypeScript con Jest y Supertest, y van por HTTP contra la réplica levantada con Docker Compose, con MySQL y Redis reales. Ahí van también las comprobaciones de O1 a O4 (DP-14).
 
 ## 5. Variables de entorno de la réplica
 
@@ -228,3 +233,17 @@ Solo los nombres y para qué sirve cada una. Los valores van en el archivo local
 | Sin uso | `MP_*` | MercadoPago. El flujo del mozo no las usa: quedan vacías |
 | Sin uso | `AWS_*` | Servicios de AWS. El flujo del mozo no las usa: quedan vacías |
 | Sin uso | `FRONT_URL` | URL de la app de comensales. El flujo del mozo no la usa: queda vacía |
+
+## 6. Integración continua
+
+Hay CI con GitHub Actions desde el primer PR de código, en `.github/workflows/` (DP-11). Corre en cada PR y bloquea el merge si algo falla:
+
+| Paso | Qué comprueba |
+|---|---|
+| ktlint | El estilo del código Kotlin de `android/` |
+| Tests de la app | Las pruebas locales de `android/app/src/test/`, incluidas las de MockWebServer (DP-20) |
+| Tests de la réplica | Las pruebas de `replica/tests/`, contra la réplica levantada con Docker Compose, con MySQL y Redis reales (DP-14) |
+| gitleaks | Que el PR no traiga secretos ni credenciales (DP-01) |
+
+- **Sin credenciales de Firebase en la CI (DP-43):** las pruebas de la réplica corren con `USE_FIREBASE` desactivada y con JWT firmados con el `JWT_SECRET` de prueba de la CI, como la prueba del contrato (DP-15). Las que necesitan el proyecto de Firebase de Tabbie (el canje de las cuentas de prueba de TK-02 y el inicio de sesión en el dispositivo) se marcan como locales, no corren en la CI, y su evidencia va en el PR.
+- La revisión adversarial del PR no es parte de la CI: la lanza el humano antes del merge (DP-12; [Definition of Done](../backlog/definition-of-done.md)).

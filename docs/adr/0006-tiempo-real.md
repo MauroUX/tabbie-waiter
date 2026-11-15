@@ -31,7 +31,7 @@
 
 ## Estado
 
-Aceptado.
+Aceptado; en parte reemplazado por [0008](0008-jwt-del-stream-en-el-encabezado.md).
 
 ## Consecuencias
 

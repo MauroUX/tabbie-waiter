@@ -275,10 +275,10 @@ Se miden con el **simulador de comensales**, en un turno simulado. Probar la app
 - El restaurante entrega y configura las tablets.
 - Los comensales siguen pidiendo desde la app web actual.
 
-## Pendiente para las historias
+## Definido en el backlog
 
-Se define en el backlog:
+Lo que este PRD dejó para las historias ya está definido en el [backlog](../backlog/README.md) (DP-44):
 
-- desde qué pantalla se llega a la impresora virtual (RF-32);
-- cómo se verifican los comportamientos entre tablets (RF-16, RF-22, RF-26), en pruebas con dos dispositivos;
-- el tamaño y la resolución de la tablet (RNF-10).
+- desde qué pantalla se llega a la impresora virtual (RF-32): un acceso fijo en la navegación principal ("Navegación principal y ubicación de las acciones");
+- cómo se verifican los comportamientos entre tablets (RF-16, RF-22, RF-26): con dos dispositivos, uno por mozo, y una captura de las dos pantallas ("Comportamientos entre tablets");
+- el tamaño y la resolución de la tablet (RNF-10): 10,1" a 1920×1200 de referencia y 8" a 1280×800 de mínimo, en horizontal ("Tamaño y resolución de la tablet").

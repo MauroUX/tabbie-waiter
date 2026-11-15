@@ -72,7 +72,7 @@ flowchart LR
 
 ## 2. Diagrama de contenedores (C4, nivel 2)
 
-Muestra el **sistema de pruebas**: la app contra la réplica, con el simulador en lugar del comensal y Toxiproxy en el medio para provocar cortes.
+Muestra el **sistema de pruebas**: la app contra la réplica, con el simulador en lugar del comensal y Toxiproxy en el medio para provocar cortes. Toxiproxy entra con la ampliación del backlog: en el lote 1 la app llega directo a la réplica (DP-41).
 
 ```mermaid
 flowchart LR
@@ -93,7 +93,7 @@ flowchart LR
     app -->|"Email y contraseña; recibe el ID token (SDK de Firebase)"| firebase
     app -->|"Canje: POST /auth/login con el ID token; recibe el JWT"| toxi
     app -->|"HTTP/JSON con Authorization: Bearer JWT"| toxi
-    app -->|"Stream de eventos: GET /sse/waiters?token=JWT"| toxi
+    app -->|"Stream de eventos: GET /sse/waiters con Authorization: Bearer JWT"| toxi
     toxi -->|"Reenvía el mismo tráfico TCP"| replica
     replica -->|"Verifica el ID token (Firebase Admin)"| firebase
     replica -->|"Consultas SQL (TypeORM)"| mysql
@@ -126,7 +126,7 @@ flowchart LR
 - **Inicio de sesión en Firebase:** la app usa el SDK de Firebase con email y contraseña, y recibe el ID token (RF-1; 0004). Este tráfico **no pasa por Toxiproxy** (0003).
 - **Canje del ID token:** `POST /auth/login` con el ID token en el body; el backend lo verifica con Firebase Admin y devuelve su propio JWT (T01; C1; contexto, sección 0). El ID token se usa solo en este canje (0004).
 - **HTTP con el JWT:** las consultas (T05 a T07) y las acciones que cambian datos (T08, T09, T11 a T14) llevan el JWT del backend en `Authorization: Bearer` (contexto, sección 0, `JwtAuthGuard`; 0004).
-- **Stream de eventos:** una sola conexión a `GET /sse/waiters?token=<JWT>`, con el JWT en la URL, que trae `order-confirmed-notification`, `in-person-payment-request` e `in-person-payment-request-deleted` (T16, T17; contexto, secciones 3.1 y 5; 0006).
+- **Stream de eventos:** una sola conexión a `GET /sse/waiters`, con el JWT en el encabezado `Authorization: Bearer` y no en la URL (0008), que trae `order-confirmed-notification`, `in-person-payment-request` e `in-person-payment-request-deleted` (T16, T17; contexto, secciones 3.1 y 5; 0006, 0008).
 - **Toxiproxy:** reenvía el tráfico TCP sin tocarlo. Los cortes y las demoras se provocan desde su API, sin tocar la app ni la réplica (0003). La app usa una única URL base para HTTP y SSE (contexto, sección 1), así que en local esa URL apunta siempre a Toxiproxy, que sin fallos activos reenvía el tráfico sin tocarlo (0003; [infraestructura.md](infraestructura.md)).
 - **Consultas a MySQL:** la réplica lee y escribe con TypeORM las tablas de la cadena del mozo (contexto, sección 3.2).
 - **Consultas a Redis:** las solicitudes de cobro presencial viven solo en Redis. Las escribe el comensal (o el simulador) con `POST /payments/in-person-request`; la cadena del mozo las lee con `SCAN` y `GET` y las borra con `DEL` (contexto, sección 3.3).
@@ -169,8 +169,8 @@ Dentro de la app, el estado de cada pantalla vive en su ViewModel, con MVVM y fl
 | Sacrificio | **Los eventos no tienen replay ni heartbeat** | Lo que se emite durante un corte se pierde. Hace falta consulta periódica (menos de 30 s), un sondeo cada 5 s o menos para detectar cortes, y actualizar todo al reconectar. Hay tráfico constante mientras la app está abierta, con una consulta de cobros por cada mesa (T07). | 0006; contexto, sección 5 |
 | Sacrificio | **El backend corre en una sola instancia** | Los eventos salen de la memoria de esa instancia: con más de una, un evento no llega a los clientes conectados a otra. Un reinicio o un despliegue corta todas las conexiones. Vale para el backend real y para la réplica. | 0006; contexto, secciones 0 y 5 |
 | Sacrificio | **La réplica puede quedar atrás del backend real** | Es una copia de un commit fijo. Lo vigila la predicción del límite: antes de cada entrega y antes de pasar al backend real se compara el contrato; si cambió, la réplica se actualiza con un ADR nuevo. | 0002 |
-| Sacrificio | **Las cuentas de prueba viven en el proyecto de Firebase de Tabbie** | La réplica necesita las credenciales de ese proyecto como secreto. Las credenciales de las cuentas de prueba, documentadas en el `Readme.md`, también sirven para iniciar sesión en ese proyecto; si una inicia sesión contra el backend real, `POST /auth/login` crea su fila `user` en esa base. Falta confirmar si el proyecto es el productivo. | 0002 (T01); ADRs, "Decisiones pendientes" |
-| Sacrificio | El JWT viaja en la URL del stream | El backend recibe el token del stream por query param; falta decidir qué registran los logs. | 0004, 0006; contexto, sección 5; ADRs, "Decisiones pendientes" |
+| Sacrificio | **Las cuentas de prueba viven en el proyecto de Firebase de Tabbie** | La réplica necesita las credenciales de ese proyecto como secreto. Las credenciales de las cuentas de prueba no se publican: se entregan con el formulario de entrega. Igual sirven para iniciar sesión en ese proyecto; si una inicia sesión contra el backend real, `POST /auth/login` crea su fila `user` en esa base. El proyecto es de desarrollo: la app de Tabbie todavía no se liberó. | 0002 (T01); 0009 |
+| Sacrificio | El JWT del stream va en el encabezado, sin comprobar todavía | El backend lee el JWT del encabezado `Authorization` antes que del query param, así que el stream lo recibe en el encabezado y la URL no lleva el token. Hasta que TK-05 lo compruebe contra la réplica, RA-6 sigue abierto. Los logs no registran el JWT (PA-6 de [seguridad.md](seguridad.md)). | 0008; contexto, sección 0 |
 | Sacrificio | Sin conexión no hay datos | Al reiniciar se recarga todo del backend, y sin red la app solo puede mostrar el aviso de RNF-4. | 0005 |
 | Sacrificio | Una acción que no responde queda en duda | Sin reintentos, la app no sabe si la acción se registró; el mozo decide después de ver el estado actualizado. Un fallo de conexión que OkHttp resolvía en silencio llega al mozo como error. | 0007 |
 | Sacrificio | Margen entre la revisión previa y la acción | Con dos tablets casi al mismo tiempo puede haber un cobro duplicado, un cobro manual que supera el saldo o una mesa cerrada dos veces. Se acepta porque el backend no se modifica e inicialmente hay una sola tablet por restaurante. | 0007; backlog, "Riesgos aceptados" |

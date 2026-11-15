@@ -14,22 +14,31 @@ Hasta el segundo nivel; en `android/`, hasta los paquetes de cada funcionalidad.
 
 ```text
 tabbie-waiter/
-├── compose.yaml                 Servicios del entorno de prueba: MySQL 8, Redis 7 y Toxiproxy
+├── compose.yaml                 Servicios del entorno de prueba: MySQL 8, Redis 7, Toxiproxy y la carga de los datos iniciales
 ├── Readme.md                    Entrega del proyecto: ficha, producto, arquitectura, datos, API, historias, tickets y PRs
 ├── Prompts.md                   Los prompts usados en cada sección del Readme
-├── AGENTS.md                    Instrucciones para agentes (llega al configurar el proyecto)
-├── CLAUDE.md                    Instrucciones para Claude Code (llega al configurar el proyecto)
-├── openspec/                    Specs y cambios de OpenSpec (llega al configurar el proyecto)
+├── AGENTS.md                    Instrucciones para agentes, con la Definition of Done (llega con el setup, DP-06)
+├── CLAUDE.md                    Instrucciones para Claude Code (llega con el setup, DP-06)
+├── .gitignore                   Lo que no entra al repo, como los archivos locales de variables (llega con el setup, DP-06)
+├── .gitattributes               Finales de línea y tipos de archivo (llega con el setup, DP-06)
+├── openspec/                    Specs y cambios de OpenSpec (llega con el setup, DP-06)
+│
+├── .claude/
+│   └── hooks/                   Hook de pre-commit que bloquea credenciales y cuentas (DP-07)
+│
+├── .github/
+│   └── workflows/               CI con GitHub Actions: ktlint, tests de la app, tests de la réplica y gitleaks (DP-11)
 │
 ├── backend/                     Copia sin cambios de order-pay-backend, rama main, commit c18b0f7 (0002)
 │   ├── UPSTREAM.md              De qué repositorio y commit sale la copia, y cómo se compara el contrato
 │   └── …                        El código y la configuración de build, tal como están en ese commit
 │
 ├── replica/                     Lo propio de la réplica, fuera de la copia (0002, 0003)
-│   ├── datos-iniciales/         Datos sintéticos: dos restaurantes, dos mozos en el primero y uno en el segundo
+│   ├── datos-iniciales/         SQL propio con los datos sintéticos: dos restaurantes, dos mozos en el primero y uno en el segundo (DP-16)
 │   ├── firebase/                Script que crea las cuentas de prueba en el proyecto de Firebase de Tabbie
 │   ├── toxiproxy/               Configuración de los proxies entre la app y la réplica
-│   └── entornos/                Perfiles de variables de entorno de la réplica: solo ejemplos, sin valores
+│   ├── entornos/                Perfiles de variables de entorno de la réplica: solo ejemplos, sin valores
+│   └── tests/                   Pruebas de integración y de contrato de la réplica, y las comprobaciones de O1 a O4: TypeScript con Jest y Supertest (DP-14)
 │
 ├── android/                     Proyecto Gradle de la app del mozo (0001, 0003)
 │   ├── gradle/                  Wrapper de Gradle y catálogo de versiones
@@ -56,7 +65,8 @@ tabbie-waiter/
     ├── backlog/                 Épicas, historias de usuario, criterios de aceptación, Definition of Done y tickets
     ├── adr/                     Decisiones de arquitectura
     ├── architecture/            Vista general, componentes, walking skeleton, estructura, infraestructura y seguridad
-    └── api/                     Especificación de los endpoints y eventos que usa la app
+    ├── api/                     openapi.yaml, escrito a mano desde el código de la copia, con los campos sensibles marcados (DP-09)
+    └── design/                  Wireframes de baja fidelidad, enlazados desde los tickets de frontend (DP-10)
 ```
 
 **Dónde corre cada contenedor** del diagrama de contenedores ([README.md](README.md), sección 2):
@@ -64,9 +74,9 @@ tabbie-waiter/
 | Contenedor | Dónde está |
 |---|---|
 | Waiter App | `android/` |
-| Réplica del backend | `backend/` (el código, sin cambios) y `replica/` (sus datos, cuentas de prueba, Toxiproxy y variables de entorno) |
+| Réplica del backend | `backend/` (el código, sin cambios) y `replica/` (sus datos, cuentas de prueba, Toxiproxy, variables de entorno y pruebas) |
 | Simulador de comensales | `simulator/` |
-| MySQL 8, Redis 7 y Toxiproxy | Servicios de `compose.yaml`. Toxiproxy toma su configuración de `replica/toxiproxy/`. |
+| MySQL 8, Redis 7 y Toxiproxy | Servicios de `compose.yaml`. Toxiproxy, desde la ampliación (DP-41), toma su configuración de `replica/toxiproxy/`. Otro servicio, que corre una sola vez, carga el SQL de `replica/datos-iniciales/` (DP-16). |
 | Firebase Authentication | Ninguna carpeta: es externo, el proyecto de Firebase de Tabbie (0002). Solo el script de `replica/firebase/` crea cuentas en él. |
 
 Cómo se levantan juntos la réplica, sus servicios y el simulador lo detalla [infraestructura.md](infraestructura.md).
@@ -112,7 +122,7 @@ La app, la réplica, el simulador y la documentación están en un solo reposito
 
 `android/` es un proyecto Gradle con un único módulo, `app`. Sus paquetes se organizan primero por funcionalidad y, dentro de cada una, por las capas de 0003.
 
-- **Por funcionalidad:** `sesion/`, `salon/`, `cobros/` e `impresora/` siguen las partes del turno del mozo, y las historias del backlog caen casi siempre en una sola: HU-01 y HU-09 en `sesion/`; HU-02 a HU-05 y HU-10 en `salon/`; HU-06 a HU-08 en `cobros/`; HU-11 en `impresora/`. Un ticket de una historia toca sobre todo un paquete.
+- **Por funcionalidad:** `sesion/`, `salon/`, `cobros/` e `impresora/` siguen las partes del turno del mozo, y las historias del backlog caen casi siempre en una sola: HU-01 y HU-09 en `sesion/`; HU-02 a HU-05, HU-10 y HU-12 en `salon/`; HU-06 a HU-08 y HU-13 en `cobros/`; HU-11 en `impresora/`. Un ticket de una historia toca sobre todo un paquete.
 - **Por capas, dentro de cada funcionalidad:** MVVM con flujo de datos unidireccional (0003), en las capas de [componentes.md](componentes.md), sección 1:
   - **interfaz y ViewModel:** las pantallas en Jetpack Compose y el ViewModel de cada una, que tiene el estado de la pantalla en memoria (0005);
   - **repositorios:** las reglas de la operación y el estado compartido entre pantallas;
@@ -130,7 +140,7 @@ El backend de Tabbie no se modifica (0002; PRD, sección 9), así que los ticket
 | Tipo | Carpetas que toca | Qué hace | Ejemplos | Qué no toca |
 |---|---|---|---|---|
 | **Frontend** | `android/`: el paquete de la funcionalidad de la historia y, si hace falta, `comun/` o la navegación principal | Pantallas, ViewModels y repositorios de la app, con sus pruebas en `test/` y `androidTest/` | HU-07 en `cobros/`; el aviso sin conexión del walking skeleton en `comun/red/` y la navegación principal | `backend/`, `replica/`, `simulator/` |
-| **Backend** | `replica/entornos/` y `replica/toxiproxy/`, `compose.yaml` y `simulator/` | Cómo corre la réplica en las pruebas (variables de entorno, servicios, proxies) y los escenarios del simulador que generan lo que el comensal hace | Un escenario nuevo del simulador, como ESC-6 para RF-25; un vencimiento corto de las solicitudes de cobro para HU-06 | `backend/`, salvo para reemplazar la copia por un commit nuevo con un ADR que reemplace a 0002 |
+| **Backend** | `replica/entornos/`, `replica/toxiproxy/` y `replica/tests/`, `compose.yaml` y `simulator/` | Cómo corre la réplica en las pruebas (variables de entorno, servicios, proxies), sus pruebas de integración y de contrato, y los escenarios del simulador que generan lo que el comensal hace | Un escenario nuevo del simulador, como ESC-6 para RF-25; un vencimiento corto de las solicitudes de cobro para HU-06 | `backend/`, salvo para reemplazar la copia por un commit nuevo con un ADR que reemplace a 0002 |
 | **Base de datos** | `replica/datos-iniciales/`, `replica/firebase/` y, si cambia un servicio, `compose.yaml` | Datos iniciales sintéticos y su configuración: restaurantes, mesas, mozos y sus cuentas de prueba en Firebase, que tienen que coincidir con las filas `user` de los datos | Los dos restaurantes con dos mozos en el primero (0002); una mesa con pedidos ya cobrados para HU-04 | El esquema: no hay migraciones, porque el esquema viene con la copia y no se modifica |
 
-**Datos iniciales:** cómo se cargan, con el seeder que trae la copia o por fuera, sigue pendiente ([componentes.md](componentes.md), "Decisiones pendientes"). En cualquier caso, los datos viven en `replica/datos-iniciales/` y no en `backend/`: si el seeder de la copia no puede leerlos sin cambiar su código, se cargan por fuera.
+**Datos iniciales:** son SQL propio en `replica/datos-iniciales/`, no en `backend/`. Los carga un servicio de `compose.yaml` que corre una sola vez, espera a que la réplica cree el esquema y ejecuta el SQL. No se usa el seeder de la copia ([componentes.md](componentes.md#decisiones-tomadas-2026-11-14), DP-16).

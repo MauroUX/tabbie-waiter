@@ -1,4 +1,4 @@
-# TK-01 · Réplica levantada, detrás de Toxiproxy, con el contrato comprobado
+# TK-01 · Réplica levantada con el contrato comprobado
 
 | | |
 |---|---|
@@ -8,12 +8,12 @@
 
 ## Objetivo
 
-Dejar la réplica corriendo en el entorno local, con la copia sin cambios en `backend/`, los servicios de `compose.yaml` y Toxiproxy delante, y el contrato de los endpoints y eventos que usa la app comprobado por HTTP.
+Dejar la réplica corriendo en el entorno local, con la copia sin cambios en `backend/` y los servicios de `compose.yaml`, y el contrato de los endpoints y eventos que usa la app comprobado por HTTP.
 
 ## Criterios heredados
 
 - [SEG-c10](../../architecture/seguridad.md#43-criterios-nuevos) · Los secretos no están en el repo.
-- [WS-c1](../../architecture/walking-skeleton.md#5-criterios-de-aceptación) · La app arranca contra la réplica. **En parte:** que la réplica arranca y atiende con las variables de MercadoPago y de archivos vacías o de mentira. El criterio completo es de [TK-06](TK-06-eventos-y-consulta-periodica.md).
+- [WS-c1](../../architecture/walking-skeleton.md#5-criterios-de-aceptación) · La app arranca contra la réplica. **En parte:** que la réplica arranca y atiende con las variables de MercadoPago y de archivos vacías o de mentira. El criterio completo es de [TK-05](TK-05-eventos-y-consulta-periodica.md).
 
 ## Alcance
 
@@ -21,24 +21,26 @@ Dejar la réplica corriendo en el entorno local, con la copia sin cambios en `ba
 
 - **La copia en `backend/`:** `order-pay-backend`, rama `main`, commit `c18b0f7`, con su código y su configuración de build. No entran datos, variables de entorno ni la configuración de despliegue de Tabbie (0002).
 - **`backend/UPSTREAM.md`:** de qué repositorio y commit sale la copia, cómo se comprueba que sigue sin cambios y cómo se compara el contrato con el `main` de Tabbie (0002, "Predicción del límite").
-- **`compose.yaml`:** la réplica, construida con el Dockerfile de la copia; MySQL 8, vacío al primer arranque; Redis 7, sin persistencia; y Toxiproxy, con su API accesible solo desde la máquina de desarrollo ([infraestructura.md](../../architecture/infraestructura.md), sección 2.1).
-- **`replica/entornos/`:** los ejemplos de los dos perfiles, el normal y el de pruebas, con los nombres de las variables de [infraestructura.md](../../architecture/infraestructura.md), sección 5, y sin valores. El perfil de pruebas tiene vencimientos cortos de `JWT_EXPIRATION_WAITERS` y `REDIS_EXPIRATION_TIME`; el del JWT tiene que permitir los 3 minutos de WS-c10.
-- **`replica/toxiproxy/`:** el proxy hacia la réplica, por el que pasa la app, y las dos formas de corte del skeleton (sección 4) listas para activarse por la API: "sin red" (rechaza las conexiones nuevas y cierra las abiertas) y "el sistema no responde" (deja las conexiones abiertas sin pasar datos).
+- **`compose.yaml`:** la réplica, construida con el Dockerfile de la copia; MySQL 8, vacío al primer arranque, y Redis 7, sin persistencia ([infraestructura.md](../../architecture/infraestructura.md), sección 2.1).
+- **`replica/entornos/`:** los ejemplos de los dos perfiles, el normal y el de pruebas, con los nombres de las variables de [infraestructura.md](../../architecture/infraestructura.md), sección 5, y sin valores. El perfil de pruebas tiene un vencimiento corto de `REDIS_EXPIRATION_TIME`, para HU-06.h4.
 - **Arranque sin MercadoPago ni archivos:** `MP_*`, `AWS_*` y `FRONT_URL` vacías o con valores de mentira, comprobando que ningún endpoint de la cadena del mozo ni del simulador las usa.
-- **Prueba del contrato por HTTP**, a través de Toxiproxy, como la app: una por cada fila de la columna "Waiter App" del inventario (contexto, sección 3.1). Comprueba el método y la ruta, los guards de la tabla de trazabilidad (sin JWT responde 401 donde hay "J"), los campos del cuerpo que manda la app y los de la respuesta que lee. Los eventos se comprueban abriendo el stream: con un JWT vigente se abre; con uno vencido responde 401 antes de abrirse (C1).
+- **Prueba del contrato por HTTP**, en `replica/tests/` (DP-14): una por cada fila de la columna "Waiter App" del inventario (contexto, sección 3.1). Comprueba el método y la ruta, los guards de la tabla de trazabilidad (sin JWT responde 401 donde hay "J"), los campos del cuerpo que manda la app y los de la respuesta que lee. Los eventos se comprueban abriendo el stream con el JWT en el encabezado `Authorization` (0008): con un JWT vigente se abre; con uno vencido responde 401 antes de abrirse (C1).
+- **El JWT de mozo de la prueba** (DP-15): la prueba inserta un mozo en MySQL y firma su JWT con el `JWT_SECRET` de la réplica, sin pasar por Firebase.
 - **El detector de secretos** de SEG-c10, sobre todo el historial y todas las ramas.
+- **`docs/api/openapi.yaml`** (DP-09, DP-42): escrito a mano desde el código de la copia, con una entrada por cada fila de la columna "Waiter App" del inventario y los campos sensibles marcados `x-sensitive: true`. Las pruebas del contrato validan las respuestas de la réplica contra él. Tres de esos endpoints se copian en la sección 4 del `Readme.md`.
 
 **No incluye:**
 
 - Los datos iniciales y las cuentas de prueba: [TK-02](TK-02-datos-iniciales.md).
-- La comprobación de O1 a O4 (SEG-c1 a SEG-c4), que necesita el simulador: [TK-03](TK-03-simulador-mesas-y-pedidos.md) y [TK-04](TK-04-simulador-cobros.md).
-- Los escenarios del simulador: TK-03, TK-04 y [TK-12](TK-12-simulador-cancelar-pedido.md).
-- El entorno de demo en Railway ([infraestructura.md](../../architecture/infraestructura.md), sección 2.2): no lo pide ningún criterio de esta descomposición (ver el [índice](README.md), "Fuera de esta descomposición").
-- La app: [TK-05](TK-05-app-base.md).
+- La comprobación de O1 a O4 (SEG-c1 a SEG-c4), que necesita el simulador: [TK-08](TK-08-simulador-ordenes.md) y [TK-13](TK-13-simulador-pagos.md).
+- Los escenarios del simulador: [TK-03](TK-03-simulador-mesas-pedidos-y-cobros.md), TK-08 y TK-13.
+- Toxiproxy y los cortes de punta a punta: van en la ampliación (DP-04; ver el [índice](README.md), "Fuera de esta descomposición").
+- El entorno de demo en Railway: va al final de la ampliación.
+- La app: [TK-04](TK-04-app-base.md).
 
 ## Dónde se trabaja
 
-- **Carpetas** ([estructura.md](../../architecture/estructura.md)): `backend/` (solo para poner la copia y `UPSTREAM.md`), `compose.yaml`, `replica/entornos/` y `replica/toxiproxy/`. La prueba del contrato, fuera de `backend/`, en la carpeta que se decida (ver "Riesgos y decisiones pendientes").
+- **Carpetas** ([estructura.md](../../architecture/estructura.md)): `backend/` (solo para poner la copia y `UPSTREAM.md`), `compose.yaml`, `replica/entornos/`, `replica/tests/` y `docs/api/`.
 - **Componentes** ([componentes.md](../../architecture/componentes.md), sección 2): los módulos de la copia tal como están, sin tocarlos: `AppModule`, `AuthModule`, `FirebaseAdminModule`, los guards, `RestaurantsModule`, `OrderModule`, `TableSessionModule`, `PaymentModule`, `SseModule` y `RedisModule`.
 
 ## Contrato que usa
@@ -52,12 +54,11 @@ No comprueba las filas que la app no usa: T02, T03, T04, T10, T15 y T18.
 
 ## Requisitos de prueba del backlog
 
-- **Un vencimiento corto, configurable, de la sesión y de las solicitudes de cobro:** el perfil de pruebas de `replica/entornos/`.
-- **Una forma de provocar fallos parciales al mandar a cocina y al cancelar:** la parte de Toxiproxy, para la falta de respuesta, las demoras y los cortes ([infraestructura.md](../../architecture/infraestructura.md), sección 4).
+- **Un vencimiento corto, configurable, de las solicitudes de cobro:** el perfil de pruebas de `replica/entornos/`. El de la sesión es de la renovación, que va en la ampliación.
 
 ## Dependencias
 
-Ninguna. Es el primer ticket.
+- El setup del proyecto (DP-06; ver el [índice](README.md), "Antes del primer ticket").
 
 ## Pasos
 
@@ -65,13 +66,12 @@ Ninguna. Es el primer ticket.
 2. Escribir las pruebas primero: el detector de secretos, el arranque de la réplica y el contrato. Las del arranque y el contrato fallan, porque todavía no hay réplica.
 3. Copiar `c18b0f7` en `backend/` sin tocar ningún archivo, y escribir `UPSTREAM.md`. Comprobar que el `diff` contra el commit da vacío.
 4. Escribir los ejemplos de los perfiles en `replica/entornos/`, y armar el archivo local de variables, que no entra al repo, con las credenciales del proyecto de Firebase de Tabbie y un `JWT_SECRET` propio del entorno local.
-5. Escribir `compose.yaml` con los cuatro servicios. Levantar y comprobar que la réplica se conecta a MySQL y Redis y crea el esquema desde sus entidades (`DB_SYNC` activada).
+5. Escribir `compose.yaml` con la réplica, MySQL y Redis. Levantar y comprobar que la réplica se conecta a MySQL y Redis y crea el esquema desde sus entidades (`DB_SYNC` activada).
 6. Arrancar con `MP_*`, `AWS_*` y `FRONT_URL` vacías. Si la copia no arranca, usar valores de mentira, nunca cambiar su código, y dejar anotado en el ejemplo qué variable lo necesita.
-7. Configurar en `replica/toxiproxy/` el proxy hacia la réplica y las dos formas de corte. Comprobar por la API que cada una se activa, tiene el efecto esperado y se quita.
-8. Completar las pruebas del contrato, a través de Toxiproxy y sin fallos activos, hasta que pasen todas.
-9. Correr el detector de secretos sobre todo el historial y todas las ramas.
-10. Actualizar [infraestructura.md](../../architecture/infraestructura.md) con los comandos reales del entorno local, y [estructura.md](../../architecture/estructura.md) si alguna carpeta quedó distinta.
-11. Abrir el PR desde una rama `mc`, con el `diff` vacío de `backend/` como evidencia.
+7. Escribir `docs/api/openapi.yaml` y completar las pruebas del contrato, con el mozo insertado y su JWT firmado, validando cada respuesta contra él, hasta que pasen todas. Copiar tres endpoints en la sección 4 del `Readme.md`.
+8. Correr el detector de secretos sobre todo el historial y todas las ramas.
+9. Actualizar [infraestructura.md](../../architecture/infraestructura.md) con los comandos reales del entorno local, y [estructura.md](../../architecture/estructura.md) si alguna carpeta quedó distinta.
+10. Abrir el PR desde una rama `mc`, con el `diff` vacío de `backend/` como evidencia.
 
 ## Definition of Done
 
@@ -79,14 +79,15 @@ Ninguna. Es el primer ticket.
 - **Propio del ticket:**
   - El PR muestra que el `diff` de `backend/` contra `c18b0f7` da vacío, salvo `UPSTREAM.md`.
   - La réplica arranca desde cero con `compose.yaml` y un archivo local de variables, siguiendo solo lo que dice [infraestructura.md](../../architecture/infraestructura.md).
-  - Cada fila de la columna "Waiter App" del inventario tiene su prueba del contrato, y pasa a través de Toxiproxy.
-  - Las dos formas de corte se activan y se quitan por la API de Toxiproxy, y una prueba comprueba el efecto de cada una.
+  - Cada fila de la columna "Waiter App" del inventario tiene su entrada en `docs/api/openapi.yaml` y su prueba del contrato, y pasa.
   - Si una prueba del contrato no coincide con el contexto, se corrige el contexto, no la copia.
 
-## Riesgos y decisiones pendientes
+## Riesgos y decisiones
 
-- **Riesgo técnico del skeleton** ([walking-skeleton.md](../../architecture/walking-skeleton.md), sección 6): "La réplica no arranca sin las variables de MercadoPago ni de almacenamiento de archivos". Se despeja en el paso 6.
+- **Riesgo técnico del skeleton** ([walking-skeleton.md](../../architecture/walking-skeleton.md), sección 6.1): "La réplica no arranca sin las variables de MercadoPago ni de almacenamiento de archivos". Se despeja en el paso 6.
 - **Predicción del límite** (0002): si al comparar el contrato con el `main` de Tabbie hay diferencias, la réplica pasa a un commit nuevo con un ADR que reemplaza a 0002. No se edita a mano ningún archivo de la copia ([estructura.md](../../architecture/estructura.md), "Copia aislada del backend").
-- **Pendiente:** dónde viven las pruebas de integración de la réplica ([índice](README.md#decisiones-pendientes)).
-- **Pendiente:** cómo obtiene la prueba del contrato un JWT de mozo antes de que existan las cuentas de TK-02 ([índice](README.md#decisiones-pendientes)).
-- **Pendiente:** quién provoca los cortes y los fallos: "Falta decidir si los provoca el simulador por la API de Toxiproxy o se provocan aparte" ([componentes.md](../../architecture/componentes.md), "Decisiones pendientes").
+- **Decidido (DP-14):** las pruebas de integración y de contrato de la réplica viven en `replica/tests/`, en TypeScript con Jest y Supertest, y van por HTTP contra la réplica levantada con Docker Compose, con MySQL y Redis reales ([índice](README.md#decisiones-tomadas-2026-11-14)).
+- **Decidido (DP-15):** la prueba del contrato inserta un mozo en MySQL y firma su JWT con el `JWT_SECRET` de la réplica, porque `src/guards/auth/jwt.strategy.ts` de la copia solo verifica la firma y busca el `userId`. El canje con Firebase se prueba en [TK-02](TK-02-datos-iniciales.md).
+- **Decidido (DP-09):** el OpenAPI de `docs/api/openapi.yaml` se escribe a mano desde el código de la copia, con los campos sensibles marcados `x-sensitive: true`, y lo validan las pruebas de contrato de la réplica. Lo escribe este ticket (DP-42).
+- **Decidido (DP-41):** en el lote 1, `compose.yaml` no tiene Toxiproxy y la app llega directo a la réplica. Toxiproxy se suma con la ampliación ([infraestructura.md](../../architecture/infraestructura.md), sección 2.1).
+- **Decidido (DP-43):** en la CI, las pruebas del contrato corren con `USE_FIREBASE` desactivada y un `JWT_SECRET` de prueba, sin credenciales de Firebase ([infraestructura.md](../../architecture/infraestructura.md#6-integración-continua)).

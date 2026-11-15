@@ -1,13 +1,14 @@
-# TK-13 · Navegación principal y "Órdenes": pestañas y tarjetas
+# TK-09 · Navegación principal y "Órdenes": pestañas y tarjetas
 
 | | |
 |---|---|
 | **Tipo** | Frontend (app) |
 | **Origen** | [HU-02](../historias/HU-02-mesas-activas.md) · Ver las mesas activas y sus pedidos (RF-5, RF-6) |
+| **Wireframe** | [`docs/design/ordenes.png`](../../design/ordenes.png) (DP-10; todavía no existe) |
 
 ## Objetivo
 
-Que el mozo vea, desde la navegación principal, una tarjeta por cada mesa ocupada de su restaurante, con sus pedidos por categoría en las pestañas "Pendientes" e "Ingresadas", siempre al día.
+Que el mozo vea, desde la navegación principal, una tarjeta por cada mesa ocupada de su restaurante, con sus pedidos por categoría en las pestañas "Pendientes" e "Ingresadas", siempre al día. Es la primera pantalla con diseño del lote 1 (DP-30).
 
 ## Criterios heredados
 
@@ -24,22 +25,25 @@ Que el mozo vea, desde la navegación principal, una tarjeta por cada mesa ocupa
 
 **Incluye:**
 
-- **Navegación principal**, visible desde cualquier pantalla de la operación (backlog, "Navegación principal y ubicación de las acciones"): "Órdenes" y "Pagos", y el aviso de que no hay conexión con diseño, que reemplaza al del skeleton.
+- **Navegación principal**, visible desde cualquier pantalla de la operación (backlog, "Navegación principal y ubicación de las acciones"): "Órdenes" y "Pagos", y el aviso de que no hay conexión con diseño, que reemplaza al del skeleton. "Pagos" queda vacía hasta [TK-14](TK-14-pagos-solicitudes.md).
 - **Pantalla "Órdenes":** una tarjeta por mesa activa y ninguna de las libres, con su número de mesa.
 - **Pestañas:** "Pendientes", con los pedidos `confirmed`, e "Ingresadas", con los `in_kitchen`, agrupados por categoría. Los `canceled` no se muestran (RF-6).
 - **Mesas sin pedidos en una pestaña:** en "Pendientes", una mesa ocupada sin ningún pedido aparece con "Sin pedidos"; una mesa con pedidos solo en "Ingresadas" no aparece en "Pendientes", y una sin pedidos no aparece en "Ingresadas" (HU-02.h2).
 - **Salón, lo que necesita la pantalla:** separa los pedidos por estado y por categoría a partir de T05, con el restaurante de la sesión.
+- **Sobre el inicio de sesión mínimo del skeleton** (DP-30): "Órdenes" se abre después del inicio de sesión sin diseño de [TK-04](TK-04-app-base.md). El inicio de sesión con diseño llega en [TK-11](TK-11-inicio-de-sesion.md).
 
 **No incluye:**
 
-- Los datos de cada tarjeta (comensales, total, lo pagado, tiempo de ocupación, ayuda) y el cronómetro: [TK-14](TK-14-tarjeta-y-cronometro.md).
-- "Mandar a cocina" y la acción para eliminar pedidos: [TK-16](TK-16-mandar-a-cocina.md) y [TK-17](TK-17-cancelar-pedidos.md).
-- El contenido de "Pagos" y su indicador (HU-06), el contador y el aviso de pedido confirmado (HU-03), "Registrar cobro" (HU-05), "Atendido" (HU-10) y el acceso a la impresora virtual (HU-11): fuera de esta descomposición.
+- Los datos de cada tarjeta (comensales, total, lo pagado, tiempo de ocupación, ayuda) y el cronómetro: [TK-10](TK-10-tarjeta-y-cronometro.md).
+- "Mandar a cocina": [TK-12](TK-12-mandar-a-cocina.md).
+- El contenido de "Pagos" y su indicador: [TK-14](TK-14-pagos-solicitudes.md).
+- La acción para eliminar pedidos (HU-12), el contador y el aviso de pedido confirmado (HU-03), "Registrar cobro" (HU-05), "Atendido" (HU-10) y el acceso a la impresora virtual (HU-11): van en la ampliación.
 
 ## Dónde se trabaja
 
 - **Carpetas** ([estructura.md](../../architecture/estructura.md)): la raíz del paquete base (navegación principal) y `salon/`, con sus pruebas.
 - **Componentes** ([componentes.md](../../architecture/componentes.md), sección 1): Navegación principal, Pantalla "Órdenes" y Salón.
+- **Wireframe:** [`docs/design/ordenes.png`](../../design/ordenes.png).
 
 ## Contrato que usa
 
@@ -47,19 +51,18 @@ Por su fila de la [tabla de trazabilidad](../../context/panel-mozos-actual.md#2-
 
 ## Requisitos de prueba del backlog
 
-- **Datos iniciales con dos restaurantes:** HU-02.h7 se prueba con el segundo restaurante, con mesas ocupadas por ESC-8 ([TK-04](TK-04-simulador-cobros.md)).
+- **Datos iniciales con dos restaurantes:** HU-02.h7 se prueba con el segundo restaurante, con mesas ocupadas por ESC-8 ([TK-08](TK-08-simulador-ordenes.md)).
 
 ## Dependencias
 
-- [TK-10](TK-10-inicio-de-sesion.md): la sesión (HU-01).
-- [TK-12](TK-12-simulador-cancelar-pedido.md): ESC-7, para HU-02.h8.
-- [TK-04](TK-04-simulador-cobros.md): ESC-8, para HU-02.h7.
+- [TK-05](TK-05-eventos-y-consulta-periodica.md) y [TK-06](TK-06-aviso-y-reconexion.md): la consulta periódica, los eventos y el aviso sin conexión del skeleton.
+- [TK-08](TK-08-simulador-ordenes.md): ESC-7, para HU-02.h8, y ESC-8, para HU-02.h7.
 
 ## Pasos
 
 1. Crear el cambio de OpenSpec, con un scenario por cada criterio heredado.
-2. Escribir las pruebas primero, y verlas fallar: pruebas locales de Salón (separación por estado y categoría, mesas sin pedidos) y pruebas en el dispositivo contra la réplica, con el simulador ocupando mesas, confirmando y cancelando pedidos, y Toxiproxy para el corte.
-3. Escribir la navegación principal con "Órdenes", "Pagos" y el aviso sin conexión.
+2. Escribir las pruebas primero, y verlas fallar: pruebas locales de Salón (separación por estado y categoría, mesas sin pedidos) y pruebas en el dispositivo contra la réplica, con el simulador ocupando mesas, confirmando y cancelando pedidos, y la red del emulador cortada para HU-02.h6.
+3. Escribir la navegación principal con "Órdenes", "Pagos" y el aviso sin conexión, siguiendo el wireframe.
 4. Escribir en Salón la separación de los pedidos por pestaña y por categoría.
 5. Escribir la pantalla "Órdenes" con sus pestañas y tarjetas, y sus estados de carga, de error y vacío.
 6. Comprobar los 30 s de HU-02.h1 y HU-02.h8, y los 5 s de HU-02.h6.
@@ -72,7 +75,8 @@ Por su fila de la [tabla de trazabilidad](../../context/panel-mozos-actual.md#2-
   - La lista sin diseño del skeleton deja de usarse.
   - "Órdenes" se ve completa, sin desplazamiento horizontal, con al menos las seis mesas del restaurante 1 ocupadas.
 
-## Riesgos y decisiones pendientes
+## Riesgos y decisiones
 
 - **Componentes, Salón:** la réplica "Descarta los pedidos `pending` y mantiene los `canceled`" en T05 ([componentes.md](../../architecture/componentes.md), sección 2). La app tiene que descartar los `canceled`.
-- **RNF-2:** HU-02.h1 y HU-02.h8 dependen del intervalo de la consulta periódica, todavía pendiente ([ADRs](../../adr/README.md), "Decisiones pendientes").
+- **RNF-2:** HU-02.h1 y HU-02.h8 dependen del intervalo de la consulta periódica de las mesas: 5 s, con el sondeo del Monitor de conexión (DP-25). Con WS-c4 en la ampliación, HU-02.h1 es además la que comprueba la consulta periódica en el lote 1 ([walking-skeleton.md](../../architecture/walking-skeleton.md), sección 5).
+- **Decidido (DP-30):** "Órdenes" va antes que el resto de HU-01, así la primera pantalla con diseño llega antes.

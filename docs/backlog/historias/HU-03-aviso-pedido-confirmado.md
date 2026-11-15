@@ -110,10 +110,10 @@
 
 | Criterio | | Nota |
 |---|---|---|
-| Independiente | ✘ | Actualiza la mesa que muestra HU-02, y el contador baja con los envíos y las cancelaciones de HU-04 (HU-03.h5). |
+| Independiente | ✘ | Actualiza la mesa que muestra HU-02, y el contador baja con los envíos de HU-04 y las cancelaciones de HU-12 (HU-03.h5). |
 | Negociable | ✔ | La forma y la duración del aviso, el sonido y el parpadeo se pueden ajustar. |
 | Valiosa | ✔ | El mozo se entera de cada pedido nuevo en el tiempo de RNF-1, aunque esté en otra sección. |
-| Estimable | ✔ | El canal de avisos lo deja el walking skeleton. Para HU-03.h4, el diseño define cómo se reconocen los pedidos de un mismo conjunto. |
+| Estimable | ✔ | El canal de avisos lo deja el walking skeleton. Para HU-03.h4, los pedidos del mismo `tableSessionId` que llegan dentro de 1,5 s son un conjunto (DP-33). |
 | Pequeña | ✔ | Un único tipo de aviso, con su sonido y su contador en dos lugares. Entra en 1 o 2 días. |
 | Testeable | ✔ | El simulador confirma pedidos sueltos y conjuntos de pedidos, y se mide el tiempo de RNF-1. El aviso ilegible se prueba con un aviso inválido, y el corte, sacándole la red a la tablet. HU-03.h7 se prueba con el segundo restaurante de los datos iniciales (README, requisitos de prueba). |
 

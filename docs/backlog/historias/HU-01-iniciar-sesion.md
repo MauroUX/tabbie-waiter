@@ -4,9 +4,15 @@
 |---|---|
 | **Épica** | E1. Acceso del mozo |
 | **Prioridad** | Must |
+| **Lote** | Lote 1, sin la renovación de la sesión; la renovación va en la ampliación (DP-03) |
 | **RF que cubre** | RF-1, RF-2, RF-3 |
 | **RNF y reglas que la condicionan** | RNF-5, RNF-7, RNF-8, RNF-10 |
 | **Complejidad** | M: rechazo de los usuarios que no son mozos y una renovación de la sesión que el mozo no nota. |
+
+> **Lotes (DP-03):** la historia no se parte.
+>
+> - **Lote 1:** HU-01.c1, HU-01.c2, HU-01.h1, HU-01.h2, HU-01.h3, HU-01.h5 y HU-01.h6. Se verifican sobre "Órdenes", que construye HU-02 antes (DP-30).
+> - **Ampliación, con la renovación:** HU-01.c3, HU-01.c4 y HU-01.h4.
 
 ## Historia
 

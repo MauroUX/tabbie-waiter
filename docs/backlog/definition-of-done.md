@@ -2,14 +2,14 @@
 
 > Lo que tiene que cumplir un ticket para darse por terminado, según su tipo. Cada ticket de [tickets/](tickets/README.md) enlaza la de su tipo y suma lo propio.
 >
-> La base son el [backlog](README.md), la [estructura](../architecture/estructura.md), la [seguridad](../architecture/seguridad.md), el [modelo de datos](../architecture/modelo-de-datos.md) y las [decisiones de arquitectura](../adr/README.md). Cuando se configure el proyecto, esta DoD pasa a `AGENTS.md`.
+> La base son el [backlog](README.md), la [estructura](../architecture/estructura.md), la [seguridad](../architecture/seguridad.md), el [modelo de datos](../architecture/modelo-de-datos.md) y las [decisiones de arquitectura](../adr/README.md). En el setup del proyecto, antes de TK-01, esta DoD pasa a `AGENTS.md` (DP-06).
 
 **Referencias:** las mismas que en los ADRs. Un número de cuatro cifras remite a un ADR; "PRD", "contexto" y "backlog" remiten a esos tres documentos; los IDs (RF-n, RNF-n, M-n, Cn, Tnn, On, HU-nn, WS-cN, SEG-cN, PA-n, PR-n) son los de cada documento.
 
 ## Cómo se aplica
 
 - **Hecho:** un ticket está hecho cuando cumple "Para todos", la DoD de su tipo y lo propio que agrega en su sección "Definition of Done".
-- **Criterios:** el ticket hereda sus criterios de aceptación por ID y no los reescribe. El scenario ejecutable, con el HTTP concreto, vive en la spec del cambio de OpenSpec.
+- **Criterios:** el ticket hereda sus criterios de aceptación por ID y no los reescribe. El cambio de OpenSpec de cada ticket copia el texto de los criterios que hereda, para que el agente los tenga sin abrir otros archivos (DP-08). El scenario ejecutable, con el HTTP concreto, vive en la spec de ese cambio.
 - **Tipos:** son los de [estructura.md](../architecture/estructura.md), sección 3, con dos ajustes:
   - **Datos** reemplaza a "Base de datos" y a "migración": la réplica crea el esquema desde sus entidades y no hay migraciones ([modelo-de-datos.md](../architecture/modelo-de-datos.md)).
   - **Bug** se suma, para los fallos que aparezcan después de cerrar un ticket.
@@ -23,6 +23,7 @@
 | El test de cada scenario se escribe primero y falla; al cerrar el ticket, pasa. | Un test que nunca falló no prueba que detecta lo que el criterio pide. |
 | La documentación de `docs/` que el cambio deja desactualizada se corrige en el mismo PR. | La spec, el código y los documentos se revisan e integran juntos ([estructura.md](../architecture/estructura.md), sección 3). |
 | El PR se revisa y sale de una rama con las iniciales `mc`. | Ningún cambio entra sin otra mirada, y la rama dice de quién es el trabajo. |
+| Antes del merge, el humano lanza el subagente `adversarial-reviewer` contra los criterios del ticket, y el informe queda como comentario del PR (DP-12). | Una revisión que busca a propósito cómo romper los criterios encuentra lo que el autor no buscó, y el comentario deja la evidencia en el PR. |
 
 ## Backend (réplica y simulador)
 
@@ -31,7 +32,7 @@
 | Los criterios heredados pasan, incluida la parte de la réplica o del simulador de los que el ticket hereda en parte. | Un escenario o una configuración que no se prueba deja sin base a los criterios de la app que se apoyan en ella. |
 | `backend/` queda idéntico a la copia de `c18b0f7`: el `diff` contra ese commit da vacío, salvo `UPSTREAM.md`. Lo propio va en `replica/` o en `simulator/`. | La app pasa al backend real cambiando solo la URL base (0002); un cambio en la copia lo rompe sin que se note. |
 | Los errores se manejan: una petición rechazada, una variable que falta o un servicio que no responde terminan con un error explícito, nunca en silencio. | Las mediciones del skeleton y de M-2 se leen de los registros: un error escondido da una medición falsa. |
-| Hay pruebas de integración por HTTP contra MySQL y Redis reales, desde fuera de `backend/`. | La copia no se prueba por dentro: importa el contrato que ve la app, y un MySQL o un Redis de mentira esconden lo que hace la copia, como los `decimal` que llegan como string o el vencimiento en Redis. |
+| Hay pruebas de integración por HTTP contra MySQL y Redis reales, desde fuera de `backend/`: en `replica/tests/`, en TypeScript con Jest y Supertest, contra la réplica levantada con Docker Compose (DP-14). | La copia no se prueba por dentro: importa el contrato que ve la app, y un MySQL o un Redis de mentira esconden lo que hace la copia, como los `decimal` que llegan como string o el vencimiento en Redis. |
 | Los secretos van solo como variables de entorno; `replica/entornos/` trae solo ejemplos sin valores. | Con la cuenta de servicio de Firebase se administra el proyecto de Tabbie, y con `JWT_SECRET` se firma un JWT de cualquier rol (PR-1, SEG-c10). |
 
 ## Datos

@@ -4,9 +4,14 @@
 |---|---|
 | **Épica** | E5. Cobros |
 | **Prioridad** | Must |
+| **Lote** | Lote 1 (DP-03) |
 | **RF que cubre** | RF-24, RF-25, RF-26 |
 | **RNF y reglas que la condicionan** | RNF-3, RNF-6, RNF-9, RNF-10, RF-9 |
 | **Complejidad** | M: toca cobros, con confirmación y sin repeticiones automáticas, y antes de confirmar revisa que la solicitud siga pendiente, para no duplicar el cobro si ya se confirmó en otra tablet. Eliminar una solicitud tiene efecto en las demás tablets, y las solicitudes que no identifican al comensal no se confirman. |
+
+> **MercadoPago (DP-38):** en la revisión de la Entrega 1, HU-07.c4 y HU-07.h3, los dos criterios de las solicitudes de MercadoPago, pasaron a [HU-13](HU-13-cobros-y-mercadopago.md), en la ampliación, con el resto de MercadoPago. Los criterios que quedan acá conservan su ID.
+>
+> **HU-07.c2 en el lote 1 (DP-38):** "lo pagado de la mesa sube" se comprueba en el lote 1. "El ítem queda marcado como pagado" se comprueba con HU-13, que muestra los cobros de cada mesa: en el lote 1, la solicitud confirmada deja de verse, porque `/pay` la borra (C9).
 
 ## Historia
 
@@ -20,7 +25,6 @@
 - Aparece un diálogo de confirmación con los datos del cobro.
 - Si confirma, el ítem queda marcado como pagado y lo pagado de la mesa se actualiza.
 - Si la solicitud no corresponde, el mozo aprieta "Eliminar" y la solicitud desaparece.
-- Las solicitudes de MercadoPago se ven, pero no tienen "Confirmar pago".
 
 ## Criterios de aceptación
 
@@ -47,13 +51,6 @@
 - **Y** el número de "Pagos" baja en uno
 - **Y** la app no pide confirmación antes de eliminarla
 
-**HU-07.c4 · Solicitudes de MercadoPago**
-
-- **Dado** que una mesa tiene una solicitud de MercadoPago
-- **Cuando** el mozo mira su tarjeta en "Pagos"
-- **Entonces** ve la solicitud
-- **Y** la solicitud no tiene el botón "Confirmar pago"
-
 ### Huecos
 
 **HU-07.h1 · Confirmar o eliminar falla** (RNF-6, M-2)
@@ -72,13 +69,6 @@
 - **Y** como la solicitud ya no está, no la confirma
 - **Y** avisa que la solicitud ya no está
 - **Y** queda un solo cobro registrado
-
-**HU-07.h3 · MercadoPago solo se elimina** (RF-26, C12)
-
-- **Dado** que una solicitud es de MercadoPago
-- **Cuando** el mozo mira el ítem
-- **Entonces** el ítem no tiene "Confirmar pago"
-- **Y** sí tiene "Eliminar", igual que las solicitudes presenciales
 
 **HU-07.h4 · Cancelar el diálogo** (RNF-9)
 
@@ -108,7 +98,7 @@ Ninguno.
 | Valiosa | ✔ | Es el cobro en persona habitual, registrado una sola vez. Además, evita que una confirmación que falla sume el monto igual (problema 2 del PRD). |
 | Estimable | ✔ | La confirmación, la eliminación, la regla de RF-25 y el comportamiento ante fallos están definidos en el PRD. |
 | Pequeña | ✔ | Dos acciones sobre la misma solicitud, más un bloqueo con un mensaje para las que no identifican al comensal. Entra en 1 o 2 días. |
-| Testeable | ✔ | Se prueba con solicitudes presenciales, de MercadoPago y sin comensal identificado, que crea el simulador. La eliminación se verifica en la tablet donde se elimina, y en las demás tablets se verifica por HU-06. HU-07.h2 se prueba con dos tablets. |
+| Testeable | ✔ | Se prueba con solicitudes presenciales, con y sin comensal identificado, que crea el simulador. Las de MercadoPago se prueban con HU-13 (DP-38). La eliminación se verifica en la tablet donde se elimina, y en las demás tablets se verifica por HU-06. HU-07.h2 se prueba con dos tablets. |
 
 ## Estimación
 

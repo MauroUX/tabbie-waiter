@@ -37,7 +37,7 @@
 
 ## Estado
 
-Aceptado.
+Aceptado; en parte reemplazado por [0009](0009-publicacion-del-repo-y-credenciales.md).
 
 ## Consecuencias
 

@@ -103,7 +103,7 @@ Se completa con el desarrollo.
 
 La vista general está en [docs/architecture/README.md](docs/architecture/README.md), con el diagrama de contexto (C4, nivel 1), el patrón y la tabla completa de beneficios y sacrificios. Es una arquitectura propuesta: todavía no hay código, y los diagramas se regeneran desde él cuando exista.
 
-Diagrama de contenedores (C4, nivel 2) del sistema de pruebas: la app contra la réplica del backend, con el simulador en lugar del comensal y Toxiproxy en el medio para provocar cortes.
+Diagrama de contenedores (C4, nivel 2) del sistema de pruebas: la app contra la réplica del backend, con el simulador en lugar del comensal y Toxiproxy en el medio para provocar cortes. Toxiproxy entra con la ampliación del backlog: en el lote 1 la app llega directo a la réplica.
 
 ```mermaid
 flowchart LR
@@ -124,7 +124,7 @@ flowchart LR
     app -->|"Email y contraseña; recibe el ID token (SDK de Firebase)"| firebase
     app -->|"Canje: POST /auth/login con el ID token; recibe el JWT"| toxi
     app -->|"HTTP/JSON con Authorization: Bearer JWT"| toxi
-    app -->|"Stream de eventos: GET /sse/waiters?token=JWT"| toxi
+    app -->|"Stream de eventos: GET /sse/waiters con Authorization: Bearer JWT"| toxi
     toxi -->|"Reenvía el mismo tráfico TCP"| replica
     replica -->|"Verifica el ID token (Firebase Admin)"| firebase
     replica -->|"Consultas SQL (TypeORM)"| mysql
@@ -168,6 +168,8 @@ flowchart LR
 - [0005 · Estado de la app sin base de datos local](docs/adr/0005-estado-sin-base-local.md)
 - [0006 · Tiempo real: eventos más consulta periódica](docs/adr/0006-tiempo-real.md)
 - [0007 · Acciones que cambian datos](docs/adr/0007-acciones-que-cambian-datos.md)
+- [0008 · JWT del stream en el encabezado](docs/adr/0008-jwt-del-stream-en-el-encabezado.md)
+- [0009 · Publicación del repo y credenciales de prueba](docs/adr/0009-publicacion-del-repo-y-credenciales.md)
 
 ### **2.2. Descripción de componentes principales:**
 
@@ -177,17 +179,17 @@ El detalle de cada componente (responsabilidad, tecnología, RF y RNF que atiend
 
 - **App** (Kotlin y Jetpack Compose, MVVM con flujo de datos unidireccional y Hilt):
   - **Sesión:** inicio de sesión en Firebase, canje por el JWT del backend, renovación, control del rol y cierre de sesión.
-  - **Cliente HTTP** (Retrofit y OkHttp): agrega el JWT y no reintenta las acciones que cambian datos.
-  - **Eventos** (OkHttp SSE): la única conexión al stream de mozos, con reconexión.
-  - **Monitor de conexión:** detecta los cortes y muestra el aviso de que no hay conexión.
+  - **Cliente HTTP** (Retrofit y OkHttp): un solo cliente para las consultas y las acciones; agrega el JWT, no reintenta nada por su cuenta y espera 4 s una consulta y 10 s una acción.
+  - **Eventos** (OkHttp SSE): la única conexión al stream de mozos, con el JWT en el encabezado y con reconexión.
+  - **Monitor de conexión:** un sondeo cada 5 s con las mesas activas, que detecta los cortes y muestra el aviso de que no hay conexión.
   - **Salón** y **Cobros:** mesas activas y pedidos, y solicitudes y cobros de cada mesa, en memoria.
   - **Acciones:** mandar a cocina, cancelar, cobrar, confirmar o eliminar una solicitud y cerrar la mesa, con revisión previa y sin reintentos.
   - **Marcas de "Atendido"** (DataStore).
   - **Pantallas:** inicio de sesión, navegación principal, "Órdenes", "Pagos" e impresora virtual.
 - **Réplica** (NestJS 10, TypeORM, MySQL 8, Redis 7 y Node 20): copia sin cambios del backend. La app y el simulador usan sus módulos de autenticación y Firebase Admin, los guards, restaurantes, pedidos, sesiones de mesa, pagos (solicitudes en Redis) y el stream de eventos.
-- **Simulador de comensales** (TypeScript sobre Node 20): una línea de comandos con escenarios que hacen lo que hace el comensal (ocupar una mesa, confirmar pedidos, pedir ayuda, pedir un cobro presencial y cancelar), un registro del turno y la medición de las métricas.
+- **Simulador de comensales** (TypeScript sobre Node 20): una línea de comandos con escenarios que hacen lo que hace el comensal, que entra como invitado (ocupar una mesa, confirmar pedidos, pedir ayuda, pedir un cobro presencial y cancelar), los cobros de otra tablet con la cuenta del segundo mozo, un registro del turno y la medición de las métricas, que lee MySQL con consultas de solo lectura.
 
-El [walking skeleton](docs/architecture/walking-skeleton.md) es la épica facilitadora que conecta de punta a punta la app, la réplica y el simulador antes de HU-01: inicio de sesión, eventos, consulta periódica, aviso sin conexión y recuperación después de un corte, con sus propios criterios de aceptación.
+El [walking skeleton](docs/architecture/walking-skeleton.md) es la épica facilitadora que conecta de punta a punta la app, la réplica y el simulador antes del lote 1 del backlog: inicio de sesión, eventos, consulta periódica, aviso sin conexión y recuperación después de un corte, con sus propios criterios de aceptación. Es delgado: la reconexión, el aviso y el cliente que no reintenta se prueban como lógica de la app, con MockWebServer, y los cortes reales con Toxiproxy, la renovación del JWT, el segundo mozo, el otro restaurante, el pedido de ayuda y MercadoPago pasan a la ampliación.
 
 ### **2.3. Descripción de alto nivel del proyecto y estructura de ficheros**
 
@@ -198,11 +200,13 @@ Es un monorepo, para que un cambio y su spec entren en el mismo commit. La estru
 ```text
 tabbie-waiter/
 ├── backend/      Copia sin cambios del backend de Tabbie; nada propio entra acá
-├── replica/      Lo propio de la réplica: datos sintéticos, cuentas de prueba, Toxiproxy y perfiles de entorno
+├── replica/      Lo propio de la réplica: datos sintéticos en SQL, cuentas de prueba, Toxiproxy, perfiles de entorno y pruebas
 ├── android/      La app del mozo, organizada por funcionalidad y por capas
 ├── simulator/    El simulador de comensales
-├── docs/         PRD, contexto, backlog, ADRs, arquitectura y API
-├── compose.yaml  MySQL, Redis y Toxiproxy del entorno local
+├── docs/         PRD, contexto, backlog, ADRs, arquitectura, API (OpenAPI) y wireframes
+├── .claude/      El hook de pre-commit que bloquea credenciales y cuentas
+├── .github/      La CI con GitHub Actions
+├── compose.yaml  MySQL, Redis, Toxiproxy y la carga de los datos iniciales del entorno local
 ├── Readme.md
 └── Prompts.md
 ```
@@ -266,7 +270,8 @@ flowchart TB
     class firebase,releases externo
 ```
 
-- **Local:** Docker Compose con la réplica, MySQL 8, Redis 7 y Toxiproxy; la app, en un emulador o una tablet, llega a la réplica a través de Toxiproxy, y el simulador va directo.
+- **Local:** Docker Compose con la réplica, MySQL 8, Redis 7 y un servicio que carga una vez el SQL de los datos iniciales; la app, en un emulador o una tablet, y el simulador llegan directo a la réplica. Toxiproxy se suma con la ampliación, entre la app y la réplica, para los cortes de punta a punta.
+- **CI:** GitHub Actions desde el primer PR de código, con ktlint, los tests de la app, los tests de la réplica y gitleaks, sin credenciales de Firebase: las pruebas que las necesitan corren en local.
 - **Demo:** la réplica en Railway, con MySQL y Redis administrados y HTTPS, sin Toxiproxy; el APK de la variante de demo se publica en GitHub Releases.
 
 **Una sola instancia:** el backend real y la réplica corren en una sola instancia, porque los eventos salen de la memoria del proceso y con dos un evento no llega a los mozos conectados a la otra. Cada despliegue corta todas las conexiones, y la app se recupera sola.
@@ -288,9 +293,10 @@ Cada entorno, el proceso de despliegue de la demo, los requisitos de prueba y la
 - **Réplica y repo:**
   - los secretos son variables de entorno y nunca entran al repo;
   - los datos iniciales son sintéticos;
-  - las cuentas de prueba usan un dominio reservado para ejemplos.
+  - las cuentas de prueba usan un dominio reservado para ejemplos, y sus credenciales no se publican: se entregan con el formulario de entrega (ADR 0009);
+  - un hook de pre-commit bloquea credenciales y cuentas, y la CI corre gitleaks en cada PR.
 
-**Riesgos aceptados**, porque el backend no se modifica: los huecos O1 a O4, que se comprueban contra la réplica; las carreras entre dos tablets; el JWT en la URL del stream de eventos, y las cuentas de prueba en el proyecto de Firebase de Tabbie.
+**Riesgos aceptados**, porque el backend no se modifica: los huecos O1 a O4, que se comprueban contra la réplica; las carreras entre dos tablets; el JWT en la URL del stream de eventos, hasta que TK-05 compruebe que el stream lo recibe en el encabezado (ADR 0008), y las cuentas de prueba en el proyecto de Firebase de Tabbie, que es de desarrollo (ADR 0009).
 
 Cada práctica con su porqué, cada riesgo con lo que hace la app para acotarlo, y el criterio que prueba cada uno están en [docs/architecture/seguridad.md](docs/architecture/seguridad.md).
 
@@ -912,7 +918,20 @@ Se completa en la Entrega 2. La app usa el contrato del backend actual, sin camb
 
 > Documenta 3 de las historias de usuario principales utilizadas durante el desarrollo, teniendo en cuenta las buenas prácticas de producto al respecto.
 
-El backlog completo tiene 11 historias (8 Must y 3 Should) y se ve en [docs/backlog/README.md](docs/backlog/README.md), con la cobertura de los RF, la matriz impacto/complejidad, el orden del backlog y los riesgos aceptados.
+El backlog completo tiene 13 historias (10 Must y 3 Should) y se ve en [docs/backlog/README.md](docs/backlog/README.md), con la cobertura de los RF, la matriz impacto/complejidad, el orden del backlog y los riesgos aceptados.
+
+El orden tiene dos partes:
+
+- **Lote 1:** el flujo principal. Va primero HU-02, con la pantalla "Órdenes"; después HU-01 sin la renovación, verificada sobre "Órdenes"; después HU-04, HU-06, HU-07 y HU-08.
+- **Ampliación:**
+  1. la renovación de la sesión;
+  2. cancelar pedidos (HU-12);
+  3. HU-03;
+  4. los cobros y MercadoPago (HU-13);
+  5. HU-05, HU-10, HU-09 y HU-11;
+  6. el entorno de demo en Railway.
+
+HU-04 y HU-06 se partieron para eso: la cancelación pasó a HU-12 y los cobros a HU-13.
 
 **Historia de Usuario 1**
 
@@ -920,6 +939,7 @@ El backlog completo tiene 11 historias (8 Must y 3 Should) y se ve en [docs/back
 
 - **Épica:** E2. Vista del salón en tiempo real
 - **Prioridad:** Must
+- **Lote:** lote 1, primera historia
 - **Estimación:** 5 puntos
 
 **Como** mozo,
@@ -965,17 +985,18 @@ Tiene 8 criterios más para los huecos (HU-02.h1 a HU-02.h8), que se ven en [su 
 
 **Historia de Usuario 2**
 
-**[HU-04. Mandar a cocina y cancelar pedidos](docs/backlog/historias/HU-04-cocina-y-cancelacion.md)**
+**[HU-04. Mandar pedidos a cocina](docs/backlog/historias/HU-04-cocina-y-cancelacion.md)**
 
 - **Épica:** E3. Gestión de pedidos
 - **Prioridad:** Must
-- **Estimación:** 8 puntos
+- **Lote:** lote 1
+- **Estimación:** 3 puntos
 
 **Como** mozo,
-**quiero** mandar a cocina los pedidos confirmados de una mesa y cancelar los que no van,
-**para** que la cocina reciba a tiempo lo que tiene que preparar y la cuenta de la mesa refleje solo lo que se sirve, sin descuadrar lo ya cobrado.
+**quiero** mandar a cocina los pedidos confirmados de una mesa,
+**para** que la cocina reciba a tiempo lo que tiene que preparar.
 
-Criterios de aceptación del camino feliz:
+Criterio de aceptación del camino feliz:
 
 **HU-04.c1 · Mandar a cocina**
 
@@ -984,22 +1005,7 @@ Criterios de aceptación del camino feliz:
 - **Entonces** los tres pedidos de la mesa 4 dejan de verse en "Pendientes" y aparecen en "Ingresadas"
 - **Y** el pedido de la mesa 5 sigue en "Pendientes"
 
-**HU-04.c2 · Cancelar pedidos**
-
-- **Dado** que una mesa tiene pedidos sin nada cobrado
-- **Cuando** el mozo elige uno, varios o todos con la acción para eliminar pedidos y los cancela
-- **Entonces** los pedidos cancelados dejan de verse
-- **Y** el total de la mesa baja en la suma de sus importes
-- **Y** la app no pide confirmación antes de cancelar
-
-**HU-04.c3 · No se cancela lo que tiene algo cobrado**
-
-- **Dado** que un pedido tiene algo cobrado, total o parcialmente
-- **Cuando** el mozo intenta cancelarlo
-- **Entonces** la app no lo cancela
-- **Y** le explica que ese pedido ya tiene algo cobrado
-
-Tiene 8 criterios más para los huecos (HU-04.h1 a HU-04.h8), que se ven en [su archivo](docs/backlog/historias/HU-04-cocina-y-cancelacion.md).
+Tiene 4 criterios más para los huecos (HU-04.h1, HU-04.h2, HU-04.h4 y HU-04.h5), que se ven en [su archivo](docs/backlog/historias/HU-04-cocina-y-cancelacion.md). La cancelación de pedidos, con HU-04.c2, HU-04.c3 y los huecos que la acompañaban, pasó a [HU-12](docs/backlog/historias/HU-12-cancelar-pedidos.md), en la ampliación.
 
 **Historia de Usuario 3**
 
@@ -1007,6 +1013,7 @@ Tiene 8 criterios más para los huecos (HU-04.h1 a HU-04.h8), que se ven en [su 
 
 - **Épica:** E5. Cobros
 - **Prioridad:** Must
+- **Lote:** lote 1
 - **Estimación:** 5 puntos
 
 **Como** mozo,
@@ -1036,14 +1043,7 @@ Criterios de aceptación del camino feliz:
 - **Y** el número de "Pagos" baja en uno
 - **Y** la app no pide confirmación antes de eliminarla
 
-**HU-07.c4 · Solicitudes de MercadoPago**
-
-- **Dado** que una mesa tiene una solicitud de MercadoPago
-- **Cuando** el mozo mira su tarjeta en "Pagos"
-- **Entonces** ve la solicitud
-- **Y** la solicitud no tiene el botón "Confirmar pago"
-
-Tiene 5 criterios más para los huecos (HU-07.h1 a HU-07.h5), que se ven en [su archivo](docs/backlog/historias/HU-07-confirmar-o-eliminar-solicitud.md).
+Tiene 4 criterios más para los huecos (HU-07.h1, HU-07.h2, HU-07.h4 y HU-07.h5), que se ven en [su archivo](docs/backlog/historias/HU-07-confirmar-o-eliminar-solicitud.md). Los dos criterios de MercadoPago, HU-07.c4 y HU-07.h3, pasaron a [HU-13](docs/backlog/historias/HU-13-cobros-y-mercadopago.md), en la ampliación.
 
 ---
 
@@ -1051,11 +1051,11 @@ Tiene 5 criterios más para los huecos (HU-07.h1 a HU-07.h5), que se ven en [su 
 
 > Documenta 3 de los tickets de trabajo principales del desarrollo, uno de backend, uno de frontend, y uno de bases de datos. Da todo el detalle requerido para desarrollar la tarea de inicio a fin teniendo en cuenta las buenas prácticas al respecto. 
 
-Son 17 tickets: los del walking skeleton y los de HU-01, HU-02 y HU-04. Ningún ticket tiene criterios propios: hereda los de las historias, del walking skeleton y de seguridad por su ID, y suma la Definition of Done de su tipo. El índice, con el orden y las dependencias, está en [docs/backlog/tickets/README.md](docs/backlog/tickets/README.md), y la Definition of Done en [docs/backlog/definition-of-done.md](docs/backlog/definition-of-done.md).
+Son 16 tickets: los del walking skeleton delgado y los de las historias del lote 1 (HU-02, HU-01 sin la renovación, HU-04, HU-06, HU-07 y HU-08), en el orden en que se hacen. Antes del primero va el setup del proyecto. Los tickets de la ampliación se escriben cuando arranque. Ningún ticket tiene criterios propios: hereda los de las historias, del walking skeleton y de seguridad por su ID, y suma la Definition of Done de su tipo. El índice, con el orden y las dependencias, está en [docs/backlog/tickets/README.md](docs/backlog/tickets/README.md), y la Definition of Done en [docs/backlog/definition-of-done.md](docs/backlog/definition-of-done.md).
 
 **Ticket 1**
 
-### TK-01 · Réplica levantada, detrás de Toxiproxy, con el contrato comprobado
+### TK-01 · Réplica levantada con el contrato comprobado
 
 | | |
 |---|---|
@@ -1065,12 +1065,12 @@ Son 17 tickets: los del walking skeleton y los de HU-01, HU-02 y HU-04. Ningún 
 
 #### Objetivo
 
-Dejar la réplica corriendo en el entorno local, con la copia sin cambios en `backend/`, los servicios de `compose.yaml` y Toxiproxy delante, y el contrato de los endpoints y eventos que usa la app comprobado por HTTP.
+Dejar la réplica corriendo en el entorno local, con la copia sin cambios en `backend/` y los servicios de `compose.yaml`, y el contrato de los endpoints y eventos que usa la app comprobado por HTTP.
 
 #### Criterios heredados
 
 - [SEG-c10](docs/architecture/seguridad.md#43-criterios-nuevos) · Los secretos no están en el repo.
-- [WS-c1](docs/architecture/walking-skeleton.md#5-criterios-de-aceptación) · La app arranca contra la réplica. **En parte:** que la réplica arranca y atiende con las variables de MercadoPago y de archivos vacías o de mentira. El criterio completo es de [TK-06](docs/backlog/tickets/TK-06-eventos-y-consulta-periodica.md).
+- [WS-c1](docs/architecture/walking-skeleton.md#5-criterios-de-aceptación) · La app arranca contra la réplica. **En parte:** que la réplica arranca y atiende con las variables de MercadoPago y de archivos vacías o de mentira. El criterio completo es de [TK-05](docs/backlog/tickets/TK-05-eventos-y-consulta-periodica.md).
 
 #### Alcance
 
@@ -1078,24 +1078,26 @@ Dejar la réplica corriendo en el entorno local, con la copia sin cambios en `ba
 
 - **La copia en `backend/`:** `order-pay-backend`, rama `main`, commit `c18b0f7`, con su código y su configuración de build. No entran datos, variables de entorno ni la configuración de despliegue de Tabbie (0002).
 - **`backend/UPSTREAM.md`:** de qué repositorio y commit sale la copia, cómo se comprueba que sigue sin cambios y cómo se compara el contrato con el `main` de Tabbie (0002, "Predicción del límite").
-- **`compose.yaml`:** la réplica, construida con el Dockerfile de la copia; MySQL 8, vacío al primer arranque; Redis 7, sin persistencia; y Toxiproxy, con su API accesible solo desde la máquina de desarrollo ([infraestructura.md](docs/architecture/infraestructura.md), sección 2.1).
-- **`replica/entornos/`:** los ejemplos de los dos perfiles, el normal y el de pruebas, con los nombres de las variables de [infraestructura.md](docs/architecture/infraestructura.md), sección 5, y sin valores. El perfil de pruebas tiene vencimientos cortos de `JWT_EXPIRATION_WAITERS` y `REDIS_EXPIRATION_TIME`; el del JWT tiene que permitir los 3 minutos de WS-c10.
-- **`replica/toxiproxy/`:** el proxy hacia la réplica, por el que pasa la app, y las dos formas de corte del skeleton (sección 4) listas para activarse por la API: "sin red" (rechaza las conexiones nuevas y cierra las abiertas) y "el sistema no responde" (deja las conexiones abiertas sin pasar datos).
+- **`compose.yaml`:** la réplica, construida con el Dockerfile de la copia; MySQL 8, vacío al primer arranque, y Redis 7, sin persistencia ([infraestructura.md](docs/architecture/infraestructura.md), sección 2.1).
+- **`replica/entornos/`:** los ejemplos de los dos perfiles, el normal y el de pruebas, con los nombres de las variables de [infraestructura.md](docs/architecture/infraestructura.md), sección 5, y sin valores. El perfil de pruebas tiene un vencimiento corto de `REDIS_EXPIRATION_TIME`, para HU-06.h4.
 - **Arranque sin MercadoPago ni archivos:** `MP_*`, `AWS_*` y `FRONT_URL` vacías o con valores de mentira, comprobando que ningún endpoint de la cadena del mozo ni del simulador las usa.
-- **Prueba del contrato por HTTP**, a través de Toxiproxy, como la app: una por cada fila de la columna "Waiter App" del inventario (contexto, sección 3.1). Comprueba el método y la ruta, los guards de la tabla de trazabilidad (sin JWT responde 401 donde hay "J"), los campos del cuerpo que manda la app y los de la respuesta que lee. Los eventos se comprueban abriendo el stream: con un JWT vigente se abre; con uno vencido responde 401 antes de abrirse (C1).
+- **Prueba del contrato por HTTP**, en `replica/tests/` (DP-14): una por cada fila de la columna "Waiter App" del inventario (contexto, sección 3.1). Comprueba el método y la ruta, los guards de la tabla de trazabilidad (sin JWT responde 401 donde hay "J"), los campos del cuerpo que manda la app y los de la respuesta que lee. Los eventos se comprueban abriendo el stream con el JWT en el encabezado `Authorization` (0008): con un JWT vigente se abre; con uno vencido responde 401 antes de abrirse (C1).
+- **El JWT de mozo de la prueba** (DP-15): la prueba inserta un mozo en MySQL y firma su JWT con el `JWT_SECRET` de la réplica, sin pasar por Firebase.
 - **El detector de secretos** de SEG-c10, sobre todo el historial y todas las ramas.
+- **`docs/api/openapi.yaml`** (DP-09, DP-42): escrito a mano desde el código de la copia, con una entrada por cada fila de la columna "Waiter App" del inventario y los campos sensibles marcados `x-sensitive: true`. Las pruebas del contrato validan las respuestas de la réplica contra él. Tres de esos endpoints se copian en la sección 4 del `Readme.md`.
 
 **No incluye:**
 
 - Los datos iniciales y las cuentas de prueba: [TK-02](docs/backlog/tickets/TK-02-datos-iniciales.md).
-- La comprobación de O1 a O4 (SEG-c1 a SEG-c4), que necesita el simulador: [TK-03](docs/backlog/tickets/TK-03-simulador-mesas-y-pedidos.md) y [TK-04](docs/backlog/tickets/TK-04-simulador-cobros.md).
-- Los escenarios del simulador: TK-03, TK-04 y [TK-12](docs/backlog/tickets/TK-12-simulador-cancelar-pedido.md).
-- El entorno de demo en Railway ([infraestructura.md](docs/architecture/infraestructura.md), sección 2.2): no lo pide ningún criterio de esta descomposición (ver el [índice](docs/backlog/tickets/README.md), "Fuera de esta descomposición").
-- La app: [TK-05](docs/backlog/tickets/TK-05-app-base.md).
+- La comprobación de O1 a O4 (SEG-c1 a SEG-c4), que necesita el simulador: [TK-08](docs/backlog/tickets/TK-08-simulador-ordenes.md) y [TK-13](docs/backlog/tickets/TK-13-simulador-pagos.md).
+- Los escenarios del simulador: [TK-03](docs/backlog/tickets/TK-03-simulador-mesas-pedidos-y-cobros.md), TK-08 y TK-13.
+- Toxiproxy y los cortes de punta a punta: van en la ampliación (DP-04; ver el [índice](docs/backlog/tickets/README.md), "Fuera de esta descomposición").
+- El entorno de demo en Railway: va al final de la ampliación.
+- La app: [TK-04](docs/backlog/tickets/TK-04-app-base.md).
 
 #### Dónde se trabaja
 
-- **Carpetas** ([estructura.md](docs/architecture/estructura.md)): `backend/` (solo para poner la copia y `UPSTREAM.md`), `compose.yaml`, `replica/entornos/` y `replica/toxiproxy/`. La prueba del contrato, fuera de `backend/`, en la carpeta que se decida (ver "Riesgos y decisiones pendientes").
+- **Carpetas** ([estructura.md](docs/architecture/estructura.md)): `backend/` (solo para poner la copia y `UPSTREAM.md`), `compose.yaml`, `replica/entornos/`, `replica/tests/` y `docs/api/`.
 - **Componentes** ([componentes.md](docs/architecture/componentes.md), sección 2): los módulos de la copia tal como están, sin tocarlos: `AppModule`, `AuthModule`, `FirebaseAdminModule`, los guards, `RestaurantsModule`, `OrderModule`, `TableSessionModule`, `PaymentModule`, `SseModule` y `RedisModule`.
 
 #### Contrato que usa
@@ -1109,12 +1111,11 @@ No comprueba las filas que la app no usa: T02, T03, T04, T10, T15 y T18.
 
 #### Requisitos de prueba del backlog
 
-- **Un vencimiento corto, configurable, de la sesión y de las solicitudes de cobro:** el perfil de pruebas de `replica/entornos/`.
-- **Una forma de provocar fallos parciales al mandar a cocina y al cancelar:** la parte de Toxiproxy, para la falta de respuesta, las demoras y los cortes ([infraestructura.md](docs/architecture/infraestructura.md), sección 4).
+- **Un vencimiento corto, configurable, de las solicitudes de cobro:** el perfil de pruebas de `replica/entornos/`. El de la sesión es de la renovación, que va en la ampliación.
 
 #### Dependencias
 
-Ninguna. Es el primer ticket.
+- El setup del proyecto (DP-06; ver el [índice](docs/backlog/tickets/README.md), "Antes del primer ticket").
 
 #### Pasos
 
@@ -1122,13 +1123,12 @@ Ninguna. Es el primer ticket.
 2. Escribir las pruebas primero: el detector de secretos, el arranque de la réplica y el contrato. Las del arranque y el contrato fallan, porque todavía no hay réplica.
 3. Copiar `c18b0f7` en `backend/` sin tocar ningún archivo, y escribir `UPSTREAM.md`. Comprobar que el `diff` contra el commit da vacío.
 4. Escribir los ejemplos de los perfiles en `replica/entornos/`, y armar el archivo local de variables, que no entra al repo, con las credenciales del proyecto de Firebase de Tabbie y un `JWT_SECRET` propio del entorno local.
-5. Escribir `compose.yaml` con los cuatro servicios. Levantar y comprobar que la réplica se conecta a MySQL y Redis y crea el esquema desde sus entidades (`DB_SYNC` activada).
+5. Escribir `compose.yaml` con la réplica, MySQL y Redis. Levantar y comprobar que la réplica se conecta a MySQL y Redis y crea el esquema desde sus entidades (`DB_SYNC` activada).
 6. Arrancar con `MP_*`, `AWS_*` y `FRONT_URL` vacías. Si la copia no arranca, usar valores de mentira, nunca cambiar su código, y dejar anotado en el ejemplo qué variable lo necesita.
-7. Configurar en `replica/toxiproxy/` el proxy hacia la réplica y las dos formas de corte. Comprobar por la API que cada una se activa, tiene el efecto esperado y se quita.
-8. Completar las pruebas del contrato, a través de Toxiproxy y sin fallos activos, hasta que pasen todas.
-9. Correr el detector de secretos sobre todo el historial y todas las ramas.
-10. Actualizar [infraestructura.md](docs/architecture/infraestructura.md) con los comandos reales del entorno local, y [estructura.md](docs/architecture/estructura.md) si alguna carpeta quedó distinta.
-11. Abrir el PR desde una rama `mc`, con el `diff` vacío de `backend/` como evidencia.
+7. Escribir `docs/api/openapi.yaml` y completar las pruebas del contrato, con el mozo insertado y su JWT firmado, validando cada respuesta contra él, hasta que pasen todas. Copiar tres endpoints en la sección 4 del `Readme.md`.
+8. Correr el detector de secretos sobre todo el historial y todas las ramas.
+9. Actualizar [infraestructura.md](docs/architecture/infraestructura.md) con los comandos reales del entorno local, y [estructura.md](docs/architecture/estructura.md) si alguna carpeta quedó distinta.
+10. Abrir el PR desde una rama `mc`, con el `diff` vacío de `backend/` como evidencia.
 
 #### Definition of Done
 
@@ -1136,17 +1136,18 @@ Ninguna. Es el primer ticket.
 - **Propio del ticket:**
   - El PR muestra que el `diff` de `backend/` contra `c18b0f7` da vacío, salvo `UPSTREAM.md`.
   - La réplica arranca desde cero con `compose.yaml` y un archivo local de variables, siguiendo solo lo que dice [infraestructura.md](docs/architecture/infraestructura.md).
-  - Cada fila de la columna "Waiter App" del inventario tiene su prueba del contrato, y pasa a través de Toxiproxy.
-  - Las dos formas de corte se activan y se quitan por la API de Toxiproxy, y una prueba comprueba el efecto de cada una.
+  - Cada fila de la columna "Waiter App" del inventario tiene su entrada en `docs/api/openapi.yaml` y su prueba del contrato, y pasa.
   - Si una prueba del contrato no coincide con el contexto, se corrige el contexto, no la copia.
 
-#### Riesgos y decisiones pendientes
+#### Riesgos y decisiones
 
-- **Riesgo técnico del skeleton** ([walking-skeleton.md](docs/architecture/walking-skeleton.md), sección 6): "La réplica no arranca sin las variables de MercadoPago ni de almacenamiento de archivos". Se despeja en el paso 6.
+- **Riesgo técnico del skeleton** ([walking-skeleton.md](docs/architecture/walking-skeleton.md), sección 6.1): "La réplica no arranca sin las variables de MercadoPago ni de almacenamiento de archivos". Se despeja en el paso 6.
 - **Predicción del límite** (0002): si al comparar el contrato con el `main` de Tabbie hay diferencias, la réplica pasa a un commit nuevo con un ADR que reemplaza a 0002. No se edita a mano ningún archivo de la copia ([estructura.md](docs/architecture/estructura.md), "Copia aislada del backend").
-- **Pendiente:** dónde viven las pruebas de integración de la réplica ([índice](docs/backlog/tickets/README.md#decisiones-pendientes)).
-- **Pendiente:** cómo obtiene la prueba del contrato un JWT de mozo antes de que existan las cuentas de TK-02 ([índice](docs/backlog/tickets/README.md#decisiones-pendientes)).
-- **Pendiente:** quién provoca los cortes y los fallos: "Falta decidir si los provoca el simulador por la API de Toxiproxy o se provocan aparte" ([componentes.md](docs/architecture/componentes.md), "Decisiones pendientes").
+- **Decidido (DP-14):** las pruebas de integración y de contrato de la réplica viven en `replica/tests/`, en TypeScript con Jest y Supertest, y van por HTTP contra la réplica levantada con Docker Compose, con MySQL y Redis reales ([índice](docs/backlog/tickets/README.md#decisiones-tomadas-2026-11-14)).
+- **Decidido (DP-15):** la prueba del contrato inserta un mozo en MySQL y firma su JWT con el `JWT_SECRET` de la réplica, porque `src/guards/auth/jwt.strategy.ts` de la copia solo verifica la firma y busca el `userId`. El canje con Firebase se prueba en [TK-02](docs/backlog/tickets/TK-02-datos-iniciales.md).
+- **Decidido (DP-09):** el OpenAPI de `docs/api/openapi.yaml` se escribe a mano desde el código de la copia, con los campos sensibles marcados `x-sensitive: true`, y lo validan las pruebas de contrato de la réplica. Lo escribe este ticket (DP-42).
+- **Decidido (DP-41):** en el lote 1, `compose.yaml` no tiene Toxiproxy y la app llega directo a la réplica. Toxiproxy se suma con la ampliación ([infraestructura.md](docs/architecture/infraestructura.md), sección 2.1).
+- **Decidido (DP-43):** en la CI, las pruebas del contrato corren con `USE_FIREBASE` desactivada y un `JWT_SECRET` de prueba, sin credenciales de Firebase ([infraestructura.md](docs/architecture/infraestructura.md#6-integración-continua)).
 
 **Ticket 2**
 
@@ -1165,36 +1166,38 @@ Cargar en una réplica recién creada dos restaurantes sintéticos, con sus mesa
 #### Criterios heredados
 
 - [SEG-c11](docs/architecture/seguridad.md#43-criterios-nuevos) · Datos iniciales sintéticos y cuentas de prueba reconocibles.
-- [WS-c1](docs/architecture/walking-skeleton.md#5-criterios-de-aceptación) · La app arranca contra la réplica. **En parte:** que la réplica corre con sus datos iniciales y que la cuenta de prueba del primer mozo del restaurante 1 inicia sesión por T01. El criterio completo es de [TK-06](docs/backlog/tickets/TK-06-eventos-y-consulta-periodica.md).
+- [WS-c1](docs/architecture/walking-skeleton.md#5-criterios-de-aceptación) · La app arranca contra la réplica. **En parte:** que la réplica corre con sus datos iniciales y que la cuenta de prueba del primer mozo del restaurante 1 inicia sesión por T01. El criterio completo es de [TK-05](docs/backlog/tickets/TK-05-eventos-y-consulta-periodica.md).
 
 #### Alcance
 
 **Incluye:**
 
-- **Restaurante 1**, para las pruebas con dos tablets:
+- **Restaurante 1**, para el skeleton y para las pruebas con dos tablets:
   - nombre, dirección y teléfono inventados;
   - los tres umbrales de demora, ordenados (amarillo < rojo < rojo parpadeante) y entre 10 y 10800 s, con valores que dejen ver los tres colores de HU-02.c5 en pocos minutos;
   - `mercadoPagoToken` y `mercadoPagoRefreshToken` con valores de mentira que se reconocen como tales, para SEG-c4;
   - al menos seis mesas, numeradas desde 1, con su `qrCode` único y sus lugares. HU-02.c2 pide tres ocupadas y dos libres, HU-02.h2 nombra las mesas 3 y 6, y HU-04.c1 las mesas 4 y 5;
   - un menú con productos de al menos tres categorías, para agrupar los pedidos (HU-02.c2), precios sin decimales, y al menos un producto con una opción y sus valores, para que T05 traiga el árbol de ítems completo.
-- **Restaurante 2**, para el aislamiento (RNF-7): sus propias mesas y su propio menú, y sus propios valores de mentira de MercadoPago.
+- **Restaurante 2**, para el aislamiento (RNF-7) de HU-01.h6 y HU-02.h7: sus propias mesas y su propio menú, y sus propios valores de mentira de MercadoPago. El skeleton no lo usa (DP-04), pero las historias del lote 1 sí.
 - **Usuarios**, todos con email del dominio reservado para ejemplos (PR-3):
-  - dos mozos del restaurante 1 y uno del restaurante 2, con rol `waiter` y su `restaurantId`. Tienen que existir antes de su primer inicio de sesión ([modelo-de-datos.md](docs/architecture/modelo-de-datos.md), sección 4);
-  - una cuenta que no es de mozo, con el restaurante 1 asignado. La usan HU-01.c2 y HU-01.h5, y SEG-c4 como "un usuario que tiene asignado el restaurante 1";
-  - las cuentas de los comensales, solo si se decide que el comensal se autentica con una cuenta (ver "Riesgos y decisiones pendientes"). SEG-c3 pide un comensal con email.
-- **`replica/firebase/`:** el script que crea en el proyecto de Firebase de Tabbie una cuenta por cada usuario de los datos iniciales, con las mismas direcciones. Si una cuenta ya existe, no la duplica. También da de baja una cuenta de prueba y la vuelve a dar de alta, para HU-01.c4 ("la cuenta se dio de baja"). Las contraseñas son exclusivas de estas cuentas.
-- **Las credenciales de prueba** documentadas en el `Readme.md` (backlog, "Comportamientos entre tablets"; RA-7).
-- **La forma de cargar y de volver a cargar desde cero**, documentada con sus comandos en [infraestructura.md](docs/architecture/infraestructura.md), secciones 2.1 y 2.2.
+  - dos mozos del restaurante 1 y uno del restaurante 2, con rol `waiter` y su `restaurantId`. Tienen que existir antes de su primer inicio de sesión ([modelo-de-datos.md](docs/architecture/modelo-de-datos.md), sección 4). El segundo mozo del restaurante 1 es la "otra tablet" de los cobros del simulador y de las pruebas con dos tablets del lote 1;
+  - una cuenta que no es de mozo, con rol `user` y el restaurante 1 asignado. La usan HU-01.c2 y HU-01.h5, y SEG-c4 como "un usuario que tiene asignado el restaurante 1" (DP-36);
+  - una cuenta de comensal, con rol `user` y sin restaurante, solo para las comprobaciones de seguridad: es "el comensal con email" de SEG-c3 y "el comensal sin restaurante" de SEG-c4 (DP-36). Para todo lo demás, el comensal del simulador entra como invitado, con `POST /auth/guest` (DP-17).
+- **`replica/firebase/`:** el script que crea en el proyecto de Firebase de Tabbie una cuenta por cada usuario de los datos iniciales, con las mismas direcciones. Si una cuenta ya existe, no la duplica. Las contraseñas son exclusivas de estas cuentas.
+- **La carga** (DP-16): el SQL de `replica/datos-iniciales/` y el servicio de `compose.yaml` que corre una sola vez, espera a que la réplica cree el esquema y lo ejecuta. No se usa el seeder de la copia.
+- **Las credenciales de prueba,** que no se publican: se entregan con el formulario de entrega, y el `Readme.md` dice eso en lugar de listarlas (backlog, "Comportamientos entre tablets"; RA-7; [0009](docs/adr/0009-publicacion-del-repo-y-credenciales.md)).
+- **La forma de cargar y de volver a cargar desde cero**, documentada con sus comandos en [infraestructura.md](docs/architecture/infraestructura.md), sección 2.1.
 
 **No incluye:**
 
 - El esquema: lo crea la réplica al arrancar ([TK-01](docs/backlog/tickets/TK-01-replica.md)).
-- Las mesas ocupadas, los pedidos, los pedidos de ayuda y las solicitudes de cobro: los genera el simulador ([TK-03](docs/backlog/tickets/TK-03-simulador-mesas-y-pedidos.md) y [TK-04](docs/backlog/tickets/TK-04-simulador-cobros.md)).
-- La mesa con pedidos ya cobrados para HU-04: [TK-15](docs/backlog/tickets/TK-15-mesa-con-pedidos-cobrados.md).
+- Las mesas ocupadas, los pedidos, los pedidos de ayuda, las solicitudes y los cobros: los genera el simulador ([TK-03](docs/backlog/tickets/TK-03-simulador-mesas-pedidos-y-cobros.md), [TK-08](docs/backlog/tickets/TK-08-simulador-ordenes.md) y [TK-13](docs/backlog/tickets/TK-13-simulador-pagos.md)).
+- La baja y el alta de una cuenta de prueba, para HU-01.c4: va con la renovación, en la ampliación.
+- La carga en la base de Railway: va con el entorno de demo, al final de la ampliación.
 
 #### Dónde se trabaja
 
-- **Carpetas** ([estructura.md](docs/architecture/estructura.md)): `replica/datos-iniciales/` y `replica/firebase/`. `compose.yaml` solo si la carga necesita un servicio.
+- **Carpetas** ([estructura.md](docs/architecture/estructura.md)): `replica/datos-iniciales/`, `replica/firebase/` y `compose.yaml`, para el servicio que carga los datos (DP-16). La prueba de la carga y de las cuentas, en `replica/tests/` (DP-14).
 - **Componentes** ([componentes.md](docs/architecture/componentes.md), sección 2): las tablas que leen `UsersModule`, `RestaurantsModule`, `TableModule` y los módulos de productos; `FirebaseAdminModule`, que verifica el ID token de las cuentas en T01. Ningún componente de la app.
 
 #### Contrato que usa
@@ -1207,7 +1210,7 @@ Por su fila de la [tabla de trazabilidad](docs/context/panel-mozos-actual.md#2-t
 
 #### Requisitos de prueba del backlog
 
-- **Datos iniciales con dos restaurantes, y dos mozos en el primero:** este ticket lo cumple. Lo usan HU-01, HU-02 y HU-03 (dos restaurantes) y HU-03 y HU-06 a HU-11 (dos mozos).
+- **Datos iniciales con dos restaurantes, y dos mozos en el primero:** este ticket lo cumple. En el lote 1 los usan HU-01.h6 y HU-02.h7 (dos restaurantes), y HU-06.h3, HU-07.h2 y HU-08.h4 (dos mozos).
 
 #### Dependencias
 
@@ -1217,12 +1220,12 @@ Por su fila de la [tabla de trazabilidad](docs/context/panel-mozos-actual.md#2-t
 
 1. Crear el cambio de OpenSpec, con los scenarios de SEG-c11 y de la parte de WS-c1.
 2. Escribir las pruebas primero, y verlas fallar: la carga sobre una base recién creada, la recarga desde cero, el inicio de sesión de cada cuenta por T01 y las comprobaciones de SEG-c11.
-3. Aplicar la decisión sobre cómo se cargan los datos. Si el seeder de la copia no puede leerlos desde `replica/datos-iniciales/` sin cambiar su código, se cargan por fuera ([estructura.md](docs/architecture/estructura.md), sección 3).
+3. Escribir el servicio de `compose.yaml` que corre una sola vez, espera a que la réplica cree el esquema y ejecuta el SQL de `replica/datos-iniciales/` (DP-16; [estructura.md](docs/architecture/estructura.md), sección 3).
 4. Escribir los datos de los dos restaurantes, sus mesas, su menú y sus usuarios, revisando cada tabla contra [modelo-de-datos.md](docs/architecture/modelo-de-datos.md): las columnas que no aceptan nulos y no tienen valor por defecto, el uuid de `restaurant.id`, las FK que aceptan nulos pero tienen que llenarse y los valores de los enums.
-5. Escribir el script de `replica/firebase/`: crea las cuentas que faltan, no toca las que existen, y da de baja o de alta una cuenta cuando se le pide.
+5. Escribir el script de `replica/firebase/`: crea las cuentas que faltan y no toca las que existen.
 6. Cargar sobre una base recién creada, recrear la base y volver a cargar. Las dos veces el resultado tiene que ser el mismo.
 7. Iniciar sesión con cada cuenta por T01 contra la réplica local y comprobar su rol y su restaurante.
-8. Documentar las credenciales de prueba en el `Readme.md`, y los pasos de carga en [infraestructura.md](docs/architecture/infraestructura.md).
+8. Preparar las credenciales de prueba para el formulario de entrega, fuera del repo; escribir en el `Readme.md` que se entregan así, y documentar los pasos de carga en [infraestructura.md](docs/architecture/infraestructura.md) (DP-35).
 9. Abrir el PR desde una rama `mc`.
 
 #### Definition of Done
@@ -1234,23 +1237,26 @@ Por su fila de la [tabla de trazabilidad](docs/context/panel-mozos-actual.md#2-t
   - Correr el script dos veces no duplica ninguna cuenta.
   - **Cómo se deshace:** solo recreando la base, que vacía también lo que generó el simulador. Las cuentas de Firebase no se tocan.
 
-#### Riesgos y decisiones pendientes
+#### Riesgos y decisiones
 
-- **RA-7** ([seguridad.md](docs/architecture/seguridad.md)): "Las cuentas de prueba existen en el proyecto de Firebase de Tabbie", y sus credenciales se publican en el `Readme.md`. Por eso usan el dominio reservado y contraseñas exclusivas (PR-3).
+- **RA-7** ([seguridad.md](docs/architecture/seguridad.md)): "Las cuentas de prueba existen en el proyecto de Firebase de Tabbie". Sus credenciales no se publican: se entregan con el formulario de entrega ([0009](docs/adr/0009-publicacion-del-repo-y-credenciales.md)). Igual usan el dominio reservado y contraseñas exclusivas (PR-3), y el hook de pre-commit bloquea sus contraseñas (DP-07).
 - **Modelo de datos, sección 4:** "El `@Check` de los umbrales no existe en MySQL"; "Los precios no tienen decimales"; "`restaurant.id` lo genera TypeORM, no MySQL"; "Los mozos tienen que existir antes de su primer inicio de sesión".
-- **Pendiente:** "Carga de los datos iniciales: … Falta decidir cómo se cargan: con el seeder que trae la copia (`src/seeder/`) o por fuera" ([componentes.md](docs/architecture/componentes.md), "Decisiones pendientes").
-- **Pendiente:** "Cómo se autentica el comensal: con una cuenta de Firebase y `POST /auth/login` (1, T01), o como invitado con `POST /auth/guest` (2, T02)" ([componentes.md](docs/architecture/componentes.md)). Si es con cuenta, este ticket crea también las de los comensales.
-- **Pendiente:** dónde viven las pruebas de integración de la réplica ([índice](docs/backlog/tickets/README.md#decisiones-pendientes)).
+- **Decidido (DP-16):** los datos iniciales son SQL propio en `replica/datos-iniciales/`, que carga un servicio de Compose que corre una sola vez ([componentes.md](docs/architecture/componentes.md#decisiones-tomadas-2026-11-14)).
+- **Decidido (DP-17 y DP-36):** el comensal del simulador entra como invitado. Este ticket crea una sola cuenta de comensal, para SEG-c3 y SEG-c4, y le da el rol `user` a la cuenta que no es de mozo.
+- **Decidido (DP-15):** este ticket prueba el canje con Firebase (T01) de cada cuenta; la prueba del contrato de [TK-01](docs/backlog/tickets/TK-01-replica.md) no lo necesita.
+- **Decidido (DP-37):** SEG-c11 compara los datos iniciales con las cuentas que crea el script de `replica/firebase/`, no con una lista del `Readme.md`.
+- **Decidido (DP-43):** la carga y SEG-c11 corren en la CI; el canje de cada cuenta por T01 necesita el proyecto de Firebase de Tabbie, así que se marca como prueba local y su evidencia va en el PR.
 
 **Ticket 3**
 
-### TK-16 · Mandar a cocina desde "Órdenes"
+### TK-12 · Mandar a cocina desde "Órdenes"
 
 | | |
 |---|---|
 | **Tipo** | Frontend (app) |
-| **Origen** | [HU-04](docs/backlog/historias/HU-04-cocina-y-cancelacion.md) · Mandar a cocina y cancelar pedidos (RF-13) |
+| **Origen** | [HU-04](docs/backlog/historias/HU-04-cocina-y-cancelacion.md) · Mandar pedidos a cocina (RF-13) |
 | **Readme.md** | Ticket de frontend de la sección 6 |
+| **Wireframe** | [`docs/design/ordenes.png`](docs/design/ordenes.png) (DP-10; todavía no existe) |
 
 #### Objetivo
 
@@ -1258,41 +1264,43 @@ Que el mozo mande a cocina, con un toque en la tarjeta de la mesa en "Pendientes
 
 #### Criterios heredados
 
-- [HU-04.c1](docs/backlog/historias/HU-04-cocina-y-cancelacion.md#criterios-de-aceptación) · Mandar a cocina.
-- [HU-04.h1](docs/backlog/historias/HU-04-cocina-y-cancelacion.md#criterios-de-aceptación) · El envío a cocina falla.
-- [HU-04.h2](docs/backlog/historias/HU-04-cocina-y-cancelacion.md#criterios-de-aceptación) · Envío a medias.
-- [HU-04.h4](docs/backlog/historias/HU-04-cocina-y-cancelacion.md#criterios-de-aceptación) · Pedido que llega durante el envío.
-- [HU-04.h5](docs/backlog/historias/HU-04-cocina-y-cancelacion.md#criterios-de-aceptación) · Doble toque. **En parte:** el envío a cocina. La cancelación es de [TK-17](docs/backlog/tickets/TK-17-cancelar-pedidos.md).
+- [HU-04.c1](docs/backlog/historias/HU-04-cocina-y-cancelacion.md#camino-feliz-1) · Mandar a cocina.
+- [HU-04.h1](docs/backlog/historias/HU-04-cocina-y-cancelacion.md#huecos) · El envío a cocina falla.
+- [HU-04.h2](docs/backlog/historias/HU-04-cocina-y-cancelacion.md#huecos) · Envío a medias.
+- [HU-04.h4](docs/backlog/historias/HU-04-cocina-y-cancelacion.md#huecos) · Pedido que llega durante el envío.
+- [HU-04.h5](docs/backlog/historias/HU-04-cocina-y-cancelacion.md#huecos) · Doble toque. **En parte:** el envío a cocina. La cancelación se comprueba con HU-12, en la ampliación.
 
 #### Alcance
 
 **Incluye:**
 
 - **El botón "Mandar a cocina"** en la tarjeta de cada mesa, en la pestaña "Pendientes", solo en las mesas con pedidos `confirmed`. No pide confirmación (RNF-9).
-- **La acción**, con las reglas comunes de Acciones (0007), que este ticket deja escritas para las acciones que vienen después:
+- **La acción**, con las reglas comunes de Acciones (0007), que este ticket deja escritas para las acciones que vienen después ([TK-15](docs/backlog/tickets/TK-15-confirmar-o-eliminar-solicitud.md) y [TK-16](docs/backlog/tickets/TK-16-cerrar-mesa.md)):
   - **revisión previa:** actualiza la mesa (T05) antes de actuar. Si ya no tiene pedidos `confirmed`, avisa y no actúa;
   - **bloqueo:** mientras la acción está en curso, el botón de esa mesa no está disponible (HU-04.h5);
-  - **sin reintentos:** usa el cliente de las acciones de [TK-09](docs/backlog/tickets/TK-09-cliente-de-acciones.md);
+  - **sin reintentos:** usa el cliente de las acciones de [TK-07](docs/backlog/tickets/TK-07-cliente-de-acciones.md);
   - **actualización posterior:** al terminar, actualiza mesas y solicitudes (T05 y T06). Si la acción falla o no responde, las actualiza antes de dejar intentarla de nuevo.
-- **Una petición por pedido** (C5): un `PUT /orders/:id/send-to-kitchen` sin body por cada pedido `confirmed` que corresponde mandar.
+- **Qué pedidos manda** (HU-04.h4): los que el mozo veía al tocar el botón y que, en la revisión previa, siguen `confirmed` (DP-31).
+- **Una petición por pedido** (C5): un `PUT /orders/:id/send-to-kitchen` sin body por cada uno de esos pedidos. Van en serie y siguen aunque una falle; al final, la app actualiza la mesa y avisa cuáles no salieron, sin reintentos (RNF-6, DP-32).
 - **El resultado, por pedido:**
   - **todos salen bien:** los pedidos pasan a "Ingresadas" con la actualización posterior;
   - **algunos fallan:** los que salieron bien pasan a "Ingresadas", los otros siguen en "Pendientes", y la app avisa cuántos no se mandaron (HU-04.h2);
   - **falla o no responde en 10 s:** la app avisa que no se pudo confirmar el envío, no lo repite y actualiza las mesas antes de habilitar el botón otra vez (HU-04.h1).
-- **El pedido que llega durante el envío** queda en "Pendientes" y no se manda sin que el mozo lo haya visto (HU-04.h4).
+- **El pedido que llega durante el envío** queda en "Pendientes", con su aviso, y no se manda sin que el mozo lo haya visto (HU-04.h4, DP-31).
 - **Los estados de la tarjeta durante la acción:** en curso, terminada, a medias y fallida, con sus mensajes en español.
 - **Registro de diagnóstico:** cada envío y su resultado por pedido, por ID y sin cuerpos (PA-6).
 
 **No incluye:**
 
-- Cancelar pedidos: [TK-17](docs/backlog/tickets/TK-17-cancelar-pedidos.md).
-- El aviso de pedido confirmado y el contador que parpadea: HU-03, fuera de esta descomposición. HU-03.h5 usa los envíos de este ticket.
+- Cancelar pedidos: HU-12, en la ampliación.
+- El aviso de pedido confirmado y el contador que parpadea: HU-03, en la ampliación. HU-03.h5 usa los envíos de este ticket.
 - Cambios en `backend/`: el envío es el `PUT` que ya existe (T08).
 
 #### Dónde se trabaja
 
 - **Carpetas** ([estructura.md](docs/architecture/estructura.md)): `salon/`, donde viven la pantalla "Órdenes" y sus acciones, con sus pruebas en `test/` y `androidTest/`. Usa, sin cambiarlo, el cliente de `comun/red/`.
 - **Componentes** ([componentes.md](docs/architecture/componentes.md), sección 1): Acciones (reglas comunes y "Mandar a cocina"), Pantalla "Órdenes", Salón (revisión previa y actualización) y Cobros (actualización de solicitudes).
+- **Wireframe:** [`docs/design/ordenes.png`](docs/design/ordenes.png), el botón y los estados de la tarjeta.
 
 #### Contrato que usa
 
@@ -1304,29 +1312,27 @@ Por su fila de la [tabla de trazabilidad](docs/context/panel-mozos-actual.md#2-t
 
 #### Requisitos de prueba del backlog
 
-- **Una forma de provocar fallos parciales al mandar a cocina y al cancelar:**
-  - **fallo de negocio** (HU-04.h2): el simulador cancela, como comensal, uno de los pedidos justo antes del envío ([TK-12](docs/backlog/tickets/TK-12-simulador-cancelar-pedido.md)); la réplica rechaza ese y acepta los demás;
-  - **falta de respuesta** (HU-04.h1): Toxiproxy retiene la respuesta o cierra la conexión ([TK-01](docs/backlog/tickets/TK-01-replica.md));
-  - **demora** (HU-04.h4): con una demora activa en Toxiproxy, el simulador confirma un pedido en esa mesa mientras el envío está en curso ([infraestructura.md](docs/architecture/infraestructura.md), sección 4).
+- **Una forma de provocar fallos parciales al mandar a cocina:**
+  - **fallo, falta de respuesta o demora de una sola petición** (HU-04.h1, HU-04.h2 y HU-04.h4): en la app, con MockWebServer (DP-20; [infraestructura.md](docs/architecture/infraestructura.md), sección 4);
+  - **fallo de negocio** (HU-04.h2), en el dispositivo: el simulador cancela, como comensal, uno de los pedidos justo antes del envío ([TK-08](docs/backlog/tickets/TK-08-simulador-ordenes.md)); la réplica rechaza ese y acepta los demás.
 
 #### Dependencias
 
-- [TK-13](docs/backlog/tickets/TK-13-ordenes.md): "Órdenes" con sus pestañas.
-- [TK-09](docs/backlog/tickets/TK-09-cliente-de-acciones.md): el cliente de las acciones.
-- [TK-12](docs/backlog/tickets/TK-12-simulador-cancelar-pedido.md): el fallo de negocio de HU-04.h2.
-- [TK-03](docs/backlog/tickets/TK-03-simulador-mesas-y-pedidos.md): las mesas con pedidos confirmados.
+- [TK-09](docs/backlog/tickets/TK-09-ordenes.md): "Órdenes" con sus pestañas.
+- [TK-07](docs/backlog/tickets/TK-07-cliente-de-acciones.md): el cliente de las acciones.
+- [TK-08](docs/backlog/tickets/TK-08-simulador-ordenes.md): ESC-7, para el fallo de negocio de HU-04.h2.
 
 #### Pasos
 
 1. Crear el cambio de OpenSpec, con un scenario por cada criterio heredado, con el `PUT` de T08 y las respuestas de la réplica.
 2. Escribir las pruebas primero, y verlas fallar:
-   - **locales**, de Acciones con un cliente falso: todos bien, uno que falla, ninguno responde, el bloqueo, la actualización antes de habilitar otra vez y el pedido nuevo que no entra;
-   - **en el dispositivo**, contra la réplica local: HU-04.c1 con las mesas 4 y 5; HU-04.h1 con Toxiproxy; HU-04.h2 con ESC-7; HU-04.h4 con una demora y ESC-2 durante el envío; HU-04.h5 con dos toques seguidos.
+   - **locales**, de Acciones con MockWebServer (DP-20): todos bien, uno que falla y los siguientes que salen igual (DP-32), ninguno responde, el bloqueo, la actualización antes de habilitar otra vez, y el pedido nuevo que llega durante una petición demorada y no entra (HU-04.h4, DP-31);
+   - **en el dispositivo**, contra la réplica local: HU-04.c1 con las mesas 4 y 5; HU-04.h2 con ESC-7; HU-04.h5 con dos toques seguidos.
 3. Escribir las reglas comunes de Acciones: revisión previa, bloqueo y actualización posterior.
-4. Escribir la acción "Mandar a cocina": qué pedidos manda, una petición por pedido y el resultado de cada uno.
-5. Escribir el botón y los estados de la tarjeta, con sus mensajes.
+4. Escribir la acción "Mandar a cocina": qué pedidos manda, una petición por pedido en serie y el resultado de cada uno.
+5. Escribir el botón y los estados de la tarjeta, con sus mensajes, siguiendo el wireframe.
 6. Pasar todas las pruebas, en la tablet de referencia y en la mínima.
-7. Actualizar [componentes.md](docs/architecture/componentes.md) con lo que se decidió sobre qué pedidos se mandan y sobre las peticiones en serie o en paralelo.
+7. Comprobar que qué pedidos se mandan y las peticiones en serie siguen lo que dicen DP-31 y DP-32 en [componentes.md](docs/architecture/componentes.md#decisiones-tomadas-2026-11-14), y corregirlo ahí si la implementación encontró algo que lo contradice.
 8. Abrir el PR desde una rama `mc`, con capturas de los estados de la tarjeta.
 
 #### Definition of Done
@@ -1334,16 +1340,16 @@ Por su fila de la [tabla de trazabilidad](docs/context/panel-mozos-actual.md#2-t
 - La de [Para todos](docs/backlog/definition-of-done.md#para-todos) y la de [Frontend](docs/backlog/definition-of-done.md#frontend-app).
 - **Propio del ticket:**
   - El registro de diagnóstico de cada prueba muestra una sola petición por pedido, también cuando la acción no respondió.
-  - Las reglas comunes de Acciones quedan en un solo lugar, listas para cancelar pedidos y para las acciones de HU-05, HU-07 y HU-08.
-  - Las dos decisiones pendientes de este ticket quedan escritas en [componentes.md](docs/architecture/componentes.md) y salen de "Decisiones pendientes".
+  - Las reglas comunes de Acciones quedan en un solo lugar, listas para confirmar y eliminar solicitudes, cerrar una mesa y las acciones de la ampliación.
+  - Las pruebas comprueban DP-31 y DP-32, tal como están escritas en [componentes.md](docs/architecture/componentes.md#decisiones-tomadas-2026-11-14).
 
-#### Riesgos y decisiones pendientes
+#### Riesgos y decisiones
 
 - **C5:** el envío es un `PUT` por pedido, así que un envío puede salir a medias, y un pedido que ya no está `confirmed` se rechaza.
 - **0007, Consecuencias:** "Si una acción no responde, la app no sabe si se registró. El mozo decide si repetirla después de ver el estado actualizado".
-- **Pendiente:** "Qué pedidos manda 'Mandar a cocina' (HU-04.h4): … Falta decidir si se mandan los pedidos que el mozo veía al tocar el botón o los que trae la revisión" ([componentes.md](docs/architecture/componentes.md), "Decisiones pendientes").
-- **Pendiente:** "Varias peticiones por acción (HU-04.h2, HU-04.h3): … Falta decidir si van en serie o en paralelo, y si un fallo detiene los que faltan" ([componentes.md](docs/architecture/componentes.md)).
-- **Pendiente:** "Quién provoca los cortes y los fallos: … cómo se hace fallar una sola petición de varias" ([componentes.md](docs/architecture/componentes.md)).
+- **Decidido (DP-31):** "Mandar a cocina" manda los pedidos que el mozo veía al tocar el botón y que, en la revisión previa, siguen `confirmed`. Los que llegaron durante el envío quedan en "Pendientes" con su aviso ([componentes.md](docs/architecture/componentes.md#decisiones-tomadas-2026-11-14)).
+- **Decidido (DP-32):** las peticiones van en serie y siguen aunque una falle. Al final, la app actualiza la mesa y avisa cuáles no salieron, sin reintentos (RNF-6).
+- **Decidido (DP-20 y DP-04):** el fallo de una sola petición se prueba en la app con MockWebServer. Los cortes de punta a punta con Toxiproxy van en la ampliación.
 
 ---
 

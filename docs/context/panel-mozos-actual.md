@@ -371,6 +371,12 @@ Una fila por llamada o evento **del panel actual**. "J" = `JwtAuthGuard`, "R" = 
 - **`in-person-payment-request-deleted`:** lo emite `PaymentController.deleteInPersonPaymentRequest` (`BE/payments/payment.controller.ts:254-258`) en T13.
 - **`table-session-events`:** lo emiten `OrderService`, `TableSessionService` y `MercadoPagoService.updateTableSession` al crear, editar, confirmar, cancelar o enviar a cocina un pedido, al registrar pagos y al cerrar la mesa.
 
+**Endpoints del comensal que usa el simulador.** Tampoco los invoca el mozo, así que no se suman al inventario. El simulador de comensales los usa para hacer lo que hace el comensal (decisiones DP-17 a DP-19, después de la revisión de la Entrega 1):
+
+- **`POST /auth/guest`** (sin guard; `BE/auth/auth.controller.ts`, `AuthController.loginAsGuest`): el comensal entra como invitado con un `guestId` generado. Devuelve un JWT con rol `user` y sin Firebase (DP-17).
+- **`POST /table-sessions/join/restaurant/:restaurantId/table/:tableNumber`** (sin guard; el comensal va en el body; `BE/table-sessions/table-session.controller.ts`, `TableSessionController.joinTable`): el comensal se une a la mesa, que pasa a estar activa (DP-18).
+- **`PUT /orders/:id/cancel`** (J, sin restricción de rol; `BE/orders/order.controller.ts`, `OrderController.cancelOrder`): el comensal cancela un pedido. Es la misma ruta que T09 (DP-19).
+
 ## 3. Inventario
 
 ### 3.1 Endpoints y eventos usados

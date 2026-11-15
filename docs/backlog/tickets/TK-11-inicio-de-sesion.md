@@ -1,13 +1,14 @@
-# TK-10 · Inicio de sesión: pantalla, errores, rechazo y sesión guardada
+# TK-11 · Inicio de sesión: pantalla, errores, rechazo y sesión guardada
 
 | | |
 |---|---|
 | **Tipo** | Frontend (app) |
-| **Origen** | [HU-01](../historias/HU-01-iniciar-sesion.md) · Iniciar sesión y mantenerla todo el turno (RF-1, RF-2) |
+| **Origen** | [HU-01](../historias/HU-01-iniciar-sesion.md) · Iniciar sesión y mantenerla todo el turno (RF-1, RF-2), sin la renovación |
+| **Wireframe** | [`docs/design/inicio-de-sesion.png`](../../design/inicio-de-sesion.png) (DP-10; todavía no existe) |
 
 ## Objetivo
 
-Que el mozo entre con su email y su contraseña a la operación de su restaurante, que quien no es mozo no llegue a ninguna pantalla de la operación, y que la sesión sobreviva a un reinicio.
+Que el mozo entre con su email y su contraseña a la operación de su restaurante, que quien no es mozo no llegue a ninguna pantalla de la operación, y que la sesión sobreviva a un reinicio. Se verifica sobre "Órdenes", que ya existe (DP-30).
 
 ## Criterios heredados
 
@@ -23,7 +24,7 @@ Que el mozo entre con su email y su contraseña a la operación de su restaurant
 
 **Incluye:**
 
-- **Pantalla de inicio de sesión** con diseño, en español y para tablet en horizontal: email, contraseña y "Entrar"; el aviso de datos incorrectos (HU-01.h1) y el de que no hay conexión (HU-01.h2), sin salir del inicio de sesión.
+- **Pantalla de inicio de sesión** con diseño, en español y para tablet en horizontal: email, contraseña y "Entrar"; el aviso de datos incorrectos (HU-01.h1) y el de que no hay conexión (HU-01.h2), sin salir del inicio de sesión. Reemplaza la pantalla sin diseño de [TK-04](TK-04-app-base.md).
 - **Control del rol** (PA-1, 0004): si el rol que devuelve T01 no es `waiter`, cierra la sesión de Firebase, descarta el JWT, muestra el mensaje de RF-2 y no guarda nada de esa sesión.
 - **Sesión guardada** (PA-3, 0005): DataStore cifrado con una clave del Android Keystore, con el JWT, su `exp`, el `restaurantId` y el rol. Junto con la sesión que guarda el SDK de Firebase, al reabrir la app entra sin pedir datos.
 - **Navegación según la sesión:** sin sesión se ve solo el inicio de sesión, y ninguna pantalla de la operación, tampoco con "Atrás".
@@ -31,15 +32,15 @@ Que el mozo entre con su email y su contraseña a la operación de su restaurant
 
 **No incluye:**
 
-- La renovación que el mozo no nota y la que falla: [TK-11](TK-11-renovacion-de-la-sesion.md).
-- La navegación principal con "Órdenes" y "Pagos", y la pantalla "Órdenes": [TK-13](TK-13-ordenes.md).
-- Cerrar sesión: HU-09, fuera de esta descomposición.
+- La renovación que el mozo no nota, la que falla y la sesión que vence durante un corte (HU-01.c3, HU-01.c4 y HU-01.h4): van en la ampliación, con la renovación.
+- Cerrar sesión: HU-09, en la ampliación.
 - HU-01.h8, campos vacíos: está entre los descartados de la historia.
 
 ## Dónde se trabaja
 
 - **Carpetas** ([estructura.md](../../architecture/estructura.md)): `sesion/`, `comun/almacenamiento/` y la raíz del paquete base, donde la navegación decide entre el inicio de sesión y la operación.
 - **Componentes** ([componentes.md](../../architecture/componentes.md), sección 1): Sesión, Pantalla de inicio de sesión y Navegación principal (solo la decisión según la sesión), y el DataStore cifrado.
+- **Wireframe:** [`docs/design/inicio-de-sesion.png`](../../design/inicio-de-sesion.png).
 
 ## Contrato que usa
 
@@ -47,18 +48,18 @@ Por su fila de la [tabla de trazabilidad](../../context/panel-mozos-actual.md#2-
 
 ## Requisitos de prueba del backlog
 
-- **Datos iniciales con dos restaurantes:** HU-01.h6 se prueba con el segundo restaurante, con mesas ocupadas por ESC-8 ([TK-04](TK-04-simulador-cobros.md)). La cuenta que no es de mozo es de [TK-02](TK-02-datos-iniciales.md).
+- **Datos iniciales con dos restaurantes:** HU-01.h6 se prueba con el segundo restaurante, con mesas ocupadas por ESC-8 ([TK-08](TK-08-simulador-ordenes.md)). La cuenta que no es de mozo es de [TK-02](TK-02-datos-iniciales.md).
 
 ## Dependencias
 
-- [TK-09](TK-09-cliente-de-acciones.md): el walking skeleton terminado. Usa sobre todo el inicio de sesión mínimo de [TK-05](TK-05-app-base.md) y el aviso sin conexión de [TK-07](TK-07-cortes-y-recuperacion.md).
-- [TK-04](TK-04-simulador-cobros.md): ESC-8, para HU-01.h6.
+- [TK-09](TK-09-ordenes.md): "Órdenes", sobre la que se verifican HU-01.c1, HU-01.h3 y HU-01.h6.
+- [TK-08](TK-08-simulador-ordenes.md): ESC-8, para HU-01.h6.
 
 ## Pasos
 
 1. Crear el cambio de OpenSpec, con un scenario por cada criterio heredado.
-2. Escribir las pruebas primero, y verlas fallar: pruebas locales del ViewModel y de Sesión, y pruebas en el dispositivo contra la réplica local con la cuenta de mozo, la que no es de mozo, datos incorrectos, Toxiproxy cortado y un reinicio de la app.
-3. Escribir la pantalla de inicio de sesión, con sus estados de carga, de error y sin conexión.
+2. Escribir las pruebas primero, y verlas fallar: pruebas locales del ViewModel y de Sesión, y pruebas en el dispositivo contra la réplica local con la cuenta de mozo, la que no es de mozo, datos incorrectos, la red del emulador cortada y un reinicio de la app.
+3. Escribir la pantalla de inicio de sesión, siguiendo el wireframe, con sus estados de carga, de error y sin conexión.
 4. Escribir el control del rol, sin dejar nada guardado.
 5. Guardar la sesión en DataStore cifrado y recuperarla al abrir la app.
 6. Hacer que la navegación muestre el inicio de sesión o la operación según el estado de Sesión.
@@ -71,8 +72,8 @@ Por su fila de la [tabla de trazabilidad](../../context/panel-mozos-actual.md#2-
   - Después de un rechazo, el almacenamiento privado de la app no tiene sesión de DataStore ni de Firebase.
   - El JWT, el `restaurantId` y el rol no aparecen en texto claro en el archivo de la sesión (PA-3).
 
-## Riesgos y decisiones pendientes
+## Riesgos y decisiones
 
-- **RA-7** ([seguridad.md](../../architecture/seguridad.md)): las cuentas de prueba son públicas; "ese usuario no tiene el rol `waiter` en el backend real, así que la app lo rechaza y no llega a la operación (PA-1, HU-01.c2)".
+- **RA-7** ([seguridad.md](../../architecture/seguridad.md)): las cuentas de prueba existen en el proyecto de Firebase de Tabbie, y sus credenciales se entregan con el formulario de entrega ([0009](../../adr/0009-publicacion-del-repo-y-credenciales.md)); "ese usuario no tiene el rol `waiter` en el backend real, así que la app lo rechaza y no llega a la operación (PA-1, HU-01.c2)".
 - **PA-3, Límite:** "la sesión de Firebase queda en el almacenamiento privado de la app sin la clave del Keystore (0005, Consecuencias)".
-- **Pendiente:** HU-01.c1, HU-01.h3 y HU-01.h6 verifican "Órdenes", que construye HU-02 ([TK-13](TK-13-ordenes.md)), y el backlog ordena HU-01 antes ([índice](README.md#decisiones-pendientes)).
+- **Decidido (DP-30):** el resto de HU-01 va después de "Órdenes" y se verifica sobre ella.

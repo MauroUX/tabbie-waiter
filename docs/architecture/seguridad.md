@@ -63,16 +63,16 @@ Cada práctica dice qué hace, por qué y de dónde sale. El criterio que la pru
 
 - **Qué:** ni el registro de diagnóstico (walking skeleton, sección 4) ni el registro del sistema de Android ni el de las peticiones HTTP contienen:
   - los cuerpos de las respuestas del backend;
-  - el JWT, ni en el encabezado `Authorization` ni en la URL del stream de eventos, que lo lleva en `?token=`. La URL del stream no se registra;
+  - el JWT, ni en el encabezado `Authorization` ni en la URL del stream de eventos. El stream lo recibe en el encabezado (0008), pero la URL del stream tampoco se registra;
   - el ID token de Firebase ni la contraseña del mozo;
   - emails o nombres de comensales, ni credenciales del restaurante.
-- **Por qué:** los cuerpos traen lo de O4, y la URL del stream lleva el JWT (RA-6). Un registro se copia, se adjunta a un reporte de error y se lee fuera de la tablet.
-- **Evidencia:** RF-9, O4; 0004, 0006; walking skeleton, sección 4 ("Registro de diagnóstico").
+- **Por qué:** los cuerpos traen lo de O4, y hasta que TK-05 compruebe 0008 la URL del stream puede llevar el JWT (RA-6). Un registro se copia, se adjunta a un reporte de error y se lee fuera de la tablet.
+- **Evidencia:** RF-9, O4; 0004, 0006, 0008; walking skeleton, sección 4 ("Registro de diagnóstico").
 
 **PA-7 · Solo HTTPS, salvo en la variante de réplica local**
 
 - **Qué:** las variantes de demo y Tabbie solo hablan con el backend por HTTPS; el sistema bloquea el tráfico sin cifrar. La variante de réplica local permite HTTP sin cifrar solo hacia la máquina de desarrollo, porque Toxiproxy y la réplica local no tienen TLS. Firebase siempre va por HTTPS.
-- **Por qué:** por la red viajan el ID token, el JWT (también en la URL del stream) y las respuestas con lo de O4.
+- **Por qué:** por la red viajan el ID token, el JWT (en el encabezado de todas las llamadas, también del stream, 0008) y las respuestas con lo de O4.
 - **Evidencia:** 0003; infraestructura.md, sección 2.3.
 
 **PA-8 · Renovación de la sesión**
@@ -91,8 +91,11 @@ Cada práctica dice qué hace, por qué y de dónde sale. El criterio que la pru
 **PR-1 · Los secretos son variables de entorno y nunca entran al repo**
 
 - **Qué:** las credenciales del proyecto de Firebase de Tabbie (`FIREBASE_*`) y el secreto del JWT (`JWT_SECRET`) se cargan como variables de entorno de cada entorno. El repo trae solo un archivo de ejemplo con los nombres, sin valores.
+  - Ninguna credencial ni cuenta entra al repo: ni secretos, ni cuentas de servicio, ni contraseñas de las cuentas de prueba, ni tokens (0009; DP-01).
+  - Un hook de pre-commit en `.claude/hooks/` bloquea `.env`, la cuenta de servicio de Firebase, `JWT_SECRET`, los tokens de MercadoPago, las contraseñas de las cuentas de prueba y los emails que no son del dominio de prueba (DP-07).
+  - La CI corre gitleaks en cada PR ([infraestructura.md](infraestructura.md#6-integración-continua); DP-11).
 - **Por qué:** con la cuenta de servicio de Firebase se administra el proyecto de Tabbie; con el secreto del JWT se firma un JWT de cualquier rol y cualquier restaurante para esa réplica.
-- **Evidencia:** 0002 (Consecuencias); infraestructura.md, sección 2.4.
+- **Evidencia:** 0002 (Consecuencias), 0009; infraestructura.md, secciones 2.4 y 6.
 
 **PR-2 · Los datos iniciales son sintéticos**
 
@@ -150,7 +153,7 @@ Antes de cada acción, la app actualiza el estado que la acción necesita y, si 
 |---|---|---|---|
 | Confirmar la misma solicitud en dos tablets | Un cobro duplicado | Confirmar no revisa que la solicitud siga existiendo (0007) | Revisa que la solicitud siga en T06 antes de confirmar (HU-07.h2) |
 | Superar el saldo con un cobro manual | Lo pagado queda por encima del total de los pedidos | El cobro manual solo se controla contra el total de la mesa, no contra el saldo (C8) | Actualiza el saldo antes de registrar y no registra un monto sin propina que lo supere (HU-05.h1, HU-05.h8) |
-| Cancelar un pedido que acaba de recibir un cobro | Un pedido cancelado con un cobro que no se revierte, y un total recalculado sin él | Cancelar no revierte `isPaid`, `quantityPaid` ni `amountPaid` (C6) | Actualiza los cobros del pedido antes de cancelar y no cancela lo que tiene algo cobrado (HU-04.c3, HU-04.h7) |
+| Cancelar un pedido que acaba de recibir un cobro | Un pedido cancelado con un cobro que no se revierte, y un total recalculado sin él | Cancelar no revierte `isPaid`, `quantityPaid` ni `amountPaid` (C6) | Actualiza los cobros del pedido antes de cancelar y no cancela lo que tiene algo cobrado (HU-12.c2, HU-12.h3) |
 | Cerrar una mesa dos veces | Se reescribe `closedAt` y se libera la mesa aunque ya tenga otra sesión activa | El cierre no controla si la sesión ya estaba cerrada (C13) | Actualiza las mesas antes de cerrar y no cierra una sesión que ya no está activa (HU-08.h4) |
 
 - **Cuándo:** solo con dos o más tablets del mismo restaurante sobre la misma mesa o solicitud, o con un cobro del comensal que llega en el mismo instante. El margen va desde la revisión previa hasta que la petición llega al backend.
@@ -161,15 +164,15 @@ Antes de cada acción, la app actualiza el estado que la acción necesita y, si 
 - **Qué puede pasar:** la URL de `/sse/waiters?token=<jwt>` puede quedar en registros de acceso de servidores o proxies intermedios, o en registros de la app si alguien la escribe. Quien la lea tiene un JWT de mozo válido hasta su vencimiento (16 h por defecto).
 - **Cuándo:** cada vez que la app abre o reabre la conexión de eventos: al iniciar sesión, al renovar y después de cada corte (0006).
 - **Qué hace la app:** no registra la URL del stream (PA-6), la manda solo por HTTPS fuera de la réplica local (PA-7), y renueva el JWT antes de que venza (PA-8).
-- **Por qué se acepta:** así lo pide el contrato del stream (0004, 0006; contexto, sección 5).
-- **Pendiente:** comprobar si el stream acepta el JWT en el encabezado `Authorization`; está en los riesgos técnicos del [walking skeleton](walking-skeleton.md) (sección 6, "El JWT en la URL del stream").
+- **Por qué se acepta:** así lo pedían 0004 y 0006, como lo hace el panel actual (contexto, sección 5).
+- **Decidido:** el stream recibe el JWT en el encabezado `Authorization: Bearer`, porque `jwt.strategy.ts` de la copia lo lee antes que el query param ([0008](../adr/0008-jwt-del-stream-en-el-encabezado.md); DP-28). Este riesgo se cierra cuando [TK-05](../backlog/tickets/TK-05-eventos-y-consulta-periodica.md) lo comprueba contra la réplica; está en los riesgos técnicos del [walking skeleton](walking-skeleton.md) (sección 6, "El JWT en la URL del stream").
 
 ### RA-7 · Las cuentas de prueba existen en el proyecto de Firebase de Tabbie
 
-- **Qué puede pasar:** las cuentas de prueba existen en el proyecto de Firebase de Tabbie (0002), y sus credenciales se publican en el `Readme.md` para el evaluador. Cualquiera que lea el `Readme.md` puede iniciar sesión con ellas en ese proyecto. Si una inicia sesión contra el backend real, `POST /auth/login` le crea un usuario de comensal (T01).
+- **Qué puede pasar:** las cuentas de prueba existen en el proyecto de Firebase de Tabbie (0002). Sus credenciales no se publican: se entregan con el formulario de entrega ([0009](../adr/0009-publicacion-del-repo-y-credenciales.md); DP-35). Quien las reciba puede iniciar sesión con ellas en ese proyecto. Si una inicia sesión contra el backend real, `POST /auth/login` le crea un usuario de comensal (T01).
 - **Cuándo:** mientras las cuentas existan en el proyecto de Firebase de Tabbie.
 - **Qué hace la app:** ese usuario no tiene el rol `waiter` en el backend real, así que la app lo rechaza y no llega a la operación (PA-1, HU-01.c2). Las cuentas se reconocen por su dominio reservado (PR-3) y sus contraseñas no se usan en otro lado.
-- **Por qué se acepta:** la réplica valida contra el mismo proyecto de Firebase para que la app pase al backend real cambiando solo la URL base (0002), y el evaluador necesita entrar sin preparar nada. Con estas cuentas se obtiene, en el backend real, lo mismo que cualquiera obtiene iniciando sesión como comensal con una cuenta propia (C1, T01).
+- **Por qué se acepta:** la réplica valida contra el mismo proyecto de Firebase para que la app pase al backend real cambiando solo la URL base (0002), y el evaluador necesita entrar sin preparar nada. Con estas cuentas se obtiene, en el backend real, lo mismo que cualquiera obtiene iniciando sesión como comensal con una cuenta propia (C1, T01). Además, el proyecto es de desarrollo: lo confirmó su dueño el 2026-11-14, porque la app de Tabbie todavía no se liberó (0009; DP-02).
 
 ## 4. Bajada a criterios
 
@@ -199,9 +202,9 @@ Si el criterio ya existe en una historia o en el walking skeleton, se cita por s
 | RA-2 · O2 | SEG-c2 | SEG-c8 |
 | RA-3 · O3 | SEG-c3 | HU-08.h4 |
 | RA-4 · O4 | SEG-c4 | HU-02.h5, HU-06.h6, HU-11.h7, SEG-c5, SEG-c6 |
-| RA-5 · Carreras entre tablets | — (no se cierra en la app) | HU-07.h2, HU-05.h1, HU-05.h8, HU-04.h7, HU-08.h4 |
-| RA-6 · JWT en la URL del stream | — (lo pide el contrato) | SEG-c6, SEG-c7, WS-c10 |
-| RA-7 · Cuentas de prueba en Firebase de Tabbie | — (decisión de 0002) | HU-01.c2, SEG-c11 |
+| RA-5 · Carreras entre tablets | — (no se cierra en la app) | HU-07.h2, HU-05.h1, HU-05.h8, HU-12.h3, HU-08.h4 |
+| RA-6 · JWT en la URL del stream | TK-05, con el JWT en el encabezado (0008) | SEG-c6, SEG-c7, WS-c10 |
+| RA-7 · Cuentas de prueba en Firebase de Tabbie | — (decisión de 0002 y 0009) | HU-01.c2, SEG-c11 |
 
 **Cómo se comprueban O1 a O4:**
 
@@ -297,7 +300,7 @@ Si el criterio ya existe en una historia o en el walking skeleton, se cita por s
 
 **SEG-c11 · Datos iniciales sintéticos y cuentas de prueba reconocibles** (0002; PR-2, PR-3, RA-7)
 
-- **Dado** los datos iniciales del repo y la lista de cuentas de prueba del `Readme.md`
+- **Dado** los datos iniciales del repo y las cuentas de prueba que crea el script de `replica/firebase/` a partir de ellos (DP-37)
 - **Cuando** se carga una réplica vacía solo con los datos iniciales del repo, y se listan sus usuarios, restaurantes y credenciales de cobro, y las cuentas de prueba de Firebase
 - **Entonces** todos los emails, de los datos iniciales y de las cuentas de prueba, son del dominio reservado para ejemplos
 - **Y** los valores de `mercadoPagoToken` y `mercadoPagoRefreshToken` son de mentira, reconocibles como tales
