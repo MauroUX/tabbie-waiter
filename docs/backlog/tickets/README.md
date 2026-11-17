@@ -9,7 +9,7 @@
 ## Cómo se leen los tickets
 
 - **Archivos:** uno por ticket, `TK-NN-<nombre>.md`. El número sigue el orden en que se hacen.
-- **Gestor:** GitHub Issues, con `gh`: primero solo lectura y después escritura controlada. Por ahora los tickets viven acá; más adelante los issues se crean desde estos archivos (DP-05).
+- **Gestor:** GitHub Issues, con `gh` (DP-05). Desde el 2026-11-17 hay un issue por ticket, enlazado en la columna "Issue" de la tabla de abajo. El issue enlaza el archivo y no copia su contenido: el archivo sigue siendo la fuente.
 - **Criterios:** un ticket no tiene criterios propios. Hereda los de las historias (`HU-nn.cN`, `HU-nn.hN`), del walking skeleton (`WS-cN`) y de seguridad (`SEG-cN`) por su ID, con enlace, y suma su Definition of Done. El cambio de OpenSpec de cada ticket copia el texto de los criterios que hereda, para que el agente los tenga sin abrir otros archivos (DP-08). El scenario ejecutable vive en la spec de ese cambio.
 - **Herencia en parte:** un ticket de réplica, simulador o datos hereda **en parte** un criterio de la app cuando hace lo que ese criterio necesita del lado de la réplica. Su scenario comprueba esa parte por HTTP, y el criterio se cumple completo en el ticket de la app que lo hereda entero, que el ticket nombra.
 - **Wireframes:** cada ticket de frontend con pantalla enlaza el wireframe de baja fidelidad de su pantalla, en `docs/design/` (DP-10): `ordenes.png`, `inicio-de-sesion.png` y `pagos.png`. Todavía no existen. Los tickets de frontend del skeleton no tienen wireframe, porque sus pantallas son sin diseño.
@@ -28,24 +28,24 @@ El **setup del proyecto** (DP-06) no es un ticket, pero va antes de TK-01, en la
 
 ## Tickets, en el orden en que se hacen
 
-| # | ID | Título | Tipo | Origen | Depende de |
-|---|---|---|---|---|---|
-| 1 | [TK-01](TK-01-replica.md) | Réplica levantada con el contrato comprobado | Backend | Walking skeleton | Setup |
-| 2 | [TK-02](TK-02-datos-iniciales.md) | Datos iniciales sintéticos y cuentas de prueba | Datos | Walking skeleton | TK-01 |
-| 3 | [TK-03](TK-03-simulador-mesas-pedidos-y-cobros.md) | Simulador: ocupar mesas, confirmar pedidos y pedir cobros | Backend | Walking skeleton | TK-02 |
-| 4 | [TK-04](TK-04-app-base.md) | App: proyecto, variantes, inicio de sesión mínimo y registro de diagnóstico | Frontend | Walking skeleton | TK-01, TK-02 |
-| 5 | [TK-05](TK-05-eventos-y-consulta-periodica.md) | App: eventos y consulta periódica | Frontend | Walking skeleton | TK-03, TK-04 |
-| 6 | [TK-06](TK-06-aviso-y-reconexion.md) | App: aviso sin conexión y reconexión, con MockWebServer | Frontend | Walking skeleton | TK-05 |
-| 7 | [TK-07](TK-07-cliente-de-acciones.md) | App: cliente de las acciones, sin reintentos, con MockWebServer | Frontend | Walking skeleton | TK-04, TK-05, TK-06 |
-| 8 | [TK-08](TK-08-simulador-ordenes.md) | Simulador: lo que piden "Órdenes" y el inicio de sesión | Backend | HU-02, HU-01, HU-04 | TK-03 |
-| 9 | [TK-09](TK-09-ordenes.md) | Navegación principal y "Órdenes": pestañas y tarjetas | Frontend | HU-02 | TK-05, TK-06, TK-08 |
-| 10 | [TK-10](TK-10-tarjeta-y-cronometro.md) | Datos de la tarjeta y cronómetro de demora | Frontend | HU-02 | TK-08, TK-09 |
-| 11 | [TK-11](TK-11-inicio-de-sesion.md) | Inicio de sesión: pantalla, errores, rechazo y sesión guardada | Frontend | HU-01 | TK-08, TK-09 |
-| 12 | [TK-12](TK-12-mandar-a-cocina.md) | Mandar a cocina desde "Órdenes" | Frontend | HU-04 | TK-07, TK-08, TK-09 |
-| 13 | [TK-13](TK-13-simulador-pagos.md) | Simulador: lo que piden "Pagos" | Backend | HU-06, HU-07, HU-08 | TK-03 |
-| 14 | [TK-14](TK-14-pagos-solicitudes.md) | "Pagos": solicitudes de cobro presencial e indicador | Frontend | HU-06 | TK-05, TK-08, TK-09, TK-13 |
-| 15 | [TK-15](TK-15-confirmar-o-eliminar-solicitud.md) | Confirmar o eliminar una solicitud de cobro | Frontend | HU-07 | TK-07, TK-12, TK-13, TK-14 |
-| 16 | [TK-16](TK-16-cerrar-mesa.md) | Cerrar una mesa | Frontend | HU-08 | TK-07, TK-08, TK-12, TK-13, TK-14 |
+| # | ID | Título | Tipo | Origen | Depende de | Issue |
+|---|---|---|---|---|---|---|
+| 1 | [TK-01](TK-01-replica.md) | Réplica levantada con el contrato comprobado | Backend | Walking skeleton | Setup | [#2](https://github.com/MauroUX/tabbie-waiter/issues/2) |
+| 2 | [TK-02](TK-02-datos-iniciales.md) | Datos iniciales sintéticos y cuentas de prueba | Datos | Walking skeleton | TK-01 | [#3](https://github.com/MauroUX/tabbie-waiter/issues/3) |
+| 3 | [TK-03](TK-03-simulador-mesas-pedidos-y-cobros.md) | Simulador: ocupar mesas, confirmar pedidos y pedir cobros | Backend | Walking skeleton | TK-02 | [#4](https://github.com/MauroUX/tabbie-waiter/issues/4) |
+| 4 | [TK-04](TK-04-app-base.md) | App: proyecto, variantes, inicio de sesión mínimo y registro de diagnóstico | Frontend | Walking skeleton | TK-01, TK-02 | [#5](https://github.com/MauroUX/tabbie-waiter/issues/5) |
+| 5 | [TK-05](TK-05-eventos-y-consulta-periodica.md) | App: eventos y consulta periódica | Frontend | Walking skeleton | TK-03, TK-04 | [#6](https://github.com/MauroUX/tabbie-waiter/issues/6) |
+| 6 | [TK-06](TK-06-aviso-y-reconexion.md) | App: aviso sin conexión y reconexión, con MockWebServer | Frontend | Walking skeleton | TK-05 | [#7](https://github.com/MauroUX/tabbie-waiter/issues/7) |
+| 7 | [TK-07](TK-07-cliente-de-acciones.md) | App: cliente de las acciones, sin reintentos, con MockWebServer | Frontend | Walking skeleton | TK-04, TK-05, TK-06 | [#8](https://github.com/MauroUX/tabbie-waiter/issues/8) |
+| 8 | [TK-08](TK-08-simulador-ordenes.md) | Simulador: lo que piden "Órdenes" y el inicio de sesión | Backend | HU-02, HU-01, HU-04 | TK-03 | [#9](https://github.com/MauroUX/tabbie-waiter/issues/9) |
+| 9 | [TK-09](TK-09-ordenes.md) | Navegación principal y "Órdenes": pestañas y tarjetas | Frontend | HU-02 | TK-05, TK-06, TK-08 | [#10](https://github.com/MauroUX/tabbie-waiter/issues/10) |
+| 10 | [TK-10](TK-10-tarjeta-y-cronometro.md) | Datos de la tarjeta y cronómetro de demora | Frontend | HU-02 | TK-08, TK-09 | [#11](https://github.com/MauroUX/tabbie-waiter/issues/11) |
+| 11 | [TK-11](TK-11-inicio-de-sesion.md) | Inicio de sesión: pantalla, errores, rechazo y sesión guardada | Frontend | HU-01 | TK-08, TK-09 | [#12](https://github.com/MauroUX/tabbie-waiter/issues/12) |
+| 12 | [TK-12](TK-12-mandar-a-cocina.md) | Mandar a cocina desde "Órdenes" | Frontend | HU-04 | TK-07, TK-08, TK-09 | [#13](https://github.com/MauroUX/tabbie-waiter/issues/13) |
+| 13 | [TK-13](TK-13-simulador-pagos.md) | Simulador: lo que piden "Pagos" | Backend | HU-06, HU-07, HU-08 | TK-03 | [#14](https://github.com/MauroUX/tabbie-waiter/issues/14) |
+| 14 | [TK-14](TK-14-pagos-solicitudes.md) | "Pagos": solicitudes de cobro presencial e indicador | Frontend | HU-06 | TK-05, TK-08, TK-09, TK-13 | [#15](https://github.com/MauroUX/tabbie-waiter/issues/15) |
+| 15 | [TK-15](TK-15-confirmar-o-eliminar-solicitud.md) | Confirmar o eliminar una solicitud de cobro | Frontend | HU-07 | TK-07, TK-12, TK-13, TK-14 | [#16](https://github.com/MauroUX/tabbie-waiter/issues/16) |
+| 16 | [TK-16](TK-16-cerrar-mesa.md) | Cerrar una mesa | Frontend | HU-08 | TK-07, TK-08, TK-12, TK-13, TK-14 | [#17](https://github.com/MauroUX/tabbie-waiter/issues/17) |
 
 - **El orden** es el de DP-30: el skeleton delgado (TK-01 a TK-07), "Órdenes" (HU-02: TK-08 a TK-10), el resto de HU-01 (TK-11), mandar a cocina (TK-12), las solicitudes (HU-06: TK-13 y TK-14), HU-07 (TK-15) y HU-08 (TK-16). Dentro de cada grupo, un ticket va después de los que necesita.
 - **"Órdenes" antes:** la primera pantalla con diseño es TK-09; en la descomposición anterior era TK-13.
