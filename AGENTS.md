@@ -46,6 +46,8 @@ Un número de cuatro cifras remite a un ADR; los demás IDs son los de cada docu
 10. **El merge, que lo hace el humano.** El agente nunca mergea.
 11. **`/opsx:archive`.**
 
+**Tickets de Backend: skill `replica-feature`, siempre, aunque nadie la pida.** Cubre los pasos 4 a 6, con los subagentes `test-writer` e `implementer`.
+
 ## Ramas
 
 - Una por ticket: `mc/tk-NN-<slug>`, con PR hacia `feature/entrega-2-mc`.
