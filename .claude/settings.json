@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(gh issue list *)",
+      "Bash(gh issue view *)",
+      "Bash(gh pr view *)",
+      "Bash(gh pr diff *)",
+      "Bash(gh pr checks *)",
+      "Bash(gh pr list *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(openspec *)",
+      "PowerShell(gh issue list *)",
+      "PowerShell(gh issue view *)",
+      "PowerShell(gh pr view *)",
+      "PowerShell(gh pr diff *)",
+      "PowerShell(gh pr checks *)",
+      "PowerShell(gh pr list *)",
+      "PowerShell(git status *)",
+      "PowerShell(git diff *)",
+      "PowerShell(git log *)",
+      "PowerShell(openspec *)"
+    ],
+    "ask": [
+      "Bash(gh issue create *)",
+      "Bash(gh issue edit *)",
+      "Bash(gh issue comment *)",
+      "Bash(gh issue close *)",
+      "Bash(gh pr create *)",
+      "Bash(gh pr comment *)",
+      "Bash(gh pr edit *)",
+      "Bash(git push *)",
+      "Bash(railway *)",
+      "PowerShell(gh issue create *)",
+      "PowerShell(gh issue edit *)",
+      "PowerShell(gh issue comment *)",
+      "PowerShell(gh issue close *)",
+      "PowerShell(gh pr create *)",
+      "PowerShell(gh pr comment *)",
+      "PowerShell(gh pr edit *)",
+      "PowerShell(git push *)",
+      "PowerShell(railway *)"
+    ],
+    "deny": [
+      "Edit(/backend/**)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/*.env)",
+      "Read(**/google-services.json)",
+      "Read(**/*service-account*.json)",
+      "Read(**/*service_account*.json)",
+      "Read(**/*serviceAccount*.json)",
+      "Read(**/*firebase-adminsdk*.json)",
+      "Read(/.claude/hooks/*.local)",
+      "Bash(gh pr merge *)",
+      "Bash(gh repo delete *)",
+      "Bash(gh api *merge*)",
+      "Bash(git push *--force*)",
+      "Bash(git push -f*)",
+      "Bash(git push * -f*)",
+      "Bash(git push *+*)",
+      "Bash(git push *--all*)",
+      "Bash(git push *--mirror*)",
+      "Bash(git push * main)",
+      "Bash(git push * main *)",
+      "Bash(git push *:main*)",
+      "Bash(git push *refs/heads/main*)",
+      "Bash(git push *feature/entrega-*)",
+      "PowerShell(gh pr merge *)",
+      "PowerShell(gh repo delete *)",
+      "PowerShell(gh api *merge*)",
+      "PowerShell(git push *--force*)",
+      "PowerShell(git push -f*)",
+      "PowerShell(git push * -f*)",
+      "PowerShell(git push *+*)",
+      "PowerShell(git push *--all*)",
+      "PowerShell(git push *--mirror*)",
+      "PowerShell(git push * main)",
+      "PowerShell(git push * main *)",
+      "PowerShell(git push *:main*)",
+      "PowerShell(git push *refs/heads/main*)",
+      "PowerShell(git push *feature/entrega-*)",
+      "PowerShell(Get-Content *.env)",
+      "PowerShell(Get-Content *.env *)",
+      "PowerShell(Get-Content *google-services.json*)",
+      "PowerShell(Get-Content *service-account*)",
+      "PowerShell(Get-Content *firebase-adminsdk*)",
+      "PowerShell(Get-Content *.local*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "statusMessage": "Revisando que no entren secretos ni cuentas al repo...",
+            "timeout": 30,
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/datos-que-no-salen.sh"
+          },
+          {
+            "type": "command",
+            "shell": "bash",
+            "statusMessage": "Comprobando que el push no vaya a una rama protegida...",
+            "timeout": 30,
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/ramas-protegidas.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -20,10 +20,12 @@ captures/
 *.jks
 *.keystore
 
-# Variables de entorno: solo entran los ejemplos
+# Variables de entorno: solo entran los ejemplos.
+# Los nuestros se llaman <perfil>.env.example; .env.example queda por si la copia
+# de backend/ lo trae en su raíz (TK-01).
 .env*
+*.env
 !.env.example
-!.env.*.example
 !*.env.example
 
 # IDE

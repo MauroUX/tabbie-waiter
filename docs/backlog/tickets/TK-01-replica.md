@@ -20,7 +20,7 @@ Dejar la réplica corriendo en el entorno local, con la copia sin cambios en `ba
 **Incluye:**
 
 - **La copia en `backend/`:** `order-pay-backend`, rama `main`, commit `c18b0f7`, con su código y su configuración de build. No entran datos, variables de entorno ni la configuración de despliegue de Tabbie (0002).
-- **`backend/UPSTREAM.md`:** de qué repositorio y commit sale la copia, cómo se comprueba que sigue sin cambios y cómo se compara el contrato con el `main` de Tabbie (0002, "Predicción del límite").
+- **`docs/architecture/backend-upstream.md`**, la ficha de la copia: de qué repositorio y commit sale, cómo se comprueba que sigue sin cambios y cómo se compara el contrato con el `main` de Tabbie (0002, "Predicción del límite"). Va fuera de `backend/`, para que la copia quede idéntica al original sin excepciones (DP-47).
 - **`compose.yaml`:** la réplica, construida con el Dockerfile de la copia; MySQL 8, vacío al primer arranque, y Redis 7, sin persistencia ([infraestructura.md](../../architecture/infraestructura.md), sección 2.1).
 - **`replica/entornos/`:** los ejemplos de los dos perfiles, el normal y el de pruebas, con los nombres de las variables de [infraestructura.md](../../architecture/infraestructura.md), sección 5, y sin valores. El perfil de pruebas tiene un vencimiento corto de `REDIS_EXPIRATION_TIME`, para HU-06.h4.
 - **Arranque sin MercadoPago ni archivos:** `MP_*`, `AWS_*` y `FRONT_URL` vacías o con valores de mentira, comprobando que ningún endpoint de la cadena del mozo ni del simulador las usa.
@@ -40,7 +40,7 @@ Dejar la réplica corriendo en el entorno local, con la copia sin cambios en `ba
 
 ## Dónde se trabaja
 
-- **Carpetas** ([estructura.md](../../architecture/estructura.md)): `backend/` (solo para poner la copia y `UPSTREAM.md`), `compose.yaml`, `replica/entornos/`, `replica/tests/` y `docs/api/`.
+- **Carpetas** ([estructura.md](../../architecture/estructura.md)): `backend/` (solo para que el humano ponga la copia, DP-47), `compose.yaml`, `replica/entornos/`, `replica/tests/`, `docs/api/` y `docs/architecture/backend-upstream.md`.
 - **Componentes** ([componentes.md](../../architecture/componentes.md), sección 2): los módulos de la copia tal como están, sin tocarlos: `AppModule`, `AuthModule`, `FirebaseAdminModule`, los guards, `RestaurantsModule`, `OrderModule`, `TableSessionModule`, `PaymentModule`, `SseModule` y `RedisModule`.
 
 ## Contrato que usa
@@ -64,7 +64,7 @@ No comprueba las filas que la app no usa: T02, T03, T04, T10, T15 y T18.
 
 1. Crear el cambio de OpenSpec, con los scenarios de SEG-c10 y de la parte de WS-c1, y una spec del contrato con una entrada por cada fila del inventario.
 2. Escribir las pruebas primero: el detector de secretos, el arranque de la réplica y el contrato. Las del arranque y el contrato fallan, porque todavía no hay réplica.
-3. Exportar `c18b0f7` del repo de Tabbie y copiarlo en `backend/` sin tocar ningún archivo, y escribir `UPSTREAM.md`. Comprobar con `git diff --no-index` entre el export y `backend/` que da vacío, salvo `UPSTREAM.md`. El commit que importa la copia lleva la etiqueta `backend-base`, que se pushea (DP-46).
+3. **Parada del humano (DP-47):** el humano exporta `c18b0f7` del repo de Tabbie, lo copia en `backend/` sin tocar ningún archivo y comprueba con `git diff --no-index` entre el export y `backend/` que da vacío. Hace el commit que importa la copia, con la etiqueta `backend-base`, y la pushea (DP-46). El agente no escribe en `backend/`: lo bloquea `settings.json`, y copiar por la terminal sería esquivar ese bloqueo. Después, el agente escribe `docs/architecture/backend-upstream.md`.
 4. Escribir los ejemplos de los perfiles en `replica/entornos/`, y armar el archivo local de variables, que no entra al repo, con las credenciales del proyecto de Firebase de Tabbie y un `JWT_SECRET` propio del entorno local.
 5. Escribir `compose.yaml` con la réplica, MySQL y Redis. Levantar y comprobar que la réplica se conecta a MySQL y Redis y crea el esquema desde sus entidades (`DB_SYNC` activada).
 6. Arrancar con `MP_*`, `AWS_*` y `FRONT_URL` vacías. Si la copia no arranca, usar valores de mentira, nunca cambiar su código, y dejar anotado en el ejemplo qué variable lo necesita.
@@ -77,7 +77,7 @@ No comprueba las filas que la app no usa: T02, T03, T04, T10, T15 y T18.
 
 - La de [Para todos](../definition-of-done.md#para-todos) y la de [Backend](../definition-of-done.md#backend-réplica-y-simulador).
 - **Propio del ticket:**
-  - El PR muestra que el `git diff --no-index` entre el export de `c18b0f7` y `backend/` da vacío, salvo `UPSTREAM.md`, y que la etiqueta `backend-base` está pusheada en el commit que importa la copia (DP-46).
+  - El PR muestra que el `git diff --no-index` entre el export de `c18b0f7` y `backend/` da vacío, sin excepciones, y que la etiqueta `backend-base` está pusheada en el commit que importa la copia (DP-46, DP-47).
   - La réplica arranca desde cero con `compose.yaml` y un archivo local de variables, siguiendo solo lo que dice [infraestructura.md](../../architecture/infraestructura.md).
   - Cada fila de la columna "Waiter App" del inventario tiene su entrada en `docs/api/openapi.yaml` y su prueba del contrato, y pasa.
   - Si una prueba del contrato no coincide con el contexto, se corrige el contexto, no la copia.

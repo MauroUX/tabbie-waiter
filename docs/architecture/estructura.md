@@ -30,8 +30,7 @@ tabbie-waiter/
 │   └── workflows/               CI con GitHub Actions: ktlint, tests de la app, tests de la réplica y gitleaks (DP-11)
 │
 ├── backend/                     Copia sin cambios de order-pay-backend, rama main, commit c18b0f7 (0002)
-│   ├── UPSTREAM.md              De qué repositorio y commit sale la copia, y cómo se compara el contrato
-│   └── …                        El código y la configuración de build, tal como están en ese commit
+│   └── …                        El código y la configuración de build, tal como están en ese commit, sin nada agregado (DP-47)
 │
 ├── replica/                     Lo propio de la réplica, fuera de la copia (0002, 0003)
 │   ├── datos-iniciales/         SQL propio con los datos sintéticos: dos restaurantes, dos mozos en el primero y uno en el segundo (DP-16)
@@ -65,6 +64,7 @@ tabbie-waiter/
     ├── backlog/                 Épicas, historias de usuario, criterios de aceptación, Definition of Done y tickets
     ├── adr/                     Decisiones de arquitectura
     ├── architecture/            Vista general, componentes, walking skeleton, estructura, infraestructura y seguridad
+    │   └── backend-upstream.md  Ficha de la copia de backend/: de qué repositorio y commit sale, y cómo se compara el contrato (DP-47)
     ├── api/                     openapi.yaml, escrito a mano desde el código de la copia, con los campos sensibles marcados (DP-09)
     └── design/                  Wireframes de baja fidelidad, enlazados desde los tickets de frontend (DP-10)
 ```
@@ -113,10 +113,10 @@ La app, la réplica, el simulador y la documentación están en un solo reposito
 
 `backend/` es una copia sin cambios de `order-pay-backend`, rama `main`, commit `c18b0f7` (0002), separada de todo lo propio.
 
-- **Por qué:** la réplica tiene que ser idéntica al backend real para que la app pase a él cambiando solo la URL base (0002). Si nada propio entra en `backend/`, que la copia sigue sin cambios se comprueba con un `diff` contra el commit original, que da vacío. La única excepción es `UPSTREAM.md`, la ficha de la copia, que no está en el original y queda fuera de esa comparación.
+- **Por qué:** la réplica tiene que ser idéntica al backend real para que la app pase a él cambiando solo la URL base (0002). Si nada propio entra en `backend/`, que la copia sigue sin cambios se comprueba con un `diff` contra el commit original, que da vacío, sin excepciones. Por eso la ficha de la copia, que no está en el original, vive fuera de `backend/`, en `docs/architecture/backend-upstream.md`, que escribe TK-01 (DP-47).
 - **Lo propio va en `replica/`:** lo que las pruebas necesitan de la réplica (datos iniciales, vencimientos cortos y fallos provocados) se resuelve fuera de su código, con datos, variables de entorno, el simulador y Toxiproxy (0002). Las variables que se ajustan (`JWT_EXPIRATION_WAITERS`, `REDIS_EXPIRATION_TIME`, `USE_FIREBASE` y `FIREBASE_*`) ya las lee la copia ([componentes.md](componentes.md), sección 2).
 - **Secretos:** `replica/entornos/` tiene solo ejemplos de cada perfil, con los nombres de las variables y sin valores. Las credenciales del proyecto de Firebase de Tabbie son un secreto del entorno (0002) y no entran en el repositorio; el detalle va en [seguridad.md](seguridad.md).
-- **Actualizar la copia:** si la predicción del límite de 0002 detecta que el contrato cambió, `backend/` se reemplaza entero por el commit nuevo, se actualiza `UPSTREAM.md` y un ADR nuevo reemplaza a 0002. Nunca se edita a mano un archivo de la copia.
+- **Actualizar la copia:** si la predicción del límite de 0002 detecta que el contrato cambió, el humano reemplaza `backend/` entero por el commit nuevo, se actualiza `backend-upstream.md` y un ADR nuevo reemplaza a 0002. Nunca se edita a mano un archivo de la copia, y el agente no escribe en `backend/`: lo bloquea `settings.json`, y copiar por la terminal sería esquivar ese bloqueo (DP-47).
 
 ### App por funcionalidad y por capas
 

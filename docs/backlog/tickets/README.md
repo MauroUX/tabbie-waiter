@@ -242,6 +242,8 @@ Eran las decisiones pendientes de esta descomposición. Fuente de cada una: deci
 - **DP-42 · `docs/api/openapi.yaml` lo escribe TK-01:** con una entrada por cada fila de la columna "Waiter App" del inventario, mientras escribe las pruebas del contrato, que validan las respuestas contra él. TK-01 copia tres endpoints en la sección 4 del `Readme.md`. Afecta a TK-01.
 - **DP-43 · CI sin credenciales de Firebase:** las pruebas de la réplica corren en la CI con `USE_FIREBASE` desactivada y JWT firmados con un `JWT_SECRET` de prueba (como DP-15). Las que necesitan el proyecto de Firebase de Tabbie se marcan como locales y su evidencia va en el PR ([infraestructura.md](../../architecture/infraestructura.md#6-integración-continua)). Afecta a TK-01 y TK-02.
 - **DP-44 · Lo que el PRD dejaba para las historias:** la sección "Pendiente para las historias" del PRD pasa a "Definido en el backlog", con el lugar de cada definición. No afecta a los tickets.
+- **DP-46 · Cómo se comprueba que `backend/` no cambió:** al importar la copia, con `git diff --no-index` contra un export de `c18b0f7`; después, contra la etiqueta `backend-base` del commit que la importa, en local y en la CI. Fuente: decisión del humano durante el setup. Afecta a TK-01.
+- **DP-47 · Dónde vive la ficha de la copia:** en `docs/architecture/backend-upstream.md`, fuera de `backend/`, que queda idéntico al original sin excepciones. La importación de la copia en TK-01 es una parada del humano: `settings.json` bloquea que el agente escriba en `backend/`, y copiar por la terminal sería esquivar ese bloqueo. Fuente: decisión del humano durante el setup. Afecta a TK-01.
 
 ## Decisiones pendientes
 
