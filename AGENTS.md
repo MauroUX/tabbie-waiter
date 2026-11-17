@@ -30,6 +30,7 @@ Un número de cuatro cifras remite a un ADR; los demás IDs son los de cada docu
   Por qué: el backend no restringe por rol ni por restaurante todos los endpoints del mozo (O2, O3); lo decide la app (PA-1, PA-2).
 - **No entra al repo ninguna credencial ni cuenta (0009), y no se leen archivos `.env` ni datos de Tabbie.**
   Por qué: el repo es público, y con la cuenta de servicio de Firebase o con `JWT_SECRET` se toma el proyecto de Tabbie o se firma un JWT de cualquier rol (PR-1).
+- **Cuando un hook de `.claude/hooks/` bloquea, no se desactiva, no se saltea y no se reescribe el comando para esquivarlo:** se cambia el dato y se vuelve a intentar.
 
 ## Cómo se trabaja un ticket
 
@@ -39,9 +40,9 @@ Un número de cuatro cifras remite a un ADR; los demás IDs son los de cada docu
 4. **El test primero, en rojo:** uno por scenario, y se lo ve fallar.
 5. **La implementación hasta el verde** (`/opsx:apply`), sin cambiar los tests del paso 4.
 6. **`/opsx:verify`.**
-7. **El commit**, con la skill `commit`, que llega en S-003. El hook de pre-commit que bloquea credenciales y cuentas (DP-07) llega en S-002.
+7. **El commit, siempre con la skill `commit`.** Antes de cada commit, el hook `datos-que-no-salen` bloquea credenciales y cuentas (DP-07).
 8. **El PR**, con `Closes #n`.
-9. **La revisión adversarial:** el humano lanza el subagente `adversarial-reviewer`, y el informe queda como comentario del PR (DP-12). El subagente llega en S-003.
+9. **La revisión adversarial, antes del merge:** el humano lanza el subagente `adversarial-reviewer` con el ticket, el change y el diff, y el informe queda como comentario del PR (DP-12).
 10. **El merge, que lo hace el humano.** El agente nunca mergea.
 11. **`/opsx:archive`.**
 
