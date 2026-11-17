@@ -111,6 +111,20 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "statusMessage": "Revisando si hay que formatear con ktlint...",
+            "timeout": 180,
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/ktlint-formato.sh"
+          }
+        ]
+      }
     ]
   }
 }

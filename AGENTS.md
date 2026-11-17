@@ -48,6 +48,8 @@ Un número de cuatro cifras remite a un ADR; los demás IDs son los de cada docu
 
 **Tickets de Backend: skill `replica-feature`, siempre, aunque nadie la pida.** Cubre los pasos 4 a 6, con los subagentes `test-writer` e `implementer`.
 
+**Tickets de Frontend: skill `app-feature`, siempre, aunque nadie la pida.** Cubre los pasos 4 a 6, con los subagentes `android-test-writer` y `android-implementer`.
+
 ## Ramas
 
 - Una por ticket: `mc/tk-NN-<slug>`, con PR hacia `feature/entrega-2-mc`.
