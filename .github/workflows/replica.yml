@@ -1,0 +1,91 @@
+# CI de la réplica (design D8 del change tk-01-replica-base, DP-11, DP-43, DP-52).
+# Tres jobs: gitleaks sobre todo el historial, el OpenAPI sin diferencias y la suite de contrato contra el stack.
+# Corre sin Firebase (USE_FIREBASE=false). Ningún secreto está en este archivo: los de la corrida se generan con
+# `openssl rand` y se enmascaran antes de usarse.
+name: replica
+
+on:
+  pull_request:
+  push:
+    branches:
+      - "mc/**"
+      - "feature/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: replica-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gitleaks:
+    name: gitleaks (todo el historial)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Traer todas las ramas
+        run: git fetch --all --prune
+      - name: gitleaks sobre todo el historial
+        run: |
+          docker run --rm -v "$PWD:/repo" \
+            ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
+            git /repo --log-opts="--all" --redact
+
+  openapi:
+    name: openapi (generado = commiteado)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Regenerar docs/api/openapi.yaml desde el código
+        run: docker compose --profile herramientas run --rm --build --no-deps openapi
+      - name: Sin diferencias con lo commiteado
+        run: git diff --exit-code -- docs/api/openapi.yaml
+
+  replica:
+    name: replica (suite de contrato)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Traer todas las ramas
+        run: git fetch --all --prune
+      - name: Escribir el perfil de pruebas
+        run: |
+          set -euo pipefail
+          jwt_secret="$(openssl rand -hex 24)"
+          db_password="$(openssl rand -hex 24)"
+          redis_password="$(openssl rand -hex 24)"
+          echo "::add-mask::${jwt_secret}"
+          echo "::add-mask::${db_password}"
+          echo "::add-mask::${redis_password}"
+          umask 077
+          {
+            echo "DB_HOST=mysql"
+            echo "DB_PORT=3306"
+            echo "DB_USER=replica"
+            echo "DB_PASSWORD=${db_password}"
+            echo "DB_NAME=replica"
+            echo "REDIS_HOST=redis"
+            echo "REDIS_PORT=6379"
+            echo "REDIS_PASSWORD=${redis_password}"
+            echo "JWT_SECRET=${jwt_secret}"
+            echo "JWT_EXPIRATION_WAITERS=16h"
+            echo "JWT_EXPIRATION=1h"
+            echo "REDIS_EXPIRATION_TIME=30"
+            echo "USE_FIREBASE=false"
+            echo "PORT=3000"
+          } > replica/entornos/pruebas.env
+      - name: Levantar la réplica, MySQL y Redis desde cero
+        run: docker compose --env-file replica/entornos/pruebas.env up -d --build --wait
+      - name: Suite de contrato
+        run: docker compose --env-file replica/entornos/pruebas.env --profile pruebas run --rm --build pruebas
+      - name: Registro de la réplica (solo si falló)
+        if: failure()
+        run: docker compose --env-file replica/entornos/pruebas.env logs --no-color --tail 200 replica
+      - name: Bajar todo y borrar los volúmenes
+        if: always()
+        run: docker compose --env-file replica/entornos/pruebas.env down -v
