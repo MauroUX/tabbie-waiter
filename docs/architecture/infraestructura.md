@@ -4,7 +4,7 @@
 >
 > La base son las [decisiones de arquitectura](../adr/README.md), el [backlog](../backlog/README.md) y el [documento de contexto](../context/panel-mozos-actual.md). Las referencias siguen la convención del [README de arquitectura](README.md).
 
-**Es una infraestructura propuesta.** Todavía no hay código: los pasos dicen qué se hace, no con qué comandos. Cuando exista el código, este documento se actualiza con los comandos reales.
+**Qué ya existe:** el entorno local de la réplica (sección 2.1, pasos 1 a 3), las pruebas de la réplica y la CI (sección 6) tienen código y comandos reales desde TK-01. Lo demás sigue como propuesta hasta su ticket: la carga de los datos iniciales y el script de cuentas de Firebase (TK-02), Toxiproxy (ampliación) y la demo en Railway (final de la ampliación).
 
 > **Una sola instancia.** El backend real corre en una sola instancia en Railway (contexto, sección 0), y la réplica también, en los dos entornos. Los eventos de `/sse/waiters` salen de un `Subject` en la memoria del proceso, sin Redis ni cola de por medio: con dos instancias, un evento emitido en una no llega a los mozos conectados a la otra (0006; contexto, sección 5). Por eso la réplica **nunca se escala horizontalmente**, y cada despliegue o reinicio corta todas las conexiones.
 
@@ -78,9 +78,11 @@ flowchart TB
 
 | Pieza | Dónde | Configuración |
 |---|---|---|
-| Réplica del backend | Contenedor de Docker Compose, construido con el Dockerfile de `replica/` | Variables de entorno de la sección 5, desde un archivo local que no entra al repo |
-| MySQL 8 | Contenedor de Docker Compose | Base vacía al primer arranque; las migraciones de la réplica crean el esquema |
-| Redis 7 | Contenedor de Docker Compose | Sin persistencia necesaria: las solicitudes de cobro vencen solas |
+| Réplica del backend | Servicio `replica` de `compose.yaml`, construido con `replica/Dockerfile` (Node 20) | Variables de entorno de la sección 5, desde el archivo local del perfil (`replica/entornos/<perfil>.env`), que no entra al repo. Dentro del contenedor escucha en 3000; `PORT` elige el puerto publicado en la máquina |
+| MySQL 8 | Servicio `mysql` de `compose.yaml` (MySQL 8.4) | Base vacía al primer arranque, en un volumen; las migraciones de la réplica crean el esquema. Toma la base, el usuario y la contraseña de las variables `DB_*` del perfil, y no publica puerto |
+| Redis 7 | Servicio `redis` de `compose.yaml` (Redis 7.4) | Sin persistencia: las solicitudes de cobro vencen solas. Toma la contraseña de `REDIS_PASSWORD` |
+| Pruebas de la réplica | Servicio `pruebas` de `compose.yaml`, perfil `pruebas`, construido con `replica/tests/Dockerfile` (Node 20) | Las mismas variables del perfil, más el repo montado de solo lectura |
+| Generador del OpenAPI | Servicio `openapi` de `compose.yaml`, perfil `herramientas` | No necesita variables ni MySQL ni Redis; escribe `docs/api/openapi.yaml` |
 | Toxiproxy | Contenedor de Docker Compose, desde la ampliación (DP-41) | Un proxy hacia la réplica. Su API queda accesible solo desde la máquina de desarrollo |
 | Carga de los datos iniciales | Servicio de Docker Compose que corre una sola vez | Espera a que terminen las migraciones de la réplica y ejecuta el SQL de `replica/datos-iniciales/` (DP-16, DP-51) |
 | Waiter App, variante local | Emulador en la máquina de desarrollo, o tablet en la misma red | URL base apuntando a la réplica en el lote 1, y a Toxiproxy desde la ampliación (DP-41) |
@@ -96,16 +98,37 @@ flowchart TB
 
 **Cómo se levanta:**
 
-1. Se completa el archivo local de variables a partir del archivo de ejemplo del repo, con las credenciales del proyecto de Firebase de Tabbie y el secreto del JWT.
-2. Se elige el perfil: el normal, o el **perfil de pruebas**, con los vencimientos cortos de la sección 4.
-3. Se levanta Docker Compose. La réplica arranca, se conecta a MySQL y Redis, y corre sus migraciones, que crean el esquema (DP-51).
+1. Se completa el archivo local de cada perfil a partir de su ejemplo: `replica/entornos/local.env` desde `local.env.example` (el normal, con las credenciales del proyecto de Firebase de Tabbie y `USE_FIREBASE=true`) y `replica/entornos/pruebas.env` desde `pruebas.env.example` (el **perfil de pruebas**, con los vencimientos cortos de la sección 4 y `USE_FIREBASE=false`). Cada uno con su propio `JWT_SECRET`. `.gitignore` los deja fuera del repo.
+2. Se elige el perfil con el archivo que se pasa a Docker Compose en `--env-file`.
+3. Se levanta Docker Compose. La réplica arranca, se conecta a MySQL y Redis, y corre sus migraciones, que crean el esquema (DP-51). Si falta una variable obligatoria, no arranca y dice cuál.
+
+   ```powershell
+   docker compose --env-file replica/entornos/local.env up -d --build --wait
+   ```
+
+   Con el perfil de pruebas, el mismo comando con `replica/entornos/pruebas.env`.
 4. Se corre, una sola vez por proyecto de Firebase, el script que crea las cuentas de prueba en Firebase. Si las cuentas ya existen, no las duplica.
 5. El servicio de carga de Docker Compose espera a que terminen las migraciones y ejecuta en MySQL el SQL de los datos iniciales sintéticos (DP-16). La réplica no tiene seeder.
 6. Desde la ampliación, se configura en Toxiproxy el proxy hacia la réplica (DP-41).
 7. Se instala la variante local de la app en el emulador o la tablet, y se inicia sesión con una cuenta de prueba.
 8. Se corre el simulador para generar mesas, pedidos, solicitudes de cobro y pedidos de ayuda.
 
-**Para volver a empezar:** se borran los volúmenes de MySQL y Redis y se repiten los pasos 3 y 5. Las cuentas de Firebase no se tocan.
+**Para volver a empezar:** se borran los volúmenes de MySQL y Redis y se repiten los pasos 3 y 5. Las cuentas de Firebase no se tocan. Al cambiar de perfil también se vuelve a empezar, porque MySQL guarda el usuario y la contraseña del primer arranque.
+
+```powershell
+docker compose --env-file replica/entornos/pruebas.env down -v
+```
+
+**Comandos de la réplica:**
+
+| Para qué | Comando |
+|---|---|
+| Correr la suite de la réplica, con el stack levantado | `docker compose --env-file replica/entornos/pruebas.env --profile pruebas run --rm --build pruebas` |
+| Correr también las pruebas locales, que necesitan Firebase (DP-43) | Con el stack levantado con `local.env`: `$env:PRUEBAS_LOCALES='1'; docker compose --env-file replica/entornos/local.env --profile pruebas run --rm pruebas` |
+| Regenerar `docs/api/openapi.yaml` (DP-52) | `docker compose --profile herramientas run --rm --build --no-deps openapi` |
+| Detector de secretos sobre todo el historial y todas las ramas (SEG-c10) | `git fetch --all --prune; docker run --rm -v "${PWD}:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1 git /repo --log-opts="--all" --redact` |
+| Buscar en el historial los valores de un archivo local (SEG-c10) | `bash replica/scripts/buscar-valores-de-secretos.sh replica/entornos/local.env`. Imprime solo el nombre de cada variable y si aparece |
+| Deshacer la migración (DP-51) | `docker compose --env-file replica/entornos/pruebas.env exec replica node node_modules/typeorm/cli.js migration:revert -d dist/data-source.js` |
 
 ### 2.2 Demo
 
@@ -222,11 +245,11 @@ Solo los nombres y para qué sirve cada una. Los valores van en el archivo local
 | Sesión | `JWT_EXPIRATION_WAITERS` | Vencimiento del JWT de los mozos. Corto en el perfil de pruebas |
 | Sesión | `JWT_EXPIRATION` | Vencimiento del JWT de los demás usuarios |
 | Solicitudes de cobro | `REDIS_EXPIRATION_TIME` | Vencimiento de las solicitudes de cobro presencial en Redis. Corto en el perfil de pruebas |
-| Firebase | `USE_FIREBASE` | Activa la verificación del ID token con Firebase Admin en `POST /auth/login`. Activada en los dos entornos |
+| Firebase | `USE_FIREBASE` | Activa la verificación del ID token con Firebase Admin en `POST /auth/login`, solo con el valor `true`. Activada en los dos entornos; desactivada en el perfil de pruebas y en la CI, donde `POST /auth/login` responde 503 (DP-43, DP-59) |
 | Firebase | `FIREBASE_PROJECT_ID` | Proyecto de Firebase de Tabbie |
-| Firebase | `FIREBASE_PRIVATE_KEY` | Clave privada de la cuenta de servicio. Secreto |
+| Firebase | `FIREBASE_PRIVATE_KEY` | Clave privada de la cuenta de servicio, en una sola línea, como el campo `private_key` del JSON (con los saltos escritos `
+`). Secreto |
 | Firebase | `FIREBASE_CLIENT_EMAIL` | Email de la cuenta de servicio |
-| Firebase | Los demás `FIREBASE_*` | Los demás campos de la cuenta de servicio de ese proyecto. Se tratan como secretos |
 | Servidor | `PORT` | Puerto donde escucha la réplica. En Railway lo asigna la plataforma |
 | Servidor | `CORS_ORIGINS` | Orígenes web permitidos. No afecta a la app nativa ni al simulador, que no son navegadores |
 
@@ -234,7 +257,7 @@ La réplica no tiene una variable para sincronizar el esquema: corre sus migraci
 
 ## 6. Integración continua
 
-Hay CI con GitHub Actions desde el primer PR de código, en `.github/workflows/` (DP-11). Corre en cada PR y bloquea el merge si algo falla:
+Hay CI con GitHub Actions desde el primer PR de código, en `.github/workflows/` (DP-11). Corre en cada PR y bloquea el merge si algo falla. Desde TK-01 está `.github/workflows/replica.yml`, con los pasos de la réplica (tests, OpenAPI y gitleaks); ktlint y los tests de la app se suman con TK-04, cuando exista `android/`:
 
 | Paso | Qué comprueba |
 |---|---|
@@ -242,7 +265,7 @@ Hay CI con GitHub Actions desde el primer PR de código, en `.github/workflows/`
 | Tests de la app | Las pruebas locales de `android/app/src/test/`, incluidas las de MockWebServer (DP-20) |
 | Tests de la réplica | Las pruebas de `replica/tests/`, contra la réplica levantada con Docker Compose, con MySQL y Redis reales (DP-14), incluidas las de O1 a O4 (DP-50) |
 | OpenAPI | Regenera `docs/api/openapi.yaml` desde el código de la réplica y falla si difiere del commiteado (DP-52) |
-| gitleaks | Que el PR no traiga secretos ni credenciales (DP-01) |
+| gitleaks | Que el repo, con todo su historial y todas sus ramas, no traiga secretos ni credenciales (DP-01, SEG-c10) |
 
-- **Sin credenciales de Firebase en la CI (DP-43):** las pruebas de la réplica corren con `USE_FIREBASE` desactivada y con JWT firmados con el `JWT_SECRET` de prueba de la CI, como la prueba del contrato (DP-15). Las que necesitan el proyecto de Firebase de Tabbie (el canje de las cuentas de prueba de TK-02 y el inicio de sesión en el dispositivo) se marcan como locales, no corren en la CI, y su evidencia va en el PR.
+- **Sin credenciales de Firebase en la CI (DP-43):** las pruebas de la réplica corren con `USE_FIREBASE` desactivada y con JWT firmados con el `JWT_SECRET` de prueba de la CI, como la prueba del contrato (DP-15). La CI genera en cada corrida el `JWT_SECRET` y las contraseñas de MySQL y Redis, así que no hay ningún valor guardado. Las que necesitan el proyecto de Firebase de Tabbie (el canje de las cuentas de prueba de TK-02 y el inicio de sesión en el dispositivo) se marcan como locales, no corren en la CI, y su evidencia va en el PR.
 - La revisión adversarial del PR no es parte de la CI: la lanza el humano antes del merge (DP-12; [Definition of Done](../backlog/definition-of-done.md)).

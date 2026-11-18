@@ -14,7 +14,8 @@ Hasta el segundo nivel; en `android/`, hasta los paquetes de cada funcionalidad.
 
 ```text
 tabbie-waiter/
-├── compose.yaml                 Servicios del entorno de prueba: MySQL 8, Redis 7, Toxiproxy y la carga de los datos iniciales
+├── compose.yaml                 Servicios del entorno local: la réplica, MySQL 8, Redis 7, las pruebas y el generador del OpenAPI; después, Toxiproxy y la carga de los datos iniciales
+├── .nvmrc                       La versión de Node del proyecto: 20 (0003)
 ├── Readme.md                    Entrega del proyecto: ficha, producto, arquitectura, datos, API, historias, tickets y PRs
 ├── Prompts.md                   Los prompts usados en cada sección del Readme
 ├── AGENTS.md                    Instrucciones para agentes, con la Definition of Done (llega con el setup, DP-06)
@@ -36,6 +37,7 @@ tabbie-waiter/
 │   ├── firebase/                Script que crea las cuentas de prueba en el proyecto de Firebase de Tabbie
 │   ├── toxiproxy/               Configuración de los proxies entre la app y la réplica
 │   ├── entornos/                Perfiles de variables de entorno de la réplica: solo ejemplos, sin valores
+│   ├── scripts/                 Herramientas que corre el humano, como la búsqueda de los valores de secretos en el historial (SEG-c10)
 │   └── tests/                   Pruebas de integración y de contrato de la réplica, y las comprobaciones de O1 a O4: TypeScript con Jest y Supertest (DP-14)
 │
 ├── android/                     Proyecto Gradle de la app del mozo (0001, 0003)

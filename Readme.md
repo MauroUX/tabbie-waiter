@@ -910,7 +910,146 @@ Lo que se guarda fuera de la base (las solicitudes de cobro en Redis, y la sesi�
 
 > Si tu backend se comunica a través de API, describe los endpoints principales (máximo 3) en formato OpenAPI. Opcionalmente puedes añadir un ejemplo de petición y de respuesta para mayor claridad
 
-Se completa en la Entrega 2. La app usa el contrato del backend actual, sin cambios: los endpoints y eventos que usa están en el [inventario del contexto](docs/context/panel-mozos-actual.md#31-endpoints-y-eventos-usados).
+El contrato completo está en [docs/api/openapi.yaml](docs/api/openapi.yaml). Se genera desde el código de la réplica con `@nestjs/swagger` y no se edita a mano; la CI falla si difiere del que genera el código (DP-52). Las rutas, los cuerpos y los eventos son los del backend actual (el [inventario del contexto](docs/context/panel-mozos-actual.md#31-endpoints-y-eventos-usados)); lo que el contexto no fijaba lo deciden DP-55 a DP-64. Los campos sensibles llevan `x-sensitive: true`.
+
+Estos son los tres endpoints de la base (TK-01), copiados del documento generado. Los esquemas de las entidades (`Table`, `TableSession`, `User`, `Order` y el árbol de ítems) están en el documento completo.
+
+```yaml
+openapi: 3.0.0
+paths:
+  /auth/login:
+    post:
+      summary: Canjea un ID token de Firebase por un JWT propio (T01)
+      description: Público. Con USE_FIREBASE desactivada responde 503 y no emite ningún JWT. Un body sin firebaseIdToken, un token inválido o vencido, o un token sin email responden 401.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginDto'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaDeLogin'
+        '401':
+          description: ID token ausente, inválido, vencido o sin email.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorHttp'
+        '503':
+          description: Firebase desactivado (USE_FIREBASE).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorHttp'
+  /restaurants/{id}/tables/active:
+    get:
+      summary: Mesas ocupadas del restaurante con sus pedidos (T05)
+      description: 'Mesas con isBusy y una sesión activa (closedAt nulo), por number ascendente. Cada sesión trae sus usuarios y sus pedidos (sin los pending, con los canceled, por createdAt ascendente). Reproduce O4 a propósito (DP-50): no excluye campos, así que llegan mercadoPagoToken, mercadoPagoRefreshToken y los email. El JWT va en Authorization: Bearer o en ?token=.'
+      security:
+        - bearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Uuid del restaurante.
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Table'
+        '401':
+          description: Sin JWT, vencido, con otra firma o con un userId inexistente.
+        '403':
+          description: Rol fuera de @Roles o restaurante distinto del del usuario.
+  /sse/waiters:
+    get:
+      summary: Stream de eventos para los mozos del restaurante (T16, T17)
+      description: 'Server-Sent Events del restaurante del usuario, sin heartbeat ni replay. Con un JWT vencido responde 401 antes de abrir el stream. Eventos: order-confirmed-notification, in-person-payment-request e in-person-payment-request-deleted; los emiten los endpoints de TK-03 y TK-13.'
+      security:
+        - bearer: []
+      responses:
+        '200':
+          description: Stream abierto.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '401':
+          description: Sin JWT, vencido, con otra firma o con un userId inexistente.
+        '403':
+          description: El usuario no tiene restaurante (DP-64).
+components:
+  schemas:
+    LoginDto:
+      type: object
+      required: [firebaseIdToken]
+      properties:
+        firebaseIdToken:
+          type: string
+          x-sensitive: true
+    RespuestaDeLogin:
+      type: object
+      required: [access_token, user]
+      properties:
+        access_token:
+          type: string
+          description: JWT propio, HS256, con los claims userId, role, iat y exp.
+          x-sensitive: true
+        user:
+          type: object
+          required: [id, email, name, role, restaurantId]
+          properties:
+            id: { type: integer }
+            email: { type: string, x-sensitive: true }
+            name: { type: string, nullable: true }
+            role: { type: string, enum: [user, admin, waiter, backoffice] }
+            restaurantId:
+              type: string
+              description: El uuid del restaurante, o "-1" si el usuario no tiene.
+```
+
+**Ejemplo de T05.** Petición:
+
+```http
+GET /restaurants/3f0c1d2e-0000-4000-8000-000000000001/tables/active
+Authorization: Bearer <jwt del mozo>
+```
+
+Respuesta `200`, recortada (los `decimal` llegan como string y las fechas en UTC):
+
+```json
+[
+  {
+    "id": 7,
+    "number": 4,
+    "seats": 4,
+    "isBusy": true,
+    "activeSessionId": 31,
+    "restaurant": { "id": "3f0c1d2e-0000-4000-8000-000000000001", "name": "Restaurante de ejemplo", "yellowTicketSeconds": 300, "redTicketSeconds": 420, "redPulseTicketSeconds": 600, "mercadoPagoToken": "…" },
+    "activeSession": {
+      "id": 31,
+      "createdAt": "2026-01-01T12:00:00.000Z",
+      "total": "2500.00",
+      "amountPaid": "0.00",
+      "tips": "0.00",
+      "requestingHelp": false,
+      "users": [ { "id": 12, "email": "comensal@example.com", "role": "user", "restaurant": null } ],
+      "orders": [
+        { "id": 90, "status": "confirmed", "confirmedAt": "2026-01-01T12:05:00.000Z", "user": { "id": 12 }, "items": [ { "quantity": 2, "product": { "name": "Milanesa", "price": "1250" }, "selectedOptions": [] } ] }
+      ]
+    }
+  }
+]
+```
 
 ---
 
