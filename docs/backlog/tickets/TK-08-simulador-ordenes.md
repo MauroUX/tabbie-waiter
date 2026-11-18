@@ -11,8 +11,8 @@ Sumar al simulador lo que necesitan las pruebas de "Órdenes", del inicio de ses
 
 ## Criterios heredados
 
-- [SEG-c1](../../architecture/seguridad.md#43-criterios-nuevos) · O1: "Atendido" falla y la ayuda no se apaga.
-- [SEG-c3](../../architecture/seguridad.md#43-criterios-nuevos) · O3: cerrar, leer y escuchar una sesión sin JWT.
+- [SEG-c1](../../architecture/seguridad.md#43-criterios-nuevos) · O1: la ayuda no se apaga.
+- [SEG-c3](../../architecture/seguridad.md#43-criterios-nuevos) · O3: cerrar una sesión sin JWT.
 - [SEG-c4](../../architecture/seguridad.md#43-criterios-nuevos) · O4: emails y credenciales del restaurante en las mesas activas.
 - [HU-02.c4](../historias/HU-02-mesas-activas.md#criterios-de-aceptación) · Datos de la tarjeta. **En parte:** dos comensales, $2000 pagados con un cobro de otra tablet y el pedido de ayuda (ESC-4). El criterio completo es de [TK-10](TK-10-tarjeta-y-cronometro.md).
 - [HU-02.h4](../historias/HU-02-mesas-activas.md#criterios-de-aceptación) · El cronómetro desaparece al saldar. **En parte:** el cobro de otra tablet que salda la mesa. El criterio completo es de TK-10.
@@ -30,13 +30,12 @@ Sumar al simulador lo que necesitan las pruebas de "Órdenes", del inicio de ses
   - T09, `PUT /orders/:id/cancel` (J, sin `@Roles`; el rol se evalúa en el servicio), con `reason` en la raíz del body: la misma ruta cancela como mozo y como comensal (DP-19, C6);
   - T11, `POST /table-sessions/:id/add-payment`, con `@Roles` y sin `RolesGuard`: reproduce O2 a propósito (DP-50);
   - T14, `PATCH /table-sessions/close/:id`, sin guard: reproduce O3 a propósito (DP-50);
-  - `PUT /table-sessions/:id/request-help`: pone `requestingHelp` en `true`, y nada lo vuelve a `false` (O1);
-  - **solo para reproducir O1 y O3** (DP-49, excepción; DP-50): T10, `PUT /table-sessions/:id/attend`, sin guard, que responde 500 y no apaga la ayuda; T04, `GET /table-sessions/:id/orders`, sin guard, con los pedidos y el email de los comensales; y T18, `GET /table-sessions/:id/subscribe`, sin guard y sin mirar el `token`, con el `table-session-events` de un pedido confirmado. Ninguno lo usa la app.
+  - `PUT /table-sessions/:id/request-help`: pone `requestingHelp` en `true`, y nada lo vuelve a `false` (O1).
 - **ESC-4 · Pedir ayuda** en la mesa del comensal.
 - **ESC-7 · Cancelar un pedido:** el comensal cancela un pedido `pending` o `confirmed` con `PUT /orders/:id/cancel` (DP-19). La línea de comandos permite cancelar un pedido dado en el momento en que la prueba lo pide, "justo antes de la acción del mozo" ([infraestructura.md](../../architecture/infraestructura.md), sección 4).
 - **ESC-8 · Pedido en el otro restaurante:** ESC-1 y ESC-2 en el restaurante 2.
 - **Cobros de otra tablet:** con la cuenta del segundo mozo del restaurante 1, como otra tablet, un cobro manual por un monto (T11) que deja lo pagado de la mesa en un valor dado, la salda o la deja a $0,01 del total. HU-02.c4 pide $2000 pagados y HU-02.h4 una mesa saldada; HU-06.h4, HU-08.c2 y HU-08.h7 usan lo mismo más adelante.
-- **Comensales con cuenta, solo para SEG-c3 y SEG-c4** (DP-36): el simulador inicia sesión por T01 con la cuenta de comensal sin restaurante y con la cuenta que no es de mozo, que tiene el restaurante 1, de [TK-02](TK-02-datos-iniciales.md), y con ellas ocupa la mesa y confirma el pedido. Para todo lo demás, el comensal sigue entrando como invitado (DP-17).
+- **Comensales con cuenta, solo para SEG-c4** (DP-36, ajustada por DP-54): el simulador inicia sesión por T01 con la cuenta de comensal sin restaurante y con la cuenta que no es de mozo, que tiene el restaurante 1, de [TK-02](TK-02-datos-iniciales.md), y con ellas ocupa la mesa y confirma el pedido. Para todo lo demás, el comensal sigue entrando como invitado (DP-17).
 - **Las comprobaciones de O1, O3 y O4** (SEG-c1, SEG-c3 y SEG-c4), desde la máquina, con un cliente HTTP y el simulador, sin la app. Las peticiones y respuestas de cada corrida se guardan como evidencia ([seguridad.md](../../architecture/seguridad.md), sección 4.2).
 - Cada acción nueva, con su entrada en el registro del turno.
 
@@ -55,8 +54,8 @@ Sumar al simulador lo que necesitan las pruebas de "Órdenes", del inicio de ses
 
 - **Endpoints del comensal**, por su ruta ([componentes.md](../../architecture/componentes.md), sección 3): `PUT /table-sessions/:id/request-help` y `PUT /orders/:id/cancel`, además de los de ESC-1 y ESC-2.
 - **Cobros de otra tablet**, por su fila de la [tabla de trazabilidad](../../context/panel-mozos-actual.md#2-tabla-de-trazabilidad): T01 (inicio de sesión del segundo mozo) y T11.
-- **Para las comprobaciones:** T05 (con el JWT del primer mozo del restaurante 1), T10 (SEG-c1), T04, T18 y T14 (SEG-c3); T08 y T09 sobre el pedido cancelado por el comensal (C5, C6).
-- **Lo que construye en la réplica:** T08, T09, T10, T11, T14, T04, T18 y `PUT /table-sessions/:id/request-help`. Si al contexto le falta un dato (por ejemplo, el código con que la réplica rechaza mandar a cocina un pedido cancelado), se marca como hueco y se resuelve con el humano: el código de Tabbie no se lee (0010).
+- **Para las comprobaciones:** T05, con el JWT del primer mozo del restaurante 1 (SEG-c1, SEG-c3 y SEG-c4), y T14 sin JWT (SEG-c3); T08 y T09 sobre el pedido cancelado por el comensal (C5, C6).
+- **Lo que construye en la réplica:** T08, T09, T11, T14 y `PUT /table-sessions/:id/request-help`. Si al contexto le falta un dato (por ejemplo, el código con que la réplica rechaza mandar a cocina un pedido cancelado), se marca como hueco y se resuelve con el humano: el código de Tabbie no se lee (0010).
 
 ## Requisitos de prueba del backlog
 
@@ -69,7 +68,7 @@ Sumar al simulador lo que necesitan las pruebas de "Órdenes", del inicio de ses
 
 ## Pasos
 
-1. Crear el cambio de OpenSpec, con los scenarios de SEG-c1, SEG-c3, SEG-c4 y de la parte de los criterios de HU-01, HU-02 y HU-04, y una spec del contrato con una entrada por cada endpoint que construye, tomada del contexto. Los scenarios de O1 y O3 dicen que el hueco se reproduce a propósito (DP-50).
+1. Crear el cambio de OpenSpec, con los scenarios de SEG-c1, SEG-c3, SEG-c4 y de la parte de los criterios de HU-01, HU-02 y HU-04, y una spec del contrato con una entrada por cada endpoint que construye, tomada del contexto. Los scenarios de O1 y O3 dicen que el hueco se reproduce a propósito, en la parte que la réplica construye (DP-50, DP-54).
 2. Escribir las pruebas primero, y verlas fallar: el contrato de cada endpoint nuevo (incluido que el invitado unido a la mesa pide ayuda con `PUT /table-sessions/:id/request-help` y cancela con `PUT /orders/:id/cancel`, DP-18, DP-19); cada acción contra la réplica local, comprobando su efecto en T05; T08 y T09 sobre una mesa con un pedido cancelado por el comensal y otro no; y las tres comprobaciones de seguridad.
 3. Implementar los endpoints en `replica/src/` hasta que pasen las pruebas del contrato, y regenerar `docs/api/openapi.yaml`.
 4. Escribir ESC-4, ESC-7 con la cancelación a pedido de la prueba, y ESC-8.
@@ -88,6 +87,7 @@ Sumar al simulador lo que necesitan las pruebas de "Órdenes", del inicio de ses
 ## Riesgos y decisiones
 
 - **Decidido (DP-19):** el comensal cancela con `PUT /orders/:id/cancel`, con `JwtAuthGuard` y sin restricción de rol, la misma ruta que T09 ([componentes.md](../../architecture/componentes.md#decisiones-tomadas-2026-11-14)).
-- **Decidido (DP-49, DP-50 y DP-53):** este ticket construye los endpoints que "Órdenes" necesita primero, y T04, T10 y T18 solo en lo que reproduce O1 y O3, porque SEG-c1 y SEG-c3 los usan ([índice](README.md#decisiones-tomadas-2026-11-17)).
+- **Decidido (DP-49, DP-50 y DP-53):** este ticket construye los endpoints que "Órdenes" necesita primero ([índice](README.md#decisiones-tomadas-2026-11-17)).
+- **Decidido (DP-54):** SEG-c1 y SEG-c3 se comprueban con T05 y T14. Los endpoints de O1 y O3 que la app no usa no se construyen, y la réplica no tiene `/attend` ([índice](README.md#decisiones-tomadas-2026-11-18)).
 - **Decidido (DP-14):** las comprobaciones de O1 a O4 viven en `replica/tests/`.
-- **Decidido (DP-36):** SEG-c3 y SEG-c4 usan las dos cuentas de comensal de TK-02, porque el invitado no tiene email ni restaurante ([índice](README.md#decisiones-tomadas-2026-11-14)).
+- **Decidido (DP-36, ajustada por DP-54):** SEG-c4 usa las dos cuentas de comensal de TK-02, porque el invitado no tiene email ni restaurante ([índice](README.md#decisiones-tomadas-después-de-la-descomposición-2026-11-14)).

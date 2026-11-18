@@ -24,9 +24,9 @@
 
 - Las filas de la columna "Waiter App" del inventario (T01, T05 a T09, T11 a T14), los tres eventos de `/sse/waiters` y los endpoints del comensal que necesita el simulador para originar esos eventos y los escenarios de los tickets.
 - Las rutas, los cuerpos y los eventos son los del contexto.
-- No se construyen T02 a T04, T10, T15 ni T18, salvo que la ruta sea también un endpoint del comensal (`POST /auth/guest`, que es la ruta de T02), o que la necesite la reproducción de O1 y O3 (T04, T10 y T18, solo en lo que reproduce el hueco).
+- No se construyen T02 a T04, T10, T15 ni T18, salvo que la ruta sea también un endpoint del comensal (`POST /auth/guest`, que es la ruta de T02). No hay otra excepción, tampoco para reproducir O1 y O3 (DP-54).
 
-**O1 a O4 se reproducen a propósito (DP-50):** son comportamiento heredado que la app rodea. Cada uno tiene su scenario y su prueba de contrato, con ese motivo escrito, y SEG-c1 a SEG-c4 los comprueban contra la réplica.
+**O1 a O4 se reproducen a propósito (DP-50):** son comportamiento heredado que la app rodea. Cada uno tiene su scenario y su prueba de contrato, con ese motivo escrito, y SEG-c1 a SEG-c4 los comprueban contra la réplica, en lo que la réplica construye (DP-54).
 
 **Migraciones propias (DP-51):** migraciones de TypeORM escritas desde [modelo-de-datos.md](../architecture/modelo-de-datos.md), solo con las 13 tablas del inventario. Cada una dice cómo se deshace. `synchronize` queda desactivado.
 
@@ -48,10 +48,11 @@ Aceptado.
 - La réplica tiene solo lo que la cadena del mozo y el simulador usan: no tiene MercadoPago, archivos ni seeder, y arranca sin esas variables.
 - O1 a O4 se reproducen a propósito. Una réplica que "arregla" un hueco rompe el contrato que la app rodea, y sus pruebas lo detectan. Si un hueco no se reproduce, se corrige la réplica, no la observación del contexto.
 - SEG-c1 a SEG-c4 comprueban la réplica. Que el backend real tiene O1 a O4 sigue siendo lo observado en su código (contexto, sección 7).
+- **La réplica diverge a propósito en `/attend` (DP-54):** en Tabbie responde 500 (O1); en la réplica no existe, porque la app no lo llama (C7). De O1, SEG-c1 comprueba que la ayuda no se apaga; de O3, SEG-c3 comprueba el cierre sin JWT. La lectura de los pedidos y la escucha de los eventos de una sesión sin JWT siguen documentadas como huecos de Tabbie (contexto, sección 7), pero la réplica no las tiene.
 - Lo que 0008 comprueba contra la réplica (el JWT del stream en el encabezado) vale para la réplica. Para el backend real se apoya en el contexto (sección 0), y se confirma al conectar.
 - El esquema sale de migraciones propias, que cada ticket de Backend que cambia una tabla tiene que escribir con su vuelta atrás.
 - El contrato se genera desde el código, así que un cambio de ruta, cuerpo o evento se ve en el diff de `openapi.yaml`. Un cambio así que el ticket no pide es un hallazgo crítico de la revisión adversarial.
 - No hay parada del humano para importar código, ni etiqueta `backend-base`, ni bloqueo de escritura en `backend/`: DP-46 y DP-47 quedan obsoletas.
 - 0009 ya no publica código de Tabbie: el repo publica la descripción de O1 a O4 y una réplica propia que los reproduce, no el código de `order-pay-backend`.
 - El riesgo nuevo: la app puede no funcionar igual contra el backend real. Se mitiga con lo que el contexto documenta del código y con la prueba de punta a punta al conectar.
-- Fuente: decisión del humano en la revisión de la réplica (DP-48 a DP-53).
+- Fuente: decisión del humano en la revisión de la réplica (DP-48 a DP-53), corregida en una segunda revisión (DP-54).

@@ -12,7 +12,7 @@
 - **Lo que sí controla:**
   - lo que hace la app: quién entra, qué restaurante usa, qué guarda, qué muestra, qué registra, cómo se conecta y cómo repite (o no) una llamada (sección 2.1);
   - cómo se opera la réplica: sus secretos, sus datos iniciales y las cuentas de prueba (sección 2.2).
-- **Los huecos del servidor** quedan como riesgos aceptados (sección 3). O1 a O4 están "observados en el código, sin verificar en ejecución" (contexto, sección 7). Cada uno tiene su criterio de comprobación (SEG-c1 a SEG-c4), que comprueba que la réplica lo reproduce (DP-50); en el backend real siguen siendo lo observado en su código.
+- **Los huecos del servidor** quedan como riesgos aceptados (sección 3). O1 a O4 están "observados en el código, sin verificar en ejecución" (contexto, sección 7). Cada uno tiene su criterio de comprobación (SEG-c1 a SEG-c4), que comprueba que la réplica lo reproduce (DP-50), en lo que la réplica construye (DP-54); en el backend real siguen siendo lo observado en su código.
 
 ## 2. Prácticas
 
@@ -119,7 +119,7 @@ Se aceptan porque el backend no se modifica (PRD, sección 9; 0002): este proyec
 - **Cuándo:** cada vez que un comensal pide ayuda.
 - **Qué hace la app:** no llama a `/attend`. "Atendido" es una marca local de cada tablet, por sesión de mesa; las otras tablets siguen mostrando el aviso (HU-10.c3), y un segundo pedido de la misma ocupación no se ve en la tablet que ya lo marcó (HU-10.h4).
 - **Por qué se acepta:** afecta la atención, no los datos ni el dinero, e inicialmente hay una sola tablet por restaurante.
-- **Comprobación:** SEG-c1.
+- **Comprobación:** SEG-c1, contra la réplica. Reproduce que `requestingHelp` no se apaga y que un segundo pedido de ayuda no se distingue del primero. No reproduce el 500 de `/attend`: la réplica no construye ese endpoint, porque la app no lo llama (C7; DP-54).
 
 ### RA-2 · O2: los endpoints de cobros no aplican roles ni restaurante
 
@@ -135,7 +135,7 @@ Se aceptan porque el backend no se modifica (PRD, sección 9; 0002): este proyec
 - **Cuándo:** en cualquier momento, con solo conocer el ID de una sesión de mesa.
 - **Qué hace la app:** envía su JWT igual en todas las llamadas; solo cierra sesiones que llegaron en T05 (RF-27), y antes de cerrar revisa que la mesa siga activa; si ya no lo está, avisa y la quita de la lista (HU-08.h4). No usa los otros dos endpoints.
 - **Por qué se acepta:** solo se cierra en el backend. Queda documentado para el equipo de Tabbie.
-- **Comprobación:** SEG-c3.
+- **Comprobación:** SEG-c3, contra la réplica. Reproduce el cierre de una sesión sin JWT. No reproduce la lectura de los pedidos ni la escucha de los eventos de una sesión: la réplica no construye esos endpoints, porque la app no los usa (DP-54).
 
 ### RA-4 · O4: datos sensibles en las respuestas
 
@@ -216,12 +216,11 @@ Si el criterio ya existe en una historia o en el walking skeleton, se cita por s
 
 ### 4.3 Criterios nuevos
 
-**SEG-c1 · O1: "Atendido" falla y la ayuda no se apaga** (O1; RA-1)
+**SEG-c1 · O1: la ayuda no se apaga** (O1; RA-1)
 
 - **Dado** que el simulador pidió ayuda en una mesa del restaurante 1 (ESC-4)
-- **Cuando**, desde la máquina, se llama a `PUT /table-sessions/:id/attend` de esa sesión con el JWT del primer mozo del restaurante 1
-- **Entonces** la réplica responde 500
-- **Y** las mesas activas (T05) siguen trayendo `requestingHelp` en `true` para esa sesión
+- **Cuando**, desde la máquina, se consultan las mesas activas (T05) con el JWT del primer mozo del restaurante 1
+- **Entonces** esa sesión trae `requestingHelp` en `true`
 - **Y** si el simulador vuelve a pedir ayuda en la misma sesión, T05 devuelve esa sesión igual que antes: nada distingue el segundo pedido del primero
 
 **SEG-c2 · O2: los cobros aceptan cualquier JWT, de cualquier restaurante** (O2; RA-2)
@@ -233,13 +232,11 @@ Si el criterio ya existe en una historia o en el walking skeleton, se cita por s
 - **Y** lo pagado de la mesa, consultado con el JWT del primer mozo del restaurante 1, subió con los dos cobros
 - **Y** con el JWT del mozo del restaurante 2, `GET /table-sessions/:id/payments` y `POST /table-sessions/:id/add-payment` sobre la misma sesión también responden con éxito
 
-**SEG-c3 · O3: cerrar, leer y escuchar una sesión sin JWT** (O3; RA-3)
+**SEG-c3 · O3: cerrar una sesión sin JWT** (O3; RA-3)
 
-- **Dado** que una mesa del restaurante 1 está ocupada por un comensal con email y tiene un pedido confirmado (ESC-1, ESC-2)
-- **Cuando**, desde la máquina y sin JWT, se llama a `GET /table-sessions/:id/orders` de esa sesión
-- **Entonces** la réplica responde 200 con los pedidos y el email del comensal
-- **Y** cuando se abre `GET /table-sessions/:id/subscribe` con un `token` que no es un JWT, y el simulador confirma otro pedido en esa sesión, el stream recibe el `table-session-events` de ese pedido
-- **Y** cuando, sin JWT, se llama a `PATCH /table-sessions/close/:id`, la réplica cierra la sesión: T05, consultado con el JWT del primer mozo, deja de traer esa mesa
+- **Dado** que el simulador ocupó una mesa del restaurante 1 (ESC-1)
+- **Cuando**, desde la máquina y sin JWT, se llama a `PATCH /table-sessions/close/:id` de esa sesión
+- **Entonces** la réplica cierra la sesión: T05, consultado con el JWT del primer mozo del restaurante 1, deja de traer esa mesa
 
 **SEG-c4 · O4: emails y credenciales del restaurante en las mesas activas** (O4; RA-4)
 
