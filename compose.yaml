@@ -1,0 +1,129 @@
+# Entorno local de la réplica (infraestructura.md, sección 2.1; design D6 y D9 del change tk-01-replica-base).
+# Las variables salen de un archivo local que no entra al repo; el perfil se elige con --env-file:
+#   docker compose --env-file replica/entornos/local.env up -d --build
+#   docker compose --env-file replica/entornos/pruebas.env up -d --build
+#   docker compose --env-file replica/entornos/pruebas.env down -v        # volver a empezar desde cero
+#   docker compose --env-file replica/entornos/pruebas.env --profile pruebas run --rm pruebas
+#   docker compose --profile herramientas run --rm --build --no-deps openapi   # regenerar docs/api/openapi.yaml
+# Los ejemplos con los nombres están en replica/entornos/*.env.example. Ningún valor está en este archivo.
+name: tabbie-waiter
+
+services:
+  replica:
+    build: ./replica
+    environment:
+      DB_HOST: ${DB_HOST:-}
+      DB_PORT: ${DB_PORT:-}
+      DB_USER: ${DB_USER:-}
+      DB_PASSWORD: ${DB_PASSWORD:-}
+      DB_NAME: ${DB_NAME:-}
+      REDIS_URL: ${REDIS_URL:-}
+      REDIS_HOST: ${REDIS_HOST:-}
+      REDIS_PORT: ${REDIS_PORT:-}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      JWT_SECRET: ${JWT_SECRET:-}
+      JWT_EXPIRATION_WAITERS: ${JWT_EXPIRATION_WAITERS:-}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-}
+      REDIS_EXPIRATION_TIME: ${REDIS_EXPIRATION_TIME:-}
+      USE_FIREBASE: ${USE_FIREBASE:-}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
+      FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY:-}
+      FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      # Dentro del contenedor escucha siempre en 3000; PORT elige solo el puerto que se publica en la máquina.
+      PORT: "3000"
+    ports:
+      - "${PORT:-3000}:3000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Sin endpoints de salud (DP-48): comprueba solo que el puerto acepta conexiones.
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "require('net').connect(3000, '127.0.0.1').on('connect', () => process.exit(0)).on('error', () => process.exit(1))"
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 15s
+
+  mysql:
+    image: mysql:8.4.13@sha256:a81d043930e51745522bd5c430961cf8286f0a23f0a9a2a6e0108f7ea71b0902
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-}
+      MYSQL_USER: ${DB_USER:-}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-}
+      MYSQL_RANDOM_ROOT_PASSWORD: "yes"
+    volumes:
+      - mysql-datos:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u\"$$MYSQL_USER\" -p\"$$MYSQL_PASSWORD\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  redis:
+    image: redis:7.4.12-alpine@sha256:7f7d30b7fdd09467bac58198a1f166dd69789d348d4fe859cccb20e0cf287fbe
+    # Sin persistencia: las solicitudes de cobro vencen solas (infraestructura.md, 2.1).
+    command: ["sh", "-c", "exec redis-server --requirepass \"$$REDIS_PASSWORD\" --save \"\" --appendonly no"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDISCLI_AUTH: ${REDIS_PASSWORD:-}
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Generador del contrato (DP-52): arma la app en modo preview, sin MySQL ni Redis, y escribe docs/api/openapi.yaml.
+  # Perfil `herramientas`. No necesita archivo de variables:
+  #   docker compose --profile herramientas run --rm --build --no-deps openapi
+  # Corre como root solo para poder escribir en el volumen montado (en Linux, la carpeta es del usuario del host).
+  openapi:
+    profiles: ["herramientas"]
+    build: ./replica
+    user: root
+    command: ["node", "dist/scripts/generar-openapi.js", "/salida/openapi.yaml"]
+    volumes:
+      - ./docs/api:/salida
+
+  # La suite de contrato (DP-14): corre solo contra la réplica levantada. Perfil `pruebas`.
+  pruebas:
+    profiles: ["pruebas"]
+    build: ./replica/tests
+    environment:
+      DB_HOST: ${DB_HOST:-}
+      DB_PORT: ${DB_PORT:-}
+      DB_USER: ${DB_USER:-}
+      DB_PASSWORD: ${DB_PASSWORD:-}
+      DB_NAME: ${DB_NAME:-}
+      REDIS_URL: ${REDIS_URL:-}
+      REDIS_HOST: ${REDIS_HOST:-}
+      REDIS_PORT: ${REDIS_PORT:-}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      JWT_SECRET: ${JWT_SECRET:-}
+      JWT_EXPIRATION_WAITERS: ${JWT_EXPIRATION_WAITERS:-}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-}
+      REDIS_EXPIRATION_TIME: ${REDIS_EXPIRATION_TIME:-}
+      USE_FIREBASE: ${USE_FIREBASE:-}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
+      FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY:-}
+      FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      REPLICA_URL: http://replica:3000
+      OPENAPI_PATH: /repo/docs/api/openapi.yaml
+      REPO_PATH: /repo
+      PRUEBAS_LOCALES: ${PRUEBAS_LOCALES:-}
+    volumes:
+      - .:/repo:ro
+    depends_on:
+      replica:
+        condition: service_healthy
+
+volumes:
+  mysql-datos:
