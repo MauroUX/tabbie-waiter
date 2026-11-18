@@ -4,7 +4,7 @@
 >
 > La base son las [decisiones de arquitectura](../adr/README.md), el [documento de contexto](../context/panel-mozos-actual.md) y el código del backend. Las referencias siguen la convención del [README de arquitectura](README.md).
 
-**El modelo es el del backend, no uno nuevo.** La réplica es una copia sin cambios del backend (0002) y crea el esquema desde sus entidades al arrancar, con `DB_SYNC` activada ([infraestructura.md](infraestructura.md)). Este proyecto no tiene migraciones ni tablas propias, y la app no tiene base local (0005).
+**El modelo es el del backend, no uno nuevo.** La réplica crea el esquema con migraciones propias de TypeORM escritas desde este documento, solo con estas 13 tablas, y con `synchronize` desactivado ([0010](../adr/0010-replica-propia-desde-el-contrato.md), DP-51). Este proyecto no agrega tablas, y la app no tiene base local (0005).
 
 **Fuentes:**
 
@@ -684,7 +684,7 @@ No se guarda ninguna respuesta del backend: el estado de la operación vive en m
 - **El `@Check` de los umbrales no existe en MySQL** (2.1). Los datos iniciales pueden tener umbrales desordenados sin que la base los rechace.
 - **Las fechas se guardan en UTC** (`timezone: 'Z'`, `BE/app.module.ts:48`). Las columnas `@Column` de tipo `Date` son `datetime` sin fracción de segundo; los `createdAt` son `datetime(6)`.
 - **Al borrar, solo hay cascada en el árbol de ítems y en las intermedias.** Borrar un pedido borra sus líneas y sus opciones elegidas. Borrar una sesión, una mesa o un restaurante con filas que dependen de ellos falla (`NO ACTION`).
-- **El esquema sale de las entidades, no de las migraciones.** `BE/migrations/` existe, pero solo lo usa `BE/data-source.ts`, con `synchronize: false`. Al arrancar, la réplica sincroniza desde las entidades (`DB_SYNC`, `BE/app.module.ts:46`).
+- **El esquema de la réplica sale de sus migraciones.** En el backend de Tabbie, el esquema se sincroniza desde las entidades al arrancar (`BE/app.module.ts:46`). La réplica, en cambio, tiene migraciones propias escritas desde este documento, con `synchronize` desactivado, y cada una dice cómo se deshace (DP-51). Si una migración y este documento no coinciden, se corrige la migración.
 - **`User.restaurantId`, `ProductOption.productId` y `ProductOptionValue.productOptionId` son propiedades sin decorador.** La columna de la base existe por la relación, pero TypeORM no llena esas propiedades al leer.
 
 ## Diferencias con el contexto

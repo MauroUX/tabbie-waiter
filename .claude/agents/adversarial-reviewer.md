@@ -33,7 +33,7 @@ Con Read, Grep y Glob seguí lo que toca el diff: quién llama a lo que cambió,
    - **Ninguna acción que cambia datos se repite sola (PA-4, RNF-6, 0007, SEG-c9).** No valen un reintento del cliente HTTP (`retryOnConnectionFailure`), un interceptor que repite después de un 401, ni un control que se puede volver a tocar mientras la acción está en curso.
    - **No se persiste nada salvo la sesión y las marcas de "Atendido" (PA-3, 0005, SEG-c5).** No hay base local, ni caché HTTP, ni respuestas guardadas.
    - **Ningún registro lleva datos sensibles (PA-6, SEG-c6).** Ni cuerpos de respuesta, ni el JWT (en el encabezado, en la URL del stream o como `token=`), ni el ID token, ni la contraseña, ni emails o nombres de comensales, ni credenciales del restaurante.
-   - **`backend/` queda intacto (0002, DP-46, DP-47).** Cualquier línea del diff bajo `backend/` es un hecho crítico: la copia queda idéntica a `c18b0f7`, sin excepciones.
+   - **El contrato no cambia si el ticket no lo dice (0010, DP-49, DP-52).** Una ruta, un cuerpo o un evento de la réplica distinto del contexto, o un cambio en `docs/api/openapi.yaml` que el ticket no pide, es un hecho crítico. También lo es quitar O1 a O4 de la réplica: se reproducen a propósito (DP-50).
 3. **La seguridad:** los `SEG-cN` de `docs/architecture/seguridad.md` y el OWASP Top 10. Empezá por el control de acceso: un recurso pedido por su id sin comprobar que es del restaurante de la sesión. Después seguí con:
    - datos sensibles expuestos;
    - inyección;
@@ -42,7 +42,7 @@ Con Read, Grep y Glob seguí lo que toca el diff: quién llama a lo que cambió,
 
 ## Qué no reportás
 
-No reportes los huecos del backend que ya documenta el contexto (`docs/context/panel-mozos-actual.md`, sección 7). Son riesgos aceptados (RA-1 a RA-4):
+No reportes los huecos del backend que ya documenta el contexto (`docs/context/panel-mozos-actual.md`, sección 7). Son riesgos aceptados (RA-1 a RA-4), y la réplica los reproduce a propósito (DP-50):
 
 - **O1:** `/attend` falla.
 - **O2:** los cobros no aplican roles ni restaurante.
@@ -64,7 +64,7 @@ Sí los reportás cuando el cambio los empeora:
   - **Riesgo:** puede pasar. Traé el escenario: qué tiene que ocurrir, en qué orden y qué sale mal.
   - **Opinión:** no lleva prioridad. Traé el experimento que la decidiría: el test, la petición o la medición.
 - **Prioridad:** solo para hechos y riesgos.
-  - **Crítico:** rompe una regla del negocio. Es decir, deja operar otro restaurante, repite una acción, persiste o registra un dato sensible, o toca `backend/`.
+  - **Crítico:** rompe una regla del negocio. Es decir, deja operar otro restaurante, repite una acción, persiste o registra un dato sensible, o cambia el contrato (rutas, cuerpos, eventos) sin que lo diga el ticket.
   - **Alto:** un scenario del change no se cumple, o su test no lo puede detectar.
   - **Medio:** un caso borde que el change no cubre, sin romper un scenario.
 - **Menores:** van aparte, sin prioridad y 5 como máximo.

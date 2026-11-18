@@ -8,7 +8,7 @@ description: Procedimiento obligatorio para los tickets de Frontend (la app Andr
 El orden es fijo: **explorar → plan → (aprobación) → tests → rojo → congelar → implementar → verde → huella intacta → cierre**.
 
 - Cubre los pasos 4 a 6 de "Cómo se trabaja un ticket" de `AGENTS.md`. El commit, el PR y la revisión adversarial siguen ese procedimiento, no esta skill.
-- Lo propio va en `android/`. `backend/`, `replica/` y `simulator/` no se tocan ([estructura.md](../../../docs/architecture/estructura.md), sección 3).
+- Lo propio va en `android/`. `replica/` y `simulator/` no se tocan ([estructura.md](../../../docs/architecture/estructura.md), sección 3).
 - Las reglas del código, de las pruebas y de la tablet están en `android/CLAUDE.md`.
 
 ## 0. Antes de empezar

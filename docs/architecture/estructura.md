@@ -27,12 +27,11 @@ tabbie-waiter/
 │   └── hooks/                   Hook de pre-commit que bloquea credenciales y cuentas (DP-07)
 │
 ├── .github/
-│   └── workflows/               CI con GitHub Actions: ktlint, tests de la app, tests de la réplica y gitleaks (DP-11)
+│   └── workflows/               CI con GitHub Actions: ktlint, tests de la app, tests de la réplica, el control del OpenAPI y gitleaks (DP-11, DP-52)
 │
-├── backend/                     Copia sin cambios de order-pay-backend, rama main, commit c18b0f7 (0002)
-│   └── …                        El código y la configuración de build, tal como están en ese commit, sin nada agregado (DP-47)
-│
-├── replica/                     Lo propio de la réplica, fuera de la copia (0002, 0003)
+├── replica/                     La réplica: un backend propio en NestJS, construido desde el contrato del contexto (0003, 0010)
+│   ├── src/                     El código de la réplica, con sus módulos (componentes.md, sección 2) y su Dockerfile en la raíz de replica/
+│   │   └── migrations/          Migraciones de TypeORM con las 13 tablas del inventario, cada una con cómo se deshace (DP-51)
 │   ├── datos-iniciales/         SQL propio con los datos sintéticos: dos restaurantes, dos mozos en el primero y uno en el segundo (DP-16)
 │   ├── firebase/                Script que crea las cuentas de prueba en el proyecto de Firebase de Tabbie
 │   ├── toxiproxy/               Configuración de los proxies entre la app y la réplica
@@ -64,8 +63,7 @@ tabbie-waiter/
     ├── backlog/                 Épicas, historias de usuario, criterios de aceptación, Definition of Done y tickets
     ├── adr/                     Decisiones de arquitectura
     ├── architecture/            Vista general, componentes, walking skeleton, estructura, infraestructura y seguridad
-    │   └── backend-upstream.md  Ficha de la copia de backend/: de qué repositorio y commit sale, y cómo se compara el contrato (DP-47)
-    ├── api/                     openapi.yaml, escrito a mano desde el código de la copia, con los campos sensibles marcados (DP-09)
+    ├── api/                     openapi.yaml, generado desde el código de la réplica con @nestjs/swagger, con los campos sensibles marcados (DP-52)
     └── design/                  Wireframes de baja fidelidad, enlazados desde los tickets de frontend (DP-10)
 ```
 
@@ -74,7 +72,7 @@ tabbie-waiter/
 | Contenedor | Dónde está |
 |---|---|
 | Waiter App | `android/` |
-| Réplica del backend | `backend/` (el código, sin cambios) y `replica/` (sus datos, cuentas de prueba, Toxiproxy, variables de entorno y pruebas) |
+| Réplica del backend | `replica/`: el código en `src/`, con las migraciones, y sus datos, cuentas de prueba, Toxiproxy, variables de entorno y pruebas |
 | Simulador de comensales | `simulator/` |
 | MySQL 8, Redis 7 y Toxiproxy | Servicios de `compose.yaml`. Toxiproxy, desde la ampliación (DP-41), toma su configuración de `replica/toxiproxy/`. Otro servicio, que corre una sola vez, carga el SQL de `replica/datos-iniciales/` (DP-16). |
 | Firebase Authentication | Ninguna carpeta: es externo, el proyecto de Firebase de Tabbie (0002). Solo el script de `replica/firebase/` crea cuentas en él. |
@@ -107,16 +105,18 @@ El nombre de `<paquete base>` se fija al crear el proyecto Gradle.
 La app, la réplica, el simulador y la documentación están en un solo repositorio.
 
 - **Por qué:** un cambio y su spec entran en el mismo commit. Una historia que cambia la app y el escenario del simulador que la prueba, o una decisión que cambia un ADR y el código que la aplica, se revisan y se integran juntos.
-- **Qué implica:** dos lenguajes y dos cadenas de build en un mismo repositorio, Gradle en `android/` y Node 20 en `backend/` y `simulator/` (0003). Cada parte se construye desde su carpeta, sin depender de las otras: la app no comparte código con el simulador (0003), y ninguna de las dos con la réplica.
+- **Qué implica:** dos lenguajes y dos cadenas de build en un mismo repositorio, Gradle en `android/` y Node 20 en `replica/` y `simulator/` (0003). Cada parte se construye desde su carpeta, sin depender de las otras: la app no comparte código con el simulador (0003), y ninguna de las dos con la réplica.
 
-### Copia aislada del backend
+### Réplica propia desde el contrato
 
-`backend/` es una copia sin cambios de `order-pay-backend`, rama `main`, commit `c18b0f7` (0002), separada de todo lo propio.
+`replica/` es un backend propio en NestJS, construido desde el contrato y el comportamiento que documenta el contexto, no una copia del código de Tabbie ([0010](../adr/0010-replica-propia-desde-el-contrato.md), DP-48).
 
-- **Por qué:** la réplica tiene que ser idéntica al backend real para que la app pase a él cambiando solo la URL base (0002). Si nada propio entra en `backend/`, que la copia sigue sin cambios se comprueba con un `diff` contra el commit original, que da vacío, sin excepciones. Por eso la ficha de la copia, que no está en el original, vive fuera de `backend/`, en `docs/architecture/backend-upstream.md`, que escribe TK-01 (DP-47).
-- **Lo propio va en `replica/`:** lo que las pruebas necesitan de la réplica (datos iniciales, vencimientos cortos y fallos provocados) se resuelve fuera de su código, con datos, variables de entorno, el simulador y Toxiproxy (0002). Las variables que se ajustan (`JWT_EXPIRATION_WAITERS`, `REDIS_EXPIRATION_TIME`, `USE_FIREBASE` y `FIREBASE_*`) ya las lee la copia ([componentes.md](componentes.md), sección 2).
+- **Por qué:** la app se prueba contra lo que usa del backend (las filas de la columna "Waiter App", los tres eventos de `/sse/waiters` y lo que el simulador necesita, DP-49), sin traer lo demás. El código de Tabbie no se lee: la fuente es el contexto, y lo que le falte se marca como hueco.
+- **El contrato manda:** las rutas, los cuerpos y los eventos son los del contexto, y O1 a O4 se reproducen a propósito (DP-50). `docs/api/openapi.yaml` se genera desde `replica/src/` y la CI falla si difiere del commiteado (DP-52), así que un cambio del contrato se ve en el diff.
+- **El esquema sale de las migraciones** de `replica/src/migrations/`, escritas desde [modelo-de-datos.md](modelo-de-datos.md), con `synchronize` desactivado (DP-51).
+- **Sin endpoints de prueba:** lo que las pruebas necesitan de la réplica (datos iniciales, vencimientos cortos y fallos provocados) se resuelve con datos, variables de entorno, el simulador y Toxiproxy (0002, DP-48). Las variables que se ajustan (`JWT_EXPIRATION_WAITERS`, `REDIS_EXPIRATION_TIME`, `USE_FIREBASE` y `FIREBASE_*`) las lee la réplica al arrancar ([componentes.md](componentes.md), sección 2).
 - **Secretos:** `replica/entornos/` tiene solo ejemplos de cada perfil, con los nombres de las variables y sin valores. Las credenciales del proyecto de Firebase de Tabbie son un secreto del entorno (0002) y no entran en el repositorio; el detalle va en [seguridad.md](seguridad.md).
-- **Actualizar la copia:** si la predicción del límite de 0002 detecta que el contrato cambió, el humano reemplaza `backend/` entero por el commit nuevo, se actualiza `backend-upstream.md` y un ADR nuevo reemplaza a 0002. Nunca se edita a mano un archivo de la copia, y el agente no escribe en `backend/`: lo bloquea `settings.json`, y copiar por la terminal sería esquivar ese bloqueo (DP-47).
+- **Diferencias con el backend real:** la réplica no tiene que ser idéntica. Las diferencias que aparezcan al conectar la app con el backend real se ajustan entonces, en la réplica o en la app (0010).
 
 ### App por funcionalidad y por capas
 
@@ -135,12 +135,12 @@ La app, la réplica, el simulador y la documentación están en un solo reposito
 
 ## 3. Qué carpeta toca cada tipo de ticket
 
-El backend de Tabbie no se modifica (0002; PRD, sección 9), así que los tickets de backend y de base de datos no cambian su código: trabajan en lo que rodea a la copia. Todos los tickets, de cualquier tipo, actualizan en el mismo commit la documentación que cambia en `docs/`.
+El backend de Tabbie no se modifica (0002; PRD, sección 9). La réplica es código propio en `replica/` (0010): los tickets de backend la construyen, endpoint por endpoint, sin cambiar el contrato del contexto si el ticket no lo dice (DP-49, DP-53). Todos los tickets, de cualquier tipo, actualizan en el mismo commit la documentación que cambia en `docs/`.
 
 | Tipo | Carpetas que toca | Qué hace | Ejemplos | Qué no toca |
 |---|---|---|---|---|
-| **Frontend** | `android/`: el paquete de la funcionalidad de la historia y, si hace falta, `comun/` o la navegación principal | Pantallas, ViewModels y repositorios de la app, con sus pruebas en `test/` y `androidTest/` | HU-07 en `cobros/`; el aviso sin conexión del walking skeleton en `comun/red/` y la navegación principal | `backend/`, `replica/`, `simulator/` |
-| **Backend** | `replica/entornos/`, `replica/toxiproxy/` y `replica/tests/`, `compose.yaml` y `simulator/` | Cómo corre la réplica en las pruebas (variables de entorno, servicios, proxies), sus pruebas de integración y de contrato, y los escenarios del simulador que generan lo que el comensal hace | Un escenario nuevo del simulador, como ESC-6 para RF-25; un vencimiento corto de las solicitudes de cobro para HU-06 | `backend/`, salvo para reemplazar la copia por un commit nuevo con un ADR que reemplace a 0002 |
-| **Base de datos** | `replica/datos-iniciales/`, `replica/firebase/` y, si cambia un servicio, `compose.yaml` | Datos iniciales sintéticos y su configuración: restaurantes, mesas, mozos y sus cuentas de prueba en Firebase, que tienen que coincidir con las filas `user` de los datos | Los dos restaurantes con dos mozos en el primero (0002); una mesa con pedidos ya cobrados para HU-04 | El esquema: no hay migraciones, porque el esquema viene con la copia y no se modifica |
+| **Frontend** | `android/`: el paquete de la funcionalidad de la historia y, si hace falta, `comun/` o la navegación principal | Pantallas, ViewModels y repositorios de la app, con sus pruebas en `test/` y `androidTest/` | HU-07 en `cobros/`; el aviso sin conexión del walking skeleton en `comun/red/` y la navegación principal | `replica/`, `simulator/` |
+| **Backend** | `replica/src/` (con las migraciones), `replica/entornos/`, `replica/toxiproxy/` y `replica/tests/`, `compose.yaml`, `simulator/` y `docs/api/openapi.yaml`, generado | Los endpoints y eventos de la réplica con sus migraciones, cómo corre en las pruebas (variables de entorno, servicios, proxies), sus pruebas de integración y de contrato, y los escenarios del simulador que generan lo que el comensal hace | Un endpoint del reparto de DP-53, como T13 en TK-13; un escenario nuevo del simulador, como ESC-6 para RF-25; un vencimiento corto de las solicitudes de cobro para HU-06 | `android/`; una ruta, un cuerpo o un evento distinto del contexto, salvo que el ticket lo diga (DP-49) |
+| **Base de datos** | `replica/datos-iniciales/`, `replica/firebase/` y, si cambia un servicio, `compose.yaml` | Datos iniciales sintéticos y su configuración: restaurantes, mesas, mozos y sus cuentas de prueba en Firebase, que tienen que coincidir con las filas `user` de los datos | Los dos restaurantes con dos mozos en el primero (0002); una mesa con pedidos ya cobrados para HU-04 | El esquema: las migraciones son de los tickets de Backend (DP-51) |
 
-**Datos iniciales:** son SQL propio en `replica/datos-iniciales/`, no en `backend/`. Los carga un servicio de `compose.yaml` que corre una sola vez, espera a que la réplica cree el esquema y ejecuta el SQL. No se usa el seeder de la copia ([componentes.md](componentes.md#decisiones-tomadas-2026-11-14), DP-16).
+**Datos iniciales:** son SQL propio en `replica/datos-iniciales/`, no en `replica/src/`. Los carga un servicio de `compose.yaml` que corre una sola vez, espera a que terminen las migraciones de la réplica y ejecuta el SQL. La réplica no tiene seeder ([componentes.md](componentes.md#decisiones-tomadas-2026-11-14), DP-16, DP-51).

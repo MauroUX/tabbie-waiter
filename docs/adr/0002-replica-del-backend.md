@@ -37,7 +37,7 @@
 
 ## Estado
 
-Aceptado; en parte reemplazado por [0009](0009-publicacion-del-repo-y-credenciales.md).
+Aceptado; en parte reemplazado por [0009](0009-publicacion-del-repo-y-credenciales.md) y [0010](0010-replica-propia-desde-el-contrato.md).
 
 ## Consecuencias
 

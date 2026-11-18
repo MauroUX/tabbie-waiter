@@ -23,7 +23,7 @@ Dejar probado, contra la réplica, que la app recibe y mantiene al día el estad
 - **Cortes (RNF-4):** el aviso de que no hay conexión, sin diseño, y la recuperación después de un corte: al volver la comunicación, la app actualiza mesas, solicitudes y cobros sin que el mozo haga nada. Se prueban como lógica de la app, con MockWebServer en lugar de la réplica, no con cortes reales (DP-04; sección 4).
 - **Cliente HTTP:** no reintenta las acciones que cambian datos, ni por cuenta de la app ni por los reintentos automáticos del cliente (RNF-6, 0007). Es un solo cliente, sin reintentos automáticos, también para las consultas: la próxima consulta periódica es el reintento (DP-27). Da una acción por "sin respuesta" a los **10 s**, y una consulta a los **4 s**, así un corte se detecta antes de los 5 s de RNF-4 (DP-26). También se prueba con MockWebServer.
 - **Registro de diagnóstico:** la app anota cada cambio de su estado, para poder medir (sección 4).
-- **Réplica:** arranca con sus datos iniciales, SQL propio en `replica/datos-iniciales/` que carga un servicio de Compose cuando la réplica ya creó el esquema (0002, DP-16). El skeleton usa el restaurante 1 y su primer mozo.
+- **Réplica:** arranca con sus datos iniciales, SQL propio en `replica/datos-iniciales/` que carga un servicio de Compose cuando terminaron las migraciones de la réplica (0002, DP-16, DP-51). El skeleton usa el restaurante 1 y su primer mozo.
 - **Simulador:** el escenario mínimo que genera los cambios que miden los criterios: ocupar una mesa (ESC-1), confirmar un pedido (ESC-2) y pedir un cobro presencial (ESC-5), con el comensal como invitado (`POST /auth/guest`, DP-17) y unido a la mesa con `POST /table-sessions/join/restaurant/:restaurantId/table/:tableNumber` (DP-18).
 
 ## 3. Fuera del alcance
@@ -43,7 +43,7 @@ La revisión de la Entrega 1 pidió un skeleton más delgado, para ver antes una
 | Qué | Por qué puede esperar | Criterios |
 |---|---|---|
 | **Los cortes de punta a punta con Toxiproxy** | La reconexión, el aviso y la recuperación ya se prueban en el skeleton como lógica de la app, con MockWebServer. Los cortes reales entre la app y la réplica confirman lo mismo con todas las piezas, y los pide M-2. | WS-c8 |
-| **La renovación del JWT** | El JWT de mozo dura 16 h por defecto (`JWT_EXPIRATION_WAITERS` en `src/auth/auth.service.ts` de la copia), así que un turno no la necesita. Va primero en la ampliación, con la renovación de HU-01. | WS-c10 |
+| **La renovación del JWT** | El JWT de mozo dura 16 h por defecto (`JWT_EXPIRATION_WAITERS`; contexto, C1), así que un turno no la necesita. Va primero en la ampliación, con la renovación de HU-01. | WS-c10 |
 | **El segundo mozo** | Solo hace falta para los cobros "de otra tablet" y para las pruebas con dos tablets. | WS-c4, WS-c8 |
 | **El otro restaurante** | Solo hace falta para el aislamiento por restaurante (RNF-7), que verifican las historias. | — |
 | **ESC-4, pedir ayuda** | El pedido de ayuda llega por la consulta periódica, que el skeleton ya prueba con ESC-1. | WS-c4 |
@@ -201,21 +201,22 @@ El skeleton los despeja primero, antes de medir los criterios. Cada uno dice qu�
 
 | Riesgo | Por qué importa | Cómo se despeja | Criterio |
 |---|---|---|---|
-| **La réplica no arranca sin las variables de MercadoPago ni de almacenamiento de archivos** | La copia no se modifica (0002), y trae módulos que el flujo del mozo no usa, como MercadoPago y la subida de archivos (componentes.md, sección 2). Si piden sus variables al arrancar, la réplica no levanta. | Arrancar la réplica con esas variables vacías o con valores de mentira, y confirmar que ningún endpoint de la cadena del mozo ni del simulador las usa. | WS-c1 |
 | **Un stream caído sin heartbeat** | Sin heartbeat, un stream que dejó de recibir datos no da error (contexto, sección 5). Con el corte "el sistema no responde", la app podría creer que la conexión sigue viva y perder eventos sin enterarse. | Probar con MockWebServer que, cuando el sondeo detecta un corte, la conexión de eventos se trata como caída y se reabre al volver la comunicación, aunque no haya dado error. | WS-c5, WS-c7 |
 | **La espera creciente de la reconexión no tiene tope** | 0006 pide reabrir con espera creciente, pero sin un tope. Después de un reinicio de 60 s, la próxima espera puede pasar los 5 s de RNF-4. | Fijar un tope de la espera, o reabrir la conexión apenas el sondeo detecta que volvió la comunicación, sin esperar al próximo intento. | WS-c9 |
 | **El JWT del stream** | La URL con el token puede terminar en un registro. | El JWT va en el encabezado `Authorization`, que el backend lee antes que el query param ([0008](../adr/0008-jwt-del-stream-en-el-encabezado.md); DP-28), y se comprueba contra la réplica al abrir la conexión de eventos. El registro de diagnóstico no anota la URL del stream. Reabrir con el JWT renovado es de la ampliación (sección 6.2). | WS-c1 |
 | **Los reintentos automáticos del cliente HTTP** | Por defecto, el cliente HTTP reenvía por su cuenta algunas peticiones cuando se corta la conexión, aunque cambien datos (0007). Un cobro se registraría dos veces sin que la app lo sepa. | Desactivarlos en el cliente de las acciones y comprobar el efecto en el servidor, no en la app: MockWebServer cuenta las peticiones que recibió. | WS-c11 |
-| **Unirse a la mesa y autenticar al comensal** | El contexto no nombra el endpoint con que el comensal se une a la mesa. Sin esto no hay ESC-1. | El comensal entra como invitado, con `POST /auth/guest` (DP-17), y se une con `POST /table-sessions/join/restaurant/:restaurantId/table/:tableNumber` (DP-18) ([componentes.md](componentes.md#decisiones-tomadas-2026-11-14)). Probar contra la copia que, con ese invitado, ESC-1 ocupa la mesa. | WS-c1 |
+| **Unirse a la mesa y autenticar al comensal** | El contexto no nombra el endpoint con que el comensal se une a la mesa. Sin esto no hay ESC-1. | El comensal entra como invitado, con `POST /auth/guest` (DP-17), y se une con `POST /table-sessions/join/restaurant/:restaurantId/table/:tableNumber` (DP-18) ([componentes.md](componentes.md#decisiones-tomadas-2026-11-14)). La réplica los construye como los describe el contexto (DP-48), y TK-03 prueba que, con ese invitado, ESC-1 ocupa la mesa. | WS-c1 |
 | **El reloj del emulador** | La medición de 2 s supone que el emulador y la máquina usan el mismo reloj. | Comparar la hora del emulador con la de la máquina antes de medir. | WS-c2, WS-c3 |
+
+El riesgo "La réplica no arranca sin las variables de MercadoPago ni de almacenamiento de archivos" lo cerró DP-48: la réplica propia no tiene esos módulos ([0010](../adr/0010-replica-propia-desde-el-contrato.md)).
 
 ### 6.2 Los que pasan a la ampliación
 
 | Riesgo | Por qué importa | Cómo se despeja | Criterio |
 |---|---|---|---|
 | **Reabrir la conexión de eventos con el JWT vigente** | La réplica rechaza un JWT vencido con 401 antes de abrir el stream (C1). Si la app reabre con el JWT viejo, queda sin eventos o reintenta en vano. | Reabrir siempre con el JWT vigente, también después de un corte. | WS-c10 |
-| **El pedido de ayuda del invitado** | El pedido de ayuda revisa que el comensal pertenezca a la sesión de mesa. | Probar contra la copia que, con el invitado unido a la mesa, ESC-4 pide ayuda. | WS-c4 |
-| **La solicitud de MercadoPago escrita a mano** | Se escribe directo en Redis, con un formato que la copia genera en su código, y vence a los 60 s (contexto, sección 3.3). Si el formato no coincide, la réplica no la devuelve en T06. En las pruebas no se usa la API de MercadoPago (DP-23). | Comparar la solicitud escrita con una generada por la copia, y medir dentro de los 60 s. | WS-c4 |
+| **El pedido de ayuda del invitado** | El pedido de ayuda revisa que el comensal pertenezca a la sesión de mesa. | Probar contra la réplica que, con el invitado unido a la mesa, ESC-4 pide ayuda. | WS-c4 |
+| **La solicitud de MercadoPago escrita a mano** | Se escribe directo en Redis, con la clave y el `requestId` que documenta el contexto, y vence a los 60 s (contexto, sección 3.3). Si el formato no coincide con el que lee la réplica, no la devuelve en T06. En las pruebas no se usa la API de MercadoPago (DP-23). | Comprobar que T06 de la réplica devuelve la solicitud escrita con el formato del contexto, y medir dentro de los 60 s. | WS-c4 |
 
 ## 7. Lo que las historias verifican sobre esta base
 

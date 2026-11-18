@@ -1,7 +1,7 @@
 # AGENTS.md · Tabbie Waiter App
 
 Tabbie Waiter App es la app Android de tablet para el mozo de un restaurante que usa Tabbie: reemplaza el panel de mozos actual con los mismos endpoints y eventos.
-Es un monorepo con la app (`android/`), la réplica del backend (`backend/` y `replica/`), el simulador de comensales (`simulator/`) y la documentación (`docs/`).
+Es un monorepo con la app (`android/`), la réplica del backend (`replica/`), el simulador de comensales (`simulator/`) y la documentación (`docs/`).
 Fuera de `docs/` todavía no hay código: lo crean los tickets TK-01 a TK-16, en orden.
 
 | Artefacto | Dónde |
@@ -13,15 +13,17 @@ Fuera de `docs/` todavía no hay código: lo crean los tickets TK-01 a TK-16, en
 | Definition of Done | `docs/backlog/definition-of-done.md` |
 | Decisiones de arquitectura (NNNN) | `docs/adr/` |
 | Componentes, estructura, infraestructura, seguridad (PA-n, PR-n, SEG-cN), walking skeleton (WS-cN) y modelo de datos | `docs/architecture/` |
-| Contrato de la API | `docs/api/openapi.yaml`, que escribe TK-01 (DP-42) |
+| Contrato de la API | `docs/api/openapi.yaml`, generado desde el código de la réplica (DP-52) |
 | Inventario del harness | `docs/ia/harness.md` |
 
 Un número de cuatro cifras remite a un ADR; los demás IDs son los de cada documento.
 
 ## Lo que no se toca
 
-- **`backend/` es la copia sin cambios de `order-pay-backend` en `c18b0f7` (0002).** Lo propio va en `replica/` o en `simulator/`.
-  Por qué: la app pasa al backend real cambiando solo la URL base, y un cambio en la copia lo rompe sin que se note.
+- **El contrato del contexto no se cambia sin que lo diga el ticket (0010, DP-49).** La réplica es propia y vive en `replica/`: se construye desde el contexto (`docs/context/panel-mozos-actual.md`), con sus rutas, cuerpos y eventos, y reproduce O1 a O4 a propósito (DP-50).
+  Por qué: la app se apoya en ese contrato para pasar al backend real cambiando solo la URL base, y un cambio que nadie pidió la rompe sin que se note.
+- **El código de Tabbie no se lee (0010).** Si al contexto le falta un dato del contrato, se marca como hueco y lo resuelve el humano.
+  Por qué: la réplica es propia, y su fuente es el contexto, no el código de otro repositorio.
 - **La app no tiene base local (0005):** solo DataStore, para la sesión y las marcas de "Atendido".
   Por qué: las mesas llegan con emails de comensales y tokens de MercadoPago (O4), y lo que no se guarda no se lee de una tablet perdida (PA-3).
 - **Ninguna acción que cambia datos se repite sola (0007, RNF-6),** ni por la app ni por el cliente HTTP.

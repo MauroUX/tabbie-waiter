@@ -11,9 +11,9 @@
 - **Hecho:** un ticket está hecho cuando cumple "Para todos", la DoD de su tipo y lo propio que agrega en su sección "Definition of Done".
 - **Criterios:** el ticket hereda sus criterios de aceptación por ID y no los reescribe. El cambio de OpenSpec de cada ticket copia el texto de los criterios que hereda, para que el agente los tenga sin abrir otros archivos (DP-08). El scenario ejecutable, con el HTTP concreto, vive en la spec de ese cambio.
 - **Tipos:** son los de [estructura.md](../architecture/estructura.md), sección 3, con dos ajustes:
-  - **Datos** reemplaza a "Base de datos" y a "migración": la réplica crea el esquema desde sus entidades y no hay migraciones ([modelo-de-datos.md](../architecture/modelo-de-datos.md)).
+  - **Datos** reemplaza a "Base de datos". Las migraciones de la réplica no son un tipo aparte: las escribe el ticket de Backend que cambia una tabla, con la fila de migraciones de su DoD (DP-51; [modelo-de-datos.md](../architecture/modelo-de-datos.md)).
   - **Bug** se suma, para los fallos que aparezcan después de cerrar un ticket.
-- **El backend no se modifica** (0002; PRD, sección 9): ningún tipo de ticket cambia el código de `backend/`.
+- **El backend de Tabbie no se modifica** (PRD, sección 9). La réplica es código propio en `replica/` ([0010](../adr/0010-replica-propia-desde-el-contrato.md)), y ningún ticket cambia una ruta, un cuerpo o un evento del contrato del contexto si el ticket no lo dice (DP-49).
 
 ## Para todos
 
@@ -30,9 +30,11 @@
 | Qué | Por qué |
 |---|---|
 | Los criterios heredados pasan, incluida la parte de la réplica o del simulador de los que el ticket hereda en parte. | Un escenario o una configuración que no se prueba deja sin base a los criterios de la app que se apoyan en ella. |
-| `backend/` queda idéntico a la copia de `c18b0f7`: `git diff --stat backend-base -- backend/` da vacío, en local y en la CI, que necesita la etiqueta `backend-base` en el checkout (DP-46, DP-47). Lo propio va en `replica/` o en `simulator/`. | La app pasa al backend real cambiando solo la URL base (0002); un cambio en la copia lo rompe sin que se note. |
+| `docs/api/openapi.yaml` se regenera desde el código de la réplica y no tiene diferencias con el commiteado, en local y en la CI (DP-52). Las pruebas de contrato validan las respuestas contra él, y los campos sensibles llevan `x-sensitive: true`. | La app se apoya en el contrato del contexto, y la intención es pasar al backend real cambiando solo la URL base (0010): un cambio de ruta, cuerpo o evento que nadie regeneró ni pidió la rompe sin que se note. |
+| O1 a O4 se siguen reproduciendo: sus pruebas de contrato pasan (DP-50). | La app los rodea; una réplica que los "arregla" prueba la app contra un backend que no existe. |
+| Cada migración dice cómo se deshace: con su `down`, fallando en alto o solo recreando la base. `synchronize` sigue desactivado (DP-51). | El esquema sale solo de las migraciones, y una sin vuelta atrás deja una base que no se puede repetir. |
 | Los errores se manejan: una petición rechazada, una variable que falta o un servicio que no responde terminan con un error explícito, nunca en silencio. | Las mediciones del skeleton y de M-2 se leen de los registros: un error escondido da una medición falsa. |
-| Hay pruebas de integración por HTTP contra MySQL y Redis reales, desde fuera de `backend/`: en `replica/tests/`, en TypeScript con Jest y Supertest, contra la réplica levantada con Docker Compose (DP-14). | La copia no se prueba por dentro: importa el contrato que ve la app, y un MySQL o un Redis de mentira esconden lo que hace la copia, como los `decimal` que llegan como string o el vencimiento en Redis. |
+| Hay pruebas de integración por HTTP contra MySQL y Redis reales, desde fuera del código de la réplica: en `replica/tests/`, en TypeScript con Jest y Supertest, contra la réplica levantada con Docker Compose (DP-14). Se escriben antes que el código y corren solo contra la réplica (DP-48). | La réplica no se prueba por dentro: importa el contrato que ve la app, y un MySQL o un Redis de mentira esconden lo que hace la réplica, como los `decimal` que llegan como string o el vencimiento en Redis. |
 | Los secretos van solo como variables de entorno; `replica/entornos/` trae solo ejemplos sin valores. | Con la cuenta de servicio de Firebase se administra el proyecto de Tabbie, y con `JWT_SECRET` se firma un JWT de cualquier rol (PR-1, SEG-c10). |
 
 ## Datos
@@ -63,4 +65,4 @@
 | El test queda en verde. | Es la evidencia de que el arreglo cierra el fallo. |
 | El PR trae un 5 porqués breve. | Llega a la causa y no al síntoma, para que el fallo no vuelva. |
 
-**Un fallo en el código de la copia no se arregla en `backend/`:** se documenta como observación del contexto y, si la app tiene que rodearlo, es un ticket de Frontend (0002).
+**Un fallo de la réplica se arregla en `replica/src/`, como un Bug.** Un hueco del backend de Tabbie (O1 a O4) no es un fallo de la réplica: se reproduce a propósito (DP-50) y, si la app tiene que rodearlo, es un ticket de Frontend.

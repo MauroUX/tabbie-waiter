@@ -31,7 +31,7 @@ Cargar en una réplica recién creada dos restaurantes sintéticos, con sus mesa
   - una cuenta que no es de mozo, con rol `user` y el restaurante 1 asignado. La usan HU-01.c2 y HU-01.h5, y SEG-c4 como "un usuario que tiene asignado el restaurante 1" (DP-36);
   - una cuenta de comensal, con rol `user` y sin restaurante, solo para las comprobaciones de seguridad: es "el comensal con email" de SEG-c3 y "el comensal sin restaurante" de SEG-c4 (DP-36). Para todo lo demás, el comensal del simulador entra como invitado, con `POST /auth/guest` (DP-17).
 - **`replica/firebase/`:** el script que crea en el proyecto de Firebase de Tabbie una cuenta por cada usuario de los datos iniciales, con las mismas direcciones. Si una cuenta ya existe, no la duplica. Las contraseñas son exclusivas de estas cuentas.
-- **La carga** (DP-16): el SQL de `replica/datos-iniciales/` y el servicio de `compose.yaml` que corre una sola vez, espera a que la réplica cree el esquema y lo ejecuta. No se usa el seeder de la copia.
+- **La carga** (DP-16): el SQL de `replica/datos-iniciales/` y el servicio de `compose.yaml` que corre una sola vez, espera a que terminen las migraciones de la réplica (DP-51) y lo ejecuta. La réplica no tiene seeder.
 - **Las credenciales de prueba,** que no se publican: se entregan con el formulario de entrega, y el `Readme.md` dice eso en lugar de listarlas (backlog, "Comportamientos entre tablets"; RA-7; [0009](../../adr/0009-publicacion-del-repo-y-credenciales.md)).
 - **La forma de cargar y de volver a cargar desde cero**, documentada con sus comandos en [infraestructura.md](../../architecture/infraestructura.md), sección 2.1.
 
@@ -61,7 +61,7 @@ Por su fila de la [tabla de trazabilidad](../../context/panel-mozos-actual.md#2-
 
 ## Dependencias
 
-- [TK-01](TK-01-replica.md): la réplica que crea el esquema sobre el que se cargan los datos.
+- [TK-01](TK-01-replica.md): la réplica base, cuyas migraciones crean el esquema sobre el que se cargan los datos.
 
 ## Pasos
 

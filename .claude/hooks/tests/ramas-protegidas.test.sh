@@ -112,7 +112,7 @@ en_rama mc/tk-01-replica
 pasa P1 Bash "git push -u origin mc/tk-01-replica"
 pasa P2 PowerShell "git push -u origin mc/tk-01-replica"
 pasa P3 Bash "git push"
-pasa P4 Bash "git push origin backend-base"
+pasa P4 Bash "git push origin v0.1.0"
 pasa P5 Bash 'grep -rn "git push origin main" docs'
 pasa P6 Bash "git status"
 

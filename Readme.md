@@ -112,7 +112,7 @@ flowchart LR
     subgraph prueba["Sistema de pruebas"]
         app["Waiter App<br/>[Contenedor: app Android]<br/>Kotlin, Jetpack Compose, MVVM, Hilt,<br/>Retrofit y OkHttp, OkHttp SSE, DataStore"]
         toxi["Toxiproxy<br/>[Contenedor: proxy TCP controlado por API]<br/>Provoca cortes y demoras"]
-        replica["Réplica del backend<br/>[Contenedor: NestJS 10, TypeORM, Node 20]<br/>order-pay-backend, commit c18b0f7, sin cambios"]
+        replica["Réplica del backend<br/>[Contenedor: NestJS 10, TypeORM, Node 20]<br/>Propia, desde el contrato del contexto"]
         mysql[("MySQL 8<br/>[Contenedor: base de datos relacional]<br/>Datos iniciales sintéticos")]
         redis[("Redis 7<br/>[Contenedor: almacén clave-valor]<br/>Solicitudes de cobro presencial, con TTL")]
         sim["Simulador de comensales<br/>[Contenedor: CLI en TypeScript sobre Node 20]"]
@@ -140,12 +140,12 @@ flowchart LR
     style prueba fill:none,stroke:#888888,stroke-dasharray:5 5
 ```
 
-**Patrón:** un cliente nativo sobre un backend existente con contrato fijo, probado contra una réplica idéntica. La app usa los mismos endpoints y eventos que el panel actual y rodea los huecos del backend con su propio comportamiento; como la réplica es una copia sin cambios, pasar al backend real es cambiar la URL base.
+**Patrón:** un cliente nativo sobre un backend existente con contrato fijo, probado contra una réplica propia de ese contrato. La app usa los mismos endpoints y eventos que el panel actual y rodea los huecos del backend con su propio comportamiento. La réplica se construye desde el contrato y el comportamiento que documenta el contexto, con los huecos reproducidos a propósito; la intención es que pasar al backend real sea cambiar la URL base, y las diferencias que aparezcan al conectar se ajustan entonces (ADR 0010).
 
 **Beneficios principales:**
 
 - la herramienta del mozo se separa de la app de comensales sin tocar el backend;
-- pasar al backend real es cambiar la URL base;
+- pasar al backend real debería ser cambiar la URL base: es la intención, no una garantía;
 - la plataforma admite lo que viene después: impresora Bluetooth, operación sin conexión y avisos con la pantalla bloqueada;
 - pruebas reproducibles, con datos sintéticos y fallos provocados;
 - una sola fuente de verdad, y ningún cobro duplicado por reintentos.
@@ -156,7 +156,7 @@ flowchart LR
 - no hay renovación del JWT: renovar es volver a canjear el ID token de Firebase;
 - los eventos no tienen replay ni heartbeat, así que hace falta consulta periódica;
 - el backend corre en una sola instancia;
-- la réplica puede quedar atrás del backend real, y lo vigila la predicción del límite del ADR 0002;
+- la réplica puede no ser igual al backend real: lo que el contexto no fija aparece recién al conectar, y se ajusta entonces (ADR 0010);
 - las cuentas de prueba viven en el proyecto de Firebase de Tabbie.
 
 **Decisiones de arquitectura** ([índice y formato](docs/adr/README.md)):
@@ -170,6 +170,7 @@ flowchart LR
 - [0007 · Acciones que cambian datos](docs/adr/0007-acciones-que-cambian-datos.md)
 - [0008 · JWT del stream en el encabezado](docs/adr/0008-jwt-del-stream-en-el-encabezado.md)
 - [0009 · Publicación del repo y credenciales de prueba](docs/adr/0009-publicacion-del-repo-y-credenciales.md)
+- [0010 · Réplica propia desde el contrato](docs/adr/0010-replica-propia-desde-el-contrato.md)
 
 ### **2.2. Descripción de componentes principales:**
 
@@ -186,7 +187,7 @@ El detalle de cada componente (responsabilidad, tecnología, RF y RNF que atiend
   - **Acciones:** mandar a cocina, cancelar, cobrar, confirmar o eliminar una solicitud y cerrar la mesa, con revisión previa y sin reintentos.
   - **Marcas de "Atendido"** (DataStore).
   - **Pantallas:** inicio de sesión, navegación principal, "Órdenes", "Pagos" e impresora virtual.
-- **Réplica** (NestJS 10, TypeORM, MySQL 8, Redis 7 y Node 20): copia sin cambios del backend. La app y el simulador usan sus módulos de autenticación y Firebase Admin, los guards, restaurantes, pedidos, sesiones de mesa, pagos (solicitudes en Redis) y el stream de eventos.
+- **Réplica** (NestJS 10, TypeORM, MySQL 8, Redis 7 y Node 20): un backend propio, construido desde el contrato y el comportamiento del contexto, con solo lo que usan la app y el simulador y con los huecos O1 a O4 reproducidos a propósito. Tiene módulos de autenticación y Firebase Admin, los guards, restaurantes, pedidos, sesiones de mesa, pagos (solicitudes en Redis) y el stream de eventos, sus migraciones propias y el OpenAPI generado desde el código.
 - **Simulador de comensales** (TypeScript sobre Node 20): una línea de comandos con escenarios que hacen lo que hace el comensal, que entra como invitado (ocupar una mesa, confirmar pedidos, pedir ayuda, pedir un cobro presencial y cancelar), los cobros de otra tablet con la cuenta del segundo mozo, un registro del turno y la medición de las métricas, que lee MySQL con consultas de solo lectura.
 
 El [walking skeleton](docs/architecture/walking-skeleton.md) es la épica facilitadora que conecta de punta a punta la app, la réplica y el simulador antes del lote 1 del backlog: inicio de sesión, eventos, consulta periódica, aviso sin conexión y recuperación después de un corte, con sus propios criterios de aceptación. Es delgado: la reconexión, el aviso y el cliente que no reintenta se prueban como lógica de la app, con MockWebServer, y los cortes reales con Toxiproxy, la renovación del JWT, el segundo mozo, el otro restaurante, el pedido de ayuda y MercadoPago pasan a la ampliación.
@@ -199,8 +200,7 @@ Es un monorepo, para que un cambio y su spec entren en el mismo commit. La estru
 
 ```text
 tabbie-waiter/
-├── backend/      Copia sin cambios del backend de Tabbie; nada propio entra acá
-├── replica/      Lo propio de la réplica: datos sintéticos en SQL, cuentas de prueba, Toxiproxy, perfiles de entorno y pruebas
+├── replica/      La réplica propia: el código NestJS con sus migraciones, datos sintéticos en SQL, cuentas de prueba, Toxiproxy, perfiles de entorno y pruebas
 ├── android/      La app del mozo, organizada por funcionalidad y por capas
 ├── simulator/    El simulador de comensales
 ├── docs/         PRD, contexto, backlog, ADRs, arquitectura, API (OpenAPI) y wireframes
@@ -222,7 +222,7 @@ flowchart TB
     subgraph dev["Máquina de desarrollo"]
         subgraph compose["Docker Compose: entorno local"]
             toxi["Toxiproxy<br/>proxy TCP, controlado por su API"]
-            replicaL["Réplica del backend<br/>Dockerfile de la copia, Node 20"]
+            replicaL["Réplica del backend<br/>Dockerfile de replica/, Node 20"]
             mysqlL[("MySQL 8")]
             redisL[("Redis 7")]
         end
@@ -270,8 +270,8 @@ flowchart TB
     class firebase,releases externo
 ```
 
-- **Local:** Docker Compose con la réplica, MySQL 8, Redis 7 y un servicio que carga una vez el SQL de los datos iniciales; la app, en un emulador o una tablet, y el simulador llegan directo a la réplica. Toxiproxy se suma con la ampliación, entre la app y la réplica, para los cortes de punta a punta.
-- **CI:** GitHub Actions desde el primer PR de código, con ktlint, los tests de la app, los tests de la réplica y gitleaks, sin credenciales de Firebase: las pruebas que las necesitan corren en local.
+- **Local:** Docker Compose con la réplica, que corre sus migraciones al arrancar, MySQL 8, Redis 7 y un servicio que carga una vez el SQL de los datos iniciales; la app, en un emulador o una tablet, y el simulador llegan directo a la réplica. Toxiproxy se suma con la ampliación, entre la app y la réplica, para los cortes de punta a punta.
+- **CI:** GitHub Actions desde el primer PR de código, con ktlint, los tests de la app, los tests de la réplica, el control de que el OpenAPI generado no difiere del commiteado y gitleaks, sin credenciales de Firebase: las pruebas que las necesitan corren en local.
 - **Demo:** la réplica en Railway, con MySQL y Redis administrados y HTTPS, sin Toxiproxy; el APK de la variante de demo se publica en GitHub Releases.
 
 **Una sola instancia:** el backend real y la réplica corren en una sola instancia, porque los eventos salen de la memoria del proceso y con dos un evento no llega a los mozos conectados a la otra. Cada despliegue corta todas las conexiones, y la app se recupera sola.
@@ -296,7 +296,7 @@ Cada entorno, el proceso de despliegue de la demo, los requisitos de prueba y la
   - las cuentas de prueba usan un dominio reservado para ejemplos, y sus credenciales no se publican: se entregan con el formulario de entrega (ADR 0009);
   - un hook de pre-commit bloquea credenciales y cuentas, y la CI corre gitleaks en cada PR.
 
-**Riesgos aceptados**, porque el backend no se modifica: los huecos O1 a O4, que se comprueban contra la réplica; las carreras entre dos tablets; el JWT en la URL del stream de eventos, hasta que TK-05 compruebe que el stream lo recibe en el encabezado (ADR 0008), y las cuentas de prueba en el proyecto de Firebase de Tabbie, que es de desarrollo (ADR 0009).
+**Riesgos aceptados**, porque el backend no se modifica: los huecos O1 a O4, que la réplica reproduce a propósito y se comprueban contra ella; las carreras entre dos tablets; el JWT en la URL del stream de eventos, hasta que TK-05 compruebe que el stream lo recibe en el encabezado (ADR 0008), y las cuentas de prueba en el proyecto de Firebase de Tabbie, que es de desarrollo (ADR 0009).
 
 Cada práctica con su porqué, cada riesgo con lo que hace la app para acotarlo, y el criterio que prueba cada uno están en [docs/architecture/seguridad.md](docs/architecture/seguridad.md).
 
@@ -314,7 +314,7 @@ Se completa con el desarrollo. La estrategia está en la [Definition of Done](do
 
 > Recomendamos usar mermaid para el modelo de datos, y utilizar todos los parámetros que permite la sintaxis para dar el máximo detalle, por ejemplo las claves primarias y foráneas.
 
-El modelo de datos es el del backend actual de Tabbie, no uno nuevo. La réplica es una copia sin cambios del backend y crea el esquema desde sus entidades al arrancar, y la app no tiene base local. El documento completo, con sus fuentes y convenciones (entre ellas, qué abrevian `BE/` y `TO/`), está en [docs/architecture/modelo-de-datos.md](docs/architecture/modelo-de-datos.md).
+El modelo de datos es el del backend actual de Tabbie, no uno nuevo. La réplica crea el esquema con migraciones propias escritas desde este modelo, solo con sus 13 tablas, y la app no tiene base local. El documento completo, con sus fuentes y convenciones (entre ellas, qué abrevian `BE/` y `TO/`), está en [docs/architecture/modelo-de-datos.md](docs/architecture/modelo-de-datos.md).
 
 Las 13 tablas del inventario (contexto, sección 3.2), con las dos intermedias M:N. `table.activeSessionId` es una columna sin relación, porque no es una FK declarada.
 
@@ -1055,59 +1055,64 @@ Son 16 tickets: los del walking skeleton delgado y los de las historias del lote
 
 **Ticket 1**
 
-### TK-01 · Réplica levantada con el contrato comprobado
+### TK-01 · Réplica base: proyecto, migraciones, inicio de sesión, mesas activas y stream
 
 | | |
 |---|---|
 | **Tipo** | Backend (réplica y simulador) |
-| **Origen** | [Walking skeleton](docs/architecture/walking-skeleton.md): "Réplica" en el alcance, y el riesgo técnico "La réplica no arranca sin las variables de MercadoPago ni de almacenamiento de archivos" |
+| **Origen** | [Walking skeleton](docs/architecture/walking-skeleton.md): "Réplica" en el alcance; [0010](docs/adr/0010-replica-propia-desde-el-contrato.md), "Reparto" (DP-53) |
 | **Readme.md** | Ticket de backend de la sección 6 |
 
 #### Objetivo
 
-Dejar la réplica corriendo en el entorno local, con la copia sin cambios en `backend/` y los servicios de `compose.yaml`, y el contrato de los endpoints y eventos que usa la app comprobado por HTTP.
+Dejar la réplica base corriendo en el entorno local: el proyecto NestJS propio en `replica/`, con sus migraciones, el inicio de sesión, las mesas activas y el stream de eventos de los mozos, construidos desde el contrato del contexto y comprobados por HTTP (0010).
 
 #### Criterios heredados
 
 - [SEG-c10](docs/architecture/seguridad.md#43-criterios-nuevos) · Los secretos no están en el repo.
-- [WS-c1](docs/architecture/walking-skeleton.md#5-criterios-de-aceptación) · La app arranca contra la réplica. **En parte:** que la réplica arranca y atiende con las variables de MercadoPago y de archivos vacías o de mentira. El criterio completo es de [TK-05](docs/backlog/tickets/TK-05-eventos-y-consulta-periodica.md).
+- [WS-c1](docs/architecture/walking-skeleton.md#5-criterios-de-aceptación) · La app arranca contra la réplica. **En parte:** que la réplica arranca desde cero con `compose.yaml`, corre sus migraciones y atiende T01, T05 y el stream de `/sse/waiters`. El criterio completo es de [TK-05](docs/backlog/tickets/TK-05-eventos-y-consulta-periodica.md).
 
 #### Alcance
 
 **Incluye:**
 
-- **La copia en `backend/`:** `order-pay-backend`, rama `main`, commit `c18b0f7`, con su código y su configuración de build. No entran datos, variables de entorno ni la configuración de despliegue de Tabbie (0002).
-- **`docs/architecture/backend-upstream.md`**, la ficha de la copia: de qué repositorio y commit sale, cómo se comprueba que sigue sin cambios y cómo se compara el contrato con el `main` de Tabbie (0002, "Predicción del límite"). Va fuera de `backend/`, para que la copia quede idéntica al original sin excepciones (DP-47).
-- **`compose.yaml`:** la réplica, construida con el Dockerfile de la copia; MySQL 8, vacío al primer arranque, y Redis 7, sin persistencia ([infraestructura.md](docs/architecture/infraestructura.md), sección 2.1).
+- **El proyecto NestJS** en `replica/src/`, con el stack de 0003 (NestJS 10, TypeORM, MySQL 8, Redis 7 y Node 20) y su Dockerfile (0010, DP-48).
+- **Las migraciones de TypeORM** (DP-51), escritas desde [modelo-de-datos.md](docs/architecture/modelo-de-datos.md), solo con las 13 tablas del inventario (contexto, sección 3.2). Cada una dice cómo se deshace. `synchronize` queda desactivado.
+- **El inicio de sesión (T01):** `POST /auth/login` canjea el ID token de Firebase por el JWT propio, con Firebase Admin, y crea la fila `user` en el primer inicio de sesión de un email (contexto, C1 y T01). Con `USE_FIREBASE` desactivada, la réplica arranca sin las credenciales de Firebase (DP-43).
+- **Los guards:** `JwtAuthGuard`, que toma el JWT del encabezado `Authorization: Bearer` o del query param `?token=` y carga el usuario con su restaurante, y `RolesGuard`, que solo actúa donde se declara (contexto, sección 0, "Convenciones del backend").
+- **Las mesas activas (T05):** `GET /restaurants/:id/tables/active`, con el control del restaurante y la respuesta que describe el contexto, incluidos los campos de O4, que se reproducen a propósito (DP-50).
+- **El stream `GET /sse/waiters`** (T16, T17), alimentado por un `Subject` por restaurante en la memoria del proceso, sin heartbeat ni replay (contexto, sección 5). Abre con el JWT en el encabezado (0008) y responde 401 con un JWT vencido antes de abrirse (C1). Los eventos los emiten los endpoints que los originan, en [TK-03](docs/backlog/tickets/TK-03-simulador-mesas-pedidos-y-cobros.md) y [TK-13](docs/backlog/tickets/TK-13-simulador-pagos.md).
+- **`compose.yaml`:** la réplica, construida desde `replica/`; MySQL 8, vacío al primer arranque, y Redis 7, sin persistencia ([infraestructura.md](docs/architecture/infraestructura.md), sección 2.1).
 - **`replica/entornos/`:** los ejemplos de los dos perfiles, el normal y el de pruebas, con los nombres de las variables de [infraestructura.md](docs/architecture/infraestructura.md), sección 5, y sin valores. El perfil de pruebas tiene un vencimiento corto de `REDIS_EXPIRATION_TIME`, para HU-06.h4.
-- **Arranque sin MercadoPago ni archivos:** `MP_*`, `AWS_*` y `FRONT_URL` vacías o con valores de mentira, comprobando que ningún endpoint de la cadena del mozo ni del simulador las usa.
-- **Prueba del contrato por HTTP**, en `replica/tests/` (DP-14): una por cada fila de la columna "Waiter App" del inventario (contexto, sección 3.1). Comprueba el método y la ruta, los guards de la tabla de trazabilidad (sin JWT responde 401 donde hay "J"), los campos del cuerpo que manda la app y los de la respuesta que lee. Los eventos se comprueban abriendo el stream con el JWT en el encabezado `Authorization` (0008): con un JWT vigente se abre; con uno vencido responde 401 antes de abrirse (C1).
+- **Las pruebas del contrato por HTTP**, en `replica/tests/` (DP-14): una por cada pieza de la base. Comprueban el método y la ruta, los guards de la tabla de trazabilidad (sin JWT responde 401 donde hay "J"), los campos del cuerpo que manda la app y los de la respuesta que lee, y validan cada respuesta contra `docs/api/openapi.yaml`.
 - **El JWT de mozo de la prueba** (DP-15): la prueba inserta un mozo en MySQL y firma su JWT con el `JWT_SECRET` de la réplica, sin pasar por Firebase.
+- **`docs/api/openapi.yaml`, generado** (DP-52) desde el código con `@nestjs/swagger`, con los campos sensibles marcados `x-sensitive: true`. Este ticket resuelve cómo se logra esa marca con el generador. Tres endpoints se copian en la sección 4 del `Readme.md`, cuando existan.
+- **La CI** de `.github/workflows/` (DP-11), con el paso que regenera el OpenAPI y falla si difiere del commiteado (DP-52).
 - **El detector de secretos** de SEG-c10, sobre todo el historial y todas las ramas.
-- **`docs/api/openapi.yaml`** (DP-09, DP-42): escrito a mano desde el código de la copia, con una entrada por cada fila de la columna "Waiter App" del inventario y los campos sensibles marcados `x-sensitive: true`. Las pruebas del contrato validan las respuestas de la réplica contra él. Tres de esos endpoints se copian en la sección 4 del `Readme.md`.
 
 **No incluye:**
 
 - Los datos iniciales y las cuentas de prueba: [TK-02](docs/backlog/tickets/TK-02-datos-iniciales.md).
-- La comprobación de O1 a O4 (SEG-c1 a SEG-c4), que necesita el simulador: [TK-08](docs/backlog/tickets/TK-08-simulador-ordenes.md) y [TK-13](docs/backlog/tickets/TK-13-simulador-pagos.md).
-- Los escenarios del simulador: [TK-03](docs/backlog/tickets/TK-03-simulador-mesas-pedidos-y-cobros.md), TK-08 y TK-13.
+- Los demás endpoints y los eventos que emiten: [TK-03](docs/backlog/tickets/TK-03-simulador-mesas-pedidos-y-cobros.md), [TK-08](docs/backlog/tickets/TK-08-simulador-ordenes.md) y [TK-13](docs/backlog/tickets/TK-13-simulador-pagos.md), según el reparto de DP-53 ([índice](docs/backlog/tickets/README.md#decisiones-tomadas-2026-11-17)).
+- La comprobación de O1 a O4 (SEG-c1 a SEG-c4), que necesita el simulador: TK-08 y TK-13.
+- Los escenarios del simulador: TK-03, TK-08 y TK-13.
 - Toxiproxy y los cortes de punta a punta: van en la ampliación (DP-04; ver el [índice](docs/backlog/tickets/README.md), "Fuera de esta descomposición").
 - El entorno de demo en Railway: va al final de la ampliación.
 - La app: [TK-04](docs/backlog/tickets/TK-04-app-base.md).
 
 #### Dónde se trabaja
 
-- **Carpetas** ([estructura.md](docs/architecture/estructura.md)): `backend/` (solo para que el humano ponga la copia, DP-47), `compose.yaml`, `replica/entornos/`, `replica/tests/`, `docs/api/` y `docs/architecture/backend-upstream.md`.
-- **Componentes** ([componentes.md](docs/architecture/componentes.md), sección 2): los módulos de la copia tal como están, sin tocarlos: `AppModule`, `AuthModule`, `FirebaseAdminModule`, los guards, `RestaurantsModule`, `OrderModule`, `TableSessionModule`, `PaymentModule`, `SseModule` y `RedisModule`.
+- **Carpetas** ([estructura.md](docs/architecture/estructura.md)): `replica/src/` (con las migraciones), `compose.yaml`, `replica/entornos/`, `replica/tests/`, `docs/api/` y `.github/workflows/`.
+- **Componentes** ([componentes.md](docs/architecture/componentes.md), sección 2): `AppModule`, `AuthModule`, `FirebaseAdminModule`, los guards, `UsersModule`, `RestaurantsModule`, `TableModule`, las entidades de pedidos y productos que trae T05, `SseModule` y `RedisModule`.
 
 #### Contrato que usa
 
-Las filas de la columna "Waiter App" del inventario ([contexto, sección 3.1](docs/context/panel-mozos-actual.md#31-endpoints-y-eventos-usados)), por su fila de la [tabla de trazabilidad](docs/context/panel-mozos-actual.md#2-tabla-de-trazabilidad):
+Por su fila de la [tabla de trazabilidad](docs/context/panel-mozos-actual.md#2-tabla-de-trazabilidad) y del [inventario](docs/context/panel-mozos-actual.md#31-endpoints-y-eventos-usados):
 
-- **HTTP:** T01, T05, T06, T07, T08, T09, T11, T12, T13 y T14.
-- **Eventos de `/sse/waiters`:** T16, T17 e `in-person-payment-request-deleted`, que no tiene fila.
+- **HTTP:** T01 y T05.
+- **Stream:** `GET /sse/waiters`, el de T16 y T17, sin los endpoints que emiten sus eventos.
 
-No comprueba las filas que la app no usa: T02, T03, T04, T10, T15 y T18.
+Si al contexto le falta un dato del contrato, se marca como hueco y se resuelve con el humano: el código de Tabbie no se lee (0010).
 
 #### Requisitos de prueba del backlog
 
@@ -1119,33 +1124,32 @@ No comprueba las filas que la app no usa: T02, T03, T04, T10, T15 y T18.
 
 #### Pasos
 
-1. Crear el cambio de OpenSpec, con los scenarios de SEG-c10 y de la parte de WS-c1, y una spec del contrato con una entrada por cada fila del inventario.
-2. Escribir las pruebas primero: el detector de secretos, el arranque de la réplica y el contrato. Las del arranque y el contrato fallan, porque todavía no hay réplica.
-3. **Parada del humano (DP-47):** el humano exporta `c18b0f7` del repo de Tabbie, lo copia en `backend/` sin tocar ningún archivo y comprueba con `git diff --no-index` entre el export y `backend/` que da vacío. Hace el commit que importa la copia, con la etiqueta `backend-base`, y la pushea (DP-46). El agente no escribe en `backend/`: lo bloquea `settings.json`, y copiar por la terminal sería esquivar ese bloqueo. Después, el agente escribe `docs/architecture/backend-upstream.md`.
+1. Crear el cambio de OpenSpec, con los scenarios de SEG-c10 y de la parte de WS-c1, y una spec del contrato con una entrada por cada pieza de la base (T01, T05 y el stream), tomada del contexto.
+2. Escribir las pruebas primero, y verlas fallar: el detector de secretos, el arranque de la réplica, las migraciones y el contrato.
+3. Armar el proyecto NestJS en `replica/src/`, con su Dockerfile, y las migraciones de las 13 tablas.
 4. Escribir los ejemplos de los perfiles en `replica/entornos/`, y armar el archivo local de variables, que no entra al repo, con las credenciales del proyecto de Firebase de Tabbie y un `JWT_SECRET` propio del entorno local.
-5. Escribir `compose.yaml` con la réplica, MySQL y Redis. Levantar y comprobar que la réplica se conecta a MySQL y Redis y crea el esquema desde sus entidades (`DB_SYNC` activada).
-6. Arrancar con `MP_*`, `AWS_*` y `FRONT_URL` vacías. Si la copia no arranca, usar valores de mentira, nunca cambiar su código, y dejar anotado en el ejemplo qué variable lo necesita.
-7. Escribir `docs/api/openapi.yaml` y completar las pruebas del contrato, con el mozo insertado y su JWT firmado, validando cada respuesta contra él, hasta que pasen todas. Copiar tres endpoints en la sección 4 del `Readme.md`.
+5. Escribir `compose.yaml` con la réplica, MySQL y Redis. Levantar y comprobar que la réplica corre sus migraciones y se conecta a MySQL y Redis, también con `USE_FIREBASE` desactivada.
+6. Implementar T01, los guards, T05 y el stream hasta que pasen las pruebas del contrato, con el mozo insertado y su JWT firmado.
+7. Generar `docs/api/openapi.yaml`, con la marca `x-sensitive`, y validar cada respuesta contra él. Sumar a la CI el control del OpenAPI.
 8. Correr el detector de secretos sobre todo el historial y todas las ramas.
-9. Actualizar [infraestructura.md](docs/architecture/infraestructura.md) con los comandos reales del entorno local, y [estructura.md](docs/architecture/estructura.md) si alguna carpeta quedó distinta.
-10. Abrir el PR desde una rama `mc`, con el `diff` vacío de `backend/` como evidencia.
+9. Actualizar [infraestructura.md](docs/architecture/infraestructura.md) con los comandos reales del entorno local, [estructura.md](docs/architecture/estructura.md) si alguna carpeta quedó distinta, y la sección "Comandos" de `AGENTS.md`.
+10. Abrir el PR desde una rama `mc`.
 
 #### Definition of Done
 
 - La de [Para todos](docs/backlog/definition-of-done.md#para-todos) y la de [Backend](docs/backlog/definition-of-done.md#backend-réplica-y-simulador).
 - **Propio del ticket:**
-  - El PR muestra que el `git diff --no-index` entre el export de `c18b0f7` y `backend/` da vacío, sin excepciones, y que la etiqueta `backend-base` está pusheada en el commit que importa la copia (DP-46, DP-47).
-  - La réplica arranca desde cero con `compose.yaml` y un archivo local de variables, siguiendo solo lo que dice [infraestructura.md](docs/architecture/infraestructura.md).
-  - Cada fila de la columna "Waiter App" del inventario tiene su entrada en `docs/api/openapi.yaml` y su prueba del contrato, y pasa.
-  - Si una prueba del contrato no coincide con el contexto, se corrige el contexto, no la copia.
+  - La réplica arranca desde cero con `compose.yaml` y un archivo local de variables, siguiendo solo lo que dice [infraestructura.md](docs/architecture/infraestructura.md), y corre sus migraciones.
+  - T01, T05 y el stream tienen su entrada en `docs/api/openapi.yaml`, generada desde el código, y su prueba del contrato, que pasa.
+  - La CI falla si `docs/api/openapi.yaml` difiere del que genera el código.
+  - Si una prueba del contrato no coincide con el contexto, se corrige la réplica. Si el contexto está incompleto, el hueco se lleva al humano.
 
 #### Riesgos y decisiones
 
-- **Riesgo técnico del skeleton** ([walking-skeleton.md](docs/architecture/walking-skeleton.md), sección 6.1): "La réplica no arranca sin las variables de MercadoPago ni de almacenamiento de archivos". Se despeja en el paso 6.
-- **Predicción del límite** (0002): si al comparar el contrato con el `main` de Tabbie hay diferencias, la réplica pasa a un commit nuevo con un ADR que reemplaza a 0002. No se edita a mano ningún archivo de la copia ([estructura.md](docs/architecture/estructura.md), "Copia aislada del backend").
+- **Riesgo aceptado (0010):** la réplica no tiene que ser 100 % igual a Tabbie. Las diferencias aparecen al conectar la app con el backend real, y se ajustan entonces.
+- **Decidido (DP-48 a DP-53):** réplica propia desde el contrato, con migraciones propias y el OpenAPI generado; este ticket deja solo la base ([0010](docs/adr/0010-replica-propia-desde-el-contrato.md); [índice](docs/backlog/tickets/README.md#decisiones-tomadas-2026-11-17)).
 - **Decidido (DP-14):** las pruebas de integración y de contrato de la réplica viven en `replica/tests/`, en TypeScript con Jest y Supertest, y van por HTTP contra la réplica levantada con Docker Compose, con MySQL y Redis reales ([índice](docs/backlog/tickets/README.md#decisiones-tomadas-2026-11-14)).
-- **Decidido (DP-15):** la prueba del contrato inserta un mozo en MySQL y firma su JWT con el `JWT_SECRET` de la réplica, porque `src/guards/auth/jwt.strategy.ts` de la copia solo verifica la firma y busca el `userId`. El canje con Firebase se prueba en [TK-02](docs/backlog/tickets/TK-02-datos-iniciales.md).
-- **Decidido (DP-09):** el OpenAPI de `docs/api/openapi.yaml` se escribe a mano desde el código de la copia, con los campos sensibles marcados `x-sensitive: true`, y lo validan las pruebas de contrato de la réplica. Lo escribe este ticket (DP-42).
+- **Decidido (DP-15):** la prueba del contrato inserta un mozo en MySQL y firma su JWT con el `JWT_SECRET` de la réplica, porque la réplica, como el backend (contexto, sección 0), solo verifica la firma y busca el `userId`. El canje con Firebase se prueba en [TK-02](docs/backlog/tickets/TK-02-datos-iniciales.md).
 - **Decidido (DP-41):** en el lote 1, `compose.yaml` no tiene Toxiproxy y la app llega directo a la réplica. Toxiproxy se suma con la ampliación ([infraestructura.md](docs/architecture/infraestructura.md), sección 2.1).
 - **Decidido (DP-43):** en la CI, las pruebas del contrato corren con `USE_FIREBASE` desactivada y un `JWT_SECRET` de prueba, sin credenciales de Firebase ([infraestructura.md](docs/architecture/infraestructura.md#6-integración-continua)).
 
@@ -1184,7 +1188,7 @@ Cargar en una réplica recién creada dos restaurantes sintéticos, con sus mesa
   - una cuenta que no es de mozo, con rol `user` y el restaurante 1 asignado. La usan HU-01.c2 y HU-01.h5, y SEG-c4 como "un usuario que tiene asignado el restaurante 1" (DP-36);
   - una cuenta de comensal, con rol `user` y sin restaurante, solo para las comprobaciones de seguridad: es "el comensal con email" de SEG-c3 y "el comensal sin restaurante" de SEG-c4 (DP-36). Para todo lo demás, el comensal del simulador entra como invitado, con `POST /auth/guest` (DP-17).
 - **`replica/firebase/`:** el script que crea en el proyecto de Firebase de Tabbie una cuenta por cada usuario de los datos iniciales, con las mismas direcciones. Si una cuenta ya existe, no la duplica. Las contraseñas son exclusivas de estas cuentas.
-- **La carga** (DP-16): el SQL de `replica/datos-iniciales/` y el servicio de `compose.yaml` que corre una sola vez, espera a que la réplica cree el esquema y lo ejecuta. No se usa el seeder de la copia.
+- **La carga** (DP-16): el SQL de `replica/datos-iniciales/` y el servicio de `compose.yaml` que corre una sola vez, espera a que terminen las migraciones de la réplica (DP-51) y lo ejecuta. La réplica no tiene seeder.
 - **Las credenciales de prueba,** que no se publican: se entregan con el formulario de entrega, y el `Readme.md` dice eso en lugar de listarlas (backlog, "Comportamientos entre tablets"; RA-7; [0009](docs/adr/0009-publicacion-del-repo-y-credenciales.md)).
 - **La forma de cargar y de volver a cargar desde cero**, documentada con sus comandos en [infraestructura.md](docs/architecture/infraestructura.md), sección 2.1.
 
@@ -1214,7 +1218,7 @@ Por su fila de la [tabla de trazabilidad](docs/context/panel-mozos-actual.md#2-t
 
 #### Dependencias
 
-- [TK-01](docs/backlog/tickets/TK-01-replica.md): la réplica que crea el esquema sobre el que se cargan los datos.
+- [TK-01](docs/backlog/tickets/TK-01-replica.md): la réplica base, cuyas migraciones crean el esquema sobre el que se cargan los datos.
 
 #### Pasos
 
@@ -1294,7 +1298,7 @@ Que el mozo mande a cocina, con un toque en la tarjeta de la mesa en "Pendientes
 
 - Cancelar pedidos: HU-12, en la ampliación.
 - El aviso de pedido confirmado y el contador que parpadea: HU-03, en la ampliación. HU-03.h5 usa los envíos de este ticket.
-- Cambios en `backend/`: el envío es el `PUT` que ya existe (T08).
+- Cambios en la réplica: el envío es T08, que construye [TK-08](docs/backlog/tickets/TK-08-simulador-ordenes.md).
 
 #### Dónde se trabaja
 

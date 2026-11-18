@@ -32,7 +32,7 @@ flowchart LR
     waiter["Tabbie Waiter App<br/>[Sistema: app nativa Android para tablet]<br/>Operación del turno del mozo"]
 
     comensales["App web de comensales<br/>[Sistema externo: app web]<br/>order-pay-end-user-app"]
-    backend["Backend de Tabbie<br/>[Sistema externo: API HTTP y SSE]<br/>order-pay-backend, commit c18b0f7.<br/>En las pruebas, la réplica, con el mismo contrato"]
+    backend["Backend de Tabbie<br/>[Sistema externo: API HTTP y SSE]<br/>order-pay-backend.<br/>En las pruebas, la réplica propia, construida desde el contrato del contexto"]
     firebase["Firebase Authentication<br/>[Sistema externo: Google]<br/>Proyecto de Firebase de Tabbie"]
     mp["MercadoPago<br/>[Sistema externo: pagos en línea]<br/>Solo lo usa el comensal"]
     sim["Simulador de comensales<br/>[Sistema de prueba: CLI]<br/>Reemplaza al comensal en las pruebas"]
@@ -65,7 +65,7 @@ flowchart LR
 | Comensal | Crea y confirma sus pedidos, pide cobros y ayuda, y paga con MercadoPago desde su app. No usa la Waiter App. | PRD, sección 2; contexto, secciones 3.3 y 4 |
 | Tabbie Waiter App | App nativa Android para tablet, en orientación horizontal. | 0001; RNF-10 |
 | App web de comensales | La app web actual, que hoy también contiene el panel de mozos que la Waiter App reemplaza. Los comensales la siguen usando. Inicia sesión con el SDK de Firebase. | Contexto, secciones 0 y 3.1 (T19); PRD, secciones 1 y 9 |
-| Backend de Tabbie | El backend actual, que no se modifica. Corre en una sola instancia en Railway. En las pruebas lo reemplaza la réplica, una copia sin cambios del mismo commit. | 0002; contexto, sección 0; PRD, sección 9 |
+| Backend de Tabbie | El backend actual, que no se modifica. Corre en una sola instancia en Railway. En las pruebas lo reemplaza la réplica, un backend propio construido desde el contrato y el comportamiento que documenta el contexto, con O1 a O4 reproducidos a propósito. | 0002, 0010; contexto, sección 0; PRD, sección 9 |
 | Firebase Authentication | El proyecto de Firebase de Tabbie. El backend usa Firebase Admin solo en `POST /auth/login`; las demás rutas validan un JWT propio. La réplica valida contra el mismo proyecto. | 0002, 0004; contexto, secciones 0 y 3.1 |
 | MercadoPago | El comensal paga en línea, y el webhook de MercadoPago confirma pedidos en el flujo prepago. La Waiter App no habla con MercadoPago: ve sus solicitudes, pero no las confirma. | Contexto, sección 2 ("Origen de los eventos") y sección 3.3; C9, C11 |
 | Simulador de comensales | En las pruebas ocupa mesas, crea y confirma pedidos, pide ayuda, pide cobros presenciales y cancela pedidos, con los mismos endpoints que la app del comensal. | 0002; PRD, sección 8 |
@@ -81,7 +81,7 @@ flowchart LR
     subgraph prueba["Sistema de pruebas"]
         app["Waiter App<br/>[Contenedor: app Android]<br/>Kotlin, Jetpack Compose, MVVM, Hilt,<br/>Retrofit y OkHttp, OkHttp SSE, DataStore"]
         toxi["Toxiproxy<br/>[Contenedor: proxy TCP controlado por API]<br/>Provoca cortes y demoras"]
-        replica["Réplica del backend<br/>[Contenedor: NestJS 10, TypeORM, Node 20]<br/>order-pay-backend, commit c18b0f7, sin cambios"]
+        replica["Réplica del backend<br/>[Contenedor: NestJS 10, TypeORM, Node 20]<br/>Propia, desde el contrato del contexto"]
         mysql[("MySQL 8<br/>[Contenedor: base de datos relacional]<br/>Datos iniciales sintéticos")]
         redis[("Redis 7<br/>[Contenedor: almacén clave-valor]<br/>Solicitudes de cobro presencial, con TTL")]
         sim["Simulador de comensales<br/>[Contenedor: CLI en TypeScript sobre Node 20]"]
@@ -114,7 +114,7 @@ flowchart LR
 | Contenedor | Tecnología | De dónde sale |
 |---|---|---|
 | Waiter App | Kotlin y Jetpack Compose; MVVM con flujo de datos unidireccional; Hilt; Retrofit y OkHttp; OkHttp SSE; Firebase Authentication; DataStore cifrado con una clave del Android Keystore | 0001, 0003, 0005 |
-| Réplica del backend | NestJS 10, TypeORM y Node 20: lo que trae la copia, no una elección | 0002, 0003 |
+| Réplica del backend | NestJS 10, TypeORM y Node 20, el stack de 0003; código propio en `replica/`, con migraciones propias y el OpenAPI generado desde el código | 0003, 0010 |
 | MySQL 8 | Las 13 tablas que usa la cadena del mozo, con datos iniciales propios y sintéticos | 0002, 0003; contexto, sección 3.2 |
 | Redis 7 | Las solicitudes de cobro presencial, con vencimiento (`REDIS_EXPIRATION_TIME`) | 0003; contexto, sección 3.3 |
 | Simulador de comensales | Cliente HTTP por línea de comandos, en TypeScript sobre Node 20 | 0002, 0003 |
@@ -139,7 +139,7 @@ flowchart LR
 
 ## 3. Patrón y justificación
 
-**Patrón:** un **cliente nativo sobre un backend existente con contrato fijo, probado contra una réplica idéntica**.
+**Patrón:** un **cliente nativo sobre un backend existente con contrato fijo, probado contra una réplica propia de ese contrato**.
 
 - **Cliente nativo (0001).** La app es nativa Android, en Kotlin con Jetpack Compose, porque la operación va a necesitar después imprimir comandas por Bluetooth, operar sin conexión y recibir avisos con la pantalla bloqueada (PRD, sección 1). Las tres están fuera del MVP, pero la plataforma que se elige ahora tiene que poder ofrecerlas. Una PWA no puede, por los límites del navegador, y React Native agrega una capa sobre las mismas APIs nativas.
 - **Backend existente con contrato fijo (0002; PRD, sección 9).** La app usa los endpoints y eventos del backend actual, los de la columna "Waiter App" del contexto (sección 3.1), y no pide ninguno nuevo. Lo que el backend no resuelve, la app lo rodea con su propio comportamiento:
@@ -148,7 +148,7 @@ flowchart LR
   - no confirmar cobros que van a fallar (C11);
   - no mostrar ni persistir datos sensibles (O4, C3);
   - no repetir sola una acción que cambia datos (0007).
-- **Probado contra una réplica idéntica (0002).** La app no se puede probar contra el backend productivo. La réplica es una copia sin cambios del mismo commit que documenta el contexto, con el mismo contrato, los mismos eventos y los mismos huecos, y valida el inicio de sesión contra el mismo proyecto de Firebase. Por eso la app pasa al backend real cambiando solo la URL base. Lo que las pruebas necesitan (datos iniciales, vencimientos cortos y fallos provocados) se resuelve fuera del código de la réplica: con datos, variables de entorno, el simulador y Toxiproxy (0002, 0003).
+- **Probado contra una réplica propia del contrato (0002, 0010).** La app no se puede probar contra el backend productivo. La réplica es un backend propio, construido desde el contrato y el comportamiento que documenta el contexto: las mismas rutas, los mismos cuerpos, los mismos eventos y los huecos O1 a O4, reproducidos a propósito porque la app los rodea. Valida el inicio de sesión contra el mismo proyecto de Firebase. La intención es que la app pase al backend real cambiando solo la URL base; como la réplica no tiene que ser idéntica, las diferencias que aparezcan al conectar se ajustan entonces, y ese es un riesgo aceptado. Lo que las pruebas necesitan (datos iniciales, vencimientos cortos y fallos provocados) se resuelve con datos, variables de entorno, el simulador y Toxiproxy, sin endpoints solo de prueba (0002, 0003, 0010).
 - **El backend es la única fuente de verdad (0005).** La app tiene el estado de la operación solo en memoria y lo recarga del backend, con eventos para lo inmediato y consulta periódica para el resto (0006). Una copia local sería una segunda fuente de verdad que tarde o temprano deja de coincidir, y operar sin conexión está fuera del MVP (PRD, sección 5).
 
 Dentro de la app, el estado de cada pantalla vive en su ViewModel, con MVVM y flujo de datos unidireccional (0003). El detalle va en [componentes.md](componentes.md).
@@ -159,7 +159,7 @@ Dentro de la app, el estado de cada pantalla vive en su ViewModel, con MVVM y fl
 |---|---|---|---|
 | Beneficio | La herramienta del mozo se separa de la app de comensales | Lo que se cambia para el comensal deja de afectar al mozo, y al revés. | PRD, secciones 1 y 3 |
 | Beneficio | El backend no se toca | El restaurante reemplaza el panel sin cambiar cómo trabaja el resto del sistema. | 0002; PRD, secciones 3 y 9 |
-| Beneficio | Pasar al backend real es cambiar la URL base | La réplica tiene el mismo contrato y el mismo proyecto de Firebase. | 0002 |
+| Beneficio | Pasar al backend real debería ser cambiar la URL base | La réplica se construye desde el mismo contrato y usa el mismo proyecto de Firebase. Es la intención, no una garantía (ver el sacrificio de la réplica). | 0002, 0010 |
 | Beneficio | Plataforma preparada para lo que viene | Impresora Bluetooth, operación sin conexión y avisos con la pantalla bloqueada se pueden agregar sin cambiar de plataforma. | 0001 |
 | Beneficio | Pruebas reproducibles, con fallos provocados | Datos sintéticos, vencimientos cortos por variables de entorno y cortes desde Toxiproxy, sin tocar la app ni la réplica. M-1 a M-3 se miden con el simulador. | 0002, 0003; PRD, sección 8 |
 | Beneficio | Una sola fuente de verdad | Sin base local no hay datos que dejen de coincidir, y los datos sensibles de O4 no llegan al almacenamiento de la tablet. | 0005 |
@@ -168,7 +168,7 @@ Dentro de la app, el estado de cada pantalla vive en su ViewModel, con MVVM y fl
 | Sacrificio | **No hay renovación del JWT** | El backend no tiene endpoint de renovación, así que renovar es pedir un ID token nuevo a Firebase y volver a canjearlo. La sesión del turno depende de que la sesión de Firebase siga válida en la tablet, y al renovar hay que reabrir el stream de eventos. | 0004; C1 |
 | Sacrificio | **Los eventos no tienen replay ni heartbeat** | Lo que se emite durante un corte se pierde. Hace falta consulta periódica (menos de 30 s), un sondeo cada 5 s o menos para detectar cortes, y actualizar todo al reconectar. Hay tráfico constante mientras la app está abierta, con una consulta de cobros por cada mesa (T07). | 0006; contexto, sección 5 |
 | Sacrificio | **El backend corre en una sola instancia** | Los eventos salen de la memoria de esa instancia: con más de una, un evento no llega a los clientes conectados a otra. Un reinicio o un despliegue corta todas las conexiones. Vale para el backend real y para la réplica. | 0006; contexto, secciones 0 y 5 |
-| Sacrificio | **La réplica puede quedar atrás del backend real** | Es una copia de un commit fijo. Lo vigila la predicción del límite: antes de cada entrega y antes de pasar al backend real se compara el contrato; si cambió, la réplica se actualiza con un ADR nuevo. | 0002 |
+| Sacrificio | **La réplica puede no ser igual al backend real** | Se construye desde lo que documenta el contexto, sin leer el código de Tabbie. Lo que el contexto no fija (un código de error, un campo que la app no lee) puede salir distinto, y aparece recién al conectar la app con el backend real, cuando se ajusta. | 0010 |
 | Sacrificio | **Las cuentas de prueba viven en el proyecto de Firebase de Tabbie** | La réplica necesita las credenciales de ese proyecto como secreto. Las credenciales de las cuentas de prueba no se publican: se entregan con el formulario de entrega. Igual sirven para iniciar sesión en ese proyecto; si una inicia sesión contra el backend real, `POST /auth/login` crea su fila `user` en esa base. El proyecto es de desarrollo: la app de Tabbie todavía no se liberó. | 0002 (T01); 0009 |
 | Sacrificio | El JWT del stream va en el encabezado, sin comprobar todavía | El backend lee el JWT del encabezado `Authorization` antes que del query param, así que el stream lo recibe en el encabezado y la URL no lleva el token. Hasta que TK-05 lo compruebe contra la réplica, RA-6 sigue abierto. Los logs no registran el JWT (PA-6 de [seguridad.md](seguridad.md)). | 0008; contexto, sección 0 |
 | Sacrificio | Sin conexión no hay datos | Al reiniciar se recarga todo del backend, y sin red la app solo puede mostrar el aviso de RNF-4. | 0005 |

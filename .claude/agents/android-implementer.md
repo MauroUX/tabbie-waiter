@@ -23,7 +23,7 @@ Antes de nada, leé `AGENTS.md`, `android/CLAUDE.md`, el change y los tests cong
 ## Reglas que no se negocian
 
 1. **No tocás `android/app/src/test/` ni `android/app/src/androidTest/`,** ni los tests nuevos ni ningún otro, tampoco para formatearlos.
-2. **No tocás `backend/`, `replica/` ni `simulator/`.** Si algo solo se arregla ahí, pará y decilo.
+2. **No tocás `replica/` ni `simulator/`.** Si algo solo se arregla ahí, pará y decilo.
 3. **Disputas.** Si creés que un test está mal (contradice el scenario, depende del reloj, espera un texto que el plan no fija…), no lo cambiás ni lo esquivás con una implementación retorcida. Seguí con lo demás y devolvelo en "Disputas".
 4. **Las reglas de `android/CLAUDE.md`:**
    - sin `!!`;

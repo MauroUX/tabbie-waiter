@@ -1,13 +1,13 @@
 ---
 name: replica-feature
-description: Procedimiento obligatorio para los tickets de Backend (réplica y simulador). Explora el ticket, el contrato y backend/ en solo lectura, propone un plan con una fila por pieza y se para a esperar la aprobación. Después escribe los tests de contrato con el subagente test-writer, comprueba el rojo, los congela por su huella, implementa con el subagente implementer hasta el verde y cierra con backend/ intacto y las respuestas validadas contra openapi.yaml. Usar siempre en un ticket de Backend, aunque nadie la pida.
+description: Procedimiento obligatorio para los tickets de Backend (réplica y simulador). Explora el ticket, el contrato del contexto, el modelo de datos y openapi.yaml, propone un plan con una fila por pieza y se para a esperar la aprobación. Después escribe los tests de contrato con el subagente test-writer, comprueba el rojo, los congela por su huella, implementa con el subagente implementer hasta el verde y cierra con el OpenAPI regenerado sin diferencias y las respuestas validadas contra él. Usar siempre en un ticket de Backend, aunque nadie la pida.
 ---
 
 # Un ticket de Backend, de los criterios al verde
 
 El orden es fijo: **explorar → plan → (aprobación) → tests → rojo → congelar → implementar → verde → huella intacta → cierre**. Cubre los pasos 4 a 6 de "Cómo se trabaja un ticket" de `AGENTS.md`. El commit, el PR y la revisión adversarial siguen ese procedimiento, no esta skill.
 
-Lo propio va en `replica/` y en `simulator/`. `backend/` es la copia sin cambios de `c18b0f7` (0002): se lee y nunca se escribe.
+Todo va en `replica/` y en `simulator/`. La réplica es propia (0010): se construye desde el contrato y el comportamiento del contexto, con O1 a O4 reproducidos a propósito (DP-50). El código de Tabbie no se lee.
 
 ## 0. Antes de empezar
 
@@ -20,12 +20,13 @@ Lo propio va en `replica/` y en `simulator/`. `backend/` es la copia sin cambios
 
 - **El ticket** entero: sus criterios heredados, el alcance, lo que no incluye, los pasos (incluidas sus **paradas del humano**) y su DoD propia. Contá los scenarios del change: habrá **un test por scenario**. Los criterios que el ticket hereda "en parte" se prueban solo en la parte que dice el ticket.
 - **El contrato que usa:**
-  - el inventario del contexto (`docs/context/panel-mozos-actual.md`, secciones 2 y 3) por las filas Tnn que nombra el ticket;
-  - `docs/api/openapi.yaml`, si existe;
-  - `docs/architecture/modelo-de-datos.md`, si el test inserta o mira algo en la base.
-- **`backend/`, en solo lectura,** para confirmar rutas, guards y formas de respuesta. Lo que leas ahí no se le pasa a `test-writer` como código: se vuelve pieza de contrato del plan. Si la copia no coincide con el contexto, se corrige el contexto, nunca la copia.
+  - el contexto (`docs/context/panel-mozos-actual.md`): las filas Tnn que nombra el ticket (secciones 2 y 3), el origen de los eventos y los endpoints del comensal (sección 2), el ciclo del pedido (sección 4), el tiempo real (sección 5) y las observaciones O1 a O4 (sección 7);
+  - `docs/architecture/modelo-de-datos.md`, para las tablas que tocan las migraciones o que el test inserta o mira;
+  - `docs/api/openapi.yaml`, si existe.
+- **El reparto de DP-53** (`docs/backlog/tickets/README.md`, "Decisiones tomadas (2026-11-17)"): qué endpoints y eventos construye este ticket, y cuáles ya existen.
+- **Lo que el contexto no fija** (un cuerpo, una respuesta, un código de error): es un **hueco**. No se inventa ni se busca en el código de Tabbie: va al plan como pregunta para el humano.
 - **Las piezas de contrato** que fijan los tests y que la implementación tiene que respetar: método y ruta, códigos de estado, forma del cuerpo (los campos que manda y los que lee la app) y, si el test mira la base, las tablas y columnas con su tipo. Si no se fijan ahora, quien escribe los tests y quien implementa eligen distinto.
-- **Qué tests son de caracterización de la copia:** los que comprueban un comportamiento que ya trae `backend/` y que nacen en verde con la réplica levantada.
+- **Qué huecos de O1 a O4 toca el ticket:** cada uno se reproduce a propósito y su scenario lo dice (DP-50).
 
 ## 2. Plan, y PARÁ
 
@@ -36,15 +37,17 @@ Una fila por pieza, en este orden y sin saltear ninguna. La que no hace falta se
 | Tests de contrato | `replica/tests/<área>/<nombre>.test.ts` o `simulator/test/<nombre>.test.ts` | | |
 | Datos iniciales | `replica/datos-iniciales/` (DP-16), con cómo se deshace la carga | | |
 | Escenario del simulador | `simulator/src/` | | |
+| Réplica | `replica/src/`: los endpoints y eventos del reparto de DP-53 | | |
+| Migraciones | `replica/src/migrations/` (DP-51), con cómo se deshace cada una | | |
 | Compose | `compose.yaml` | | |
-| Contrato | `docs/api/openapi.yaml` (DP-09, DP-42) | | |
+| Contrato | `docs/api/openapi.yaml`, generado desde el código (DP-52) | | |
 | Documentación | `docs/` que el cambio deja desactualizada | | |
 | Otras del ticket | p. ej. `replica/entornos/`, la CI | | |
 
 Debajo de la tabla:
 - **scenario → test:** el ID del criterio, el título del test y el archivo;
 - **las piezas de contrato** del paso 1;
-- **qué tests son de caracterización**, y cómo se va a demostrar que detectan algo (paso 4);
+- **los huecos del contrato** que el humano tiene que resolver antes de los tests;
 - **las paradas del humano** que pide el ticket, y en qué paso de esta skill caen;
 - **los comandos** para levantar la réplica y correr la suite;
 - **lo que queda fuera:** lo que el ticket dice que no incluye.
@@ -59,7 +62,7 @@ Lanzalo en primer plano, porque lo siguiente depende de él. Pasale:
 - las piezas de contrato del plan, con las tablas y columnas;
 - la hora de referencia literal, si algún scenario depende de la hora.
 
-No le pases código de `backend/src/`, de `replica/` fuera de `replica/tests/`, ni de `simulator/src/`: no puede leerlo. Si vuelve con preguntas, contestalas con el plan o llevalas al humano; no le pases código para que se responda solo.
+No le pases código de `replica/` fuera de `replica/tests/`, ni de `simulator/src/`, ni de Tabbie: no puede leerlo. Si vuelve con preguntas, contestalas con el plan o llevalas al humano; no le pases código para que se responda solo.
 
 Al volver, leé los archivos vos: un test por scenario, con el ID del criterio en el nombre; ningún id supuesto; ningún reloj; datos sembrados en el test y a la vista; ningún secreto literal.
 
@@ -67,8 +70,8 @@ Al volver, leé los archivos vos: un test por scenario, con el ID del criterio e
 
 Corré la suite y guardá la salida en el scratchpad. Mostrá **por qué falla cada test** (`expected 200, got 404`, `ECONNREFUSED`, `relation does not exist`…).
 
-- **Un test que nace en verde sin ser de caracterización:** pará y decilo. Vuelve a `test-writer` para que le sume un control positivo, que solo pase con la funcionalidad real. Nunca se deja pasar.
-- **Un test de caracterización:** se demuestra que detecta algo. Cambiá **una vez** su valor esperado (el código, un campo, un tipo), mostralo en rojo con ese motivo y restauralo. Si la réplica todavía no se puede levantar (el ticket la crea), en el rojo falla por conexión rechazada: anotá ese motivo, y la demostración se hace en el paso 7, antes de `sha256sum -c`, que prueba que se restauró.
+- **Un test que nace en verde:** pará y decilo. La réplica es propia y lo que el ticket construye todavía no existe, así que ningún test tiene motivo para pasar. Vuelve a `test-writer` para que le sume un control positivo, que solo pase con la funcionalidad real. Nunca se deja pasar.
+- **Si la réplica todavía no se puede levantar** (TK-01 la crea), el rojo es por conexión rechazada: anotá ese motivo, y cuando la réplica base exista, mostrá que cada test falla por lo que el ticket todavía no construyó.
 - Los tests que ya existían siguen en verde. Si alguno estaba en rojo antes de empezar, anotalo para no atribuírselo a esta tarea.
 
 ## 5. Congelar
@@ -89,7 +92,7 @@ Lanzalo en primer plano con:
 - lo ajeno del paso 0;
 - las paradas del humano que quedan por delante.
 
-Trabaja hasta que la suite sale en verde. Si el ticket tiene una parada del humano en el medio (por ejemplo, la importación de la copia en TK-01), el subagente vuelve antes, la parada se le pide al humano y después se lo relanza.
+Trabaja hasta que la suite sale en verde. Si el ticket tiene una parada del humano en el medio (por ejemplo, un hueco del contrato que el humano tiene que resolver), el subagente vuelve antes, la parada se le pide al humano y después se lo relanza.
 
 **Disputas.** Si devuelve una, se la llevás al humano **tal cual**: el test, `archivo:línea`, qué dice el scenario, qué exige el test y la propuesta. No cambiás el test vos, ni él. Si el humano la acepta, el test lo corrige `test-writer`, y se repiten el rojo y el congelado (pasos 4 y 5) de ese test antes de seguir con `implementer`.
 
@@ -98,7 +101,6 @@ Trabaja hasta que la suite sale en verde. Si el ticket tiene una parada del huma
 La suite la corre la sesión principal, no solo el subagente.
 
 ```bash
-# demostración de los tests de caracterización pendientes del paso 4: cambiar, ver rojo, restaurar
 sha256sum -c <scratchpad>/congelados.sha
 git diff --stat -- replica/tests simulator/test   # vacío: nada sin stagear encima de lo congelado
 git status --short replica/tests simulator/test   # nada nuevo fuera de lo congelado
@@ -109,16 +111,17 @@ Si la huella no cuadra, la implementación no vale aunque esté en verde: decilo
 
 ## 8. Cierre
 
-- **`backend/` intacto:** `git diff --stat backend-base -- backend/` da vacío. `backend-base` es la etiqueta que deja TK-01 en el commit que importa la copia (DP-46, DP-47). Si todavía no existe, decilo: el cierre no se da por bueno sin ella.
-- **El contrato:** las pruebas de contrato validan las respuestas reales de la réplica contra `docs/api/openapi.yaml`. Comprobá que cada entrada que tocó el ticket tiene su validación y que los campos sensibles llevan `x-sensitive: true`.
+- **El OpenAPI regenerado:** `docs/api/openapi.yaml` se genera desde el código y no tiene diferencias con el que va en el PR (DP-52), como lo comprueba la CI.
+- **El contrato:** las pruebas de contrato validan las respuestas reales de la réplica contra `docs/api/openapi.yaml`. Comprobá que cada entrada que tocó el ticket tiene su validación, que los campos sensibles llevan `x-sensitive: true`, y que ninguna ruta, cuerpo o evento cambió respecto del contexto sin que el ticket lo pida (DP-49).
+- **O1 a O4:** sus pruebas siguen pasando (DP-50).
 - **Lo que no se versiona:** ningún valor de secreto en lo nuevo, ni correos fuera de los dominios de ejemplo. `replica/entornos/` trae solo nombres.
 - **Las tareas del change:** marcá en `tasks.md` las que quedaron hechas.
 - **Informe final:**
   - pieza → archivo, incluidas las que no hicieron falta;
-  - scenario → rojo (con el motivo) → verde, y para los de caracterización, el valor que se cambió para verlos en rojo;
+  - scenario → rojo (con el motivo) → verde;
   - la huella: `sha256sum -c` en OK;
-  - el diff vacío de `backend/`;
-  - las disputas, las paradas del humano y lo que quedó fuera del plan.
+  - el OpenAPI regenerado sin diferencias;
+  - las disputas, las paradas del humano, los huecos del contrato y lo que quedó fuera del plan.
 
 Esta skill **no hace commit**: eso es la skill `commit`.
 

@@ -44,7 +44,6 @@
       "PowerShell(railway *)"
     ],
     "deny": [
-      "Edit(/backend/**)",
       "Read(**/.env)",
       "Read(**/.env.*)",
       "Read(**/*.env)",

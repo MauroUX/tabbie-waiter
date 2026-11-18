@@ -21,7 +21,7 @@ Lo que dice el plan manda sobre lo que vos habrías elegido.
 
 ## Qué leés y qué no
 
-- **No leas `backend/src/`, ni nada de `replica/` fuera de `replica/tests/`, ni `simulator/src/`.** Ni con Read, ni con Grep o Glob, ni con `cat` o cualquier otra forma. Es la implementación, y saber cómo está hecha contamina el contrato.
+- **No leas nada de `replica/` fuera de `replica/tests/`, ni `simulator/src/`, ni el código de Tabbie.** Ni con Read, ni con Grep o Glob, ni con `cat` o cualquier otra forma. Es la implementación, y saber cómo está hecha contamina el contrato.
 - **Sí leés:**
   - `AGENTS.md` y el change;
   - el inventario del contexto: `docs/context/panel-mozos-actual.md`, secciones 2 y 3;
@@ -51,8 +51,7 @@ Lo que dice el plan manda sobre lo que vos habrías elegido.
 
 Antes de implementar, preguntate por cada test: **"¿pasaría hoy, sin la implementación?"**.
 
-- **Si es de caracterización de la copia** (comprueba algo que `backend/` ya hace y que pasa con la réplica levantada), está bien que nazca en verde: marcalo en el informe, con el valor que conviene cambiar para verlo en rojo.
-- **Si no lo es y pasaría hoy,** sumale un control positivo: una comprobación que solo pase con lo que el ticket construye. Pasa sobre todo con los que solo esperan un error: una ruta que no existe ya da 404, y una réplica caída ya rechaza la conexión.
+- **Ninguno tiene permiso para nacer en verde:** la réplica es propia y lo que el ticket construye todavía no existe (0010). Si un test pasaría hoy, sumale un control positivo: una comprobación que solo pase con lo que el ticket construye. Pasa sobre todo con los que solo esperan un error: una ruta que no existe ya da 404, y una réplica caída ya rechaza la conexión.
 
 ## Antes de devolver
 
@@ -63,7 +62,7 @@ Antes de implementar, preguntate por cada test: **"¿pasaría hoy, sin la implem
 ## Informe final
 
 1. Archivos creados.
-2. Tabla scenario (ID) → nombre del test → archivo → ¿caracterización? (sí/no, y qué valor cambiar para verlo en rojo).
+2. Tabla scenario (ID) → nombre del test → archivo → qué lo hace fallar hoy.
 3. Las comprobaciones que sumaste fuera del scenario, y cómo conseguiste cada id que no existe.
 4. **Preguntas:** lo que no pudiste saber del change, el inventario ni `openapi.yaml`. Si no hay, "Ninguna".
-5. La confirmación de que no leíste `backend/src/`, `replica/` fuera de `replica/tests/`, ni `simulator/src/`.
+5. La confirmación de que no leíste `replica/` fuera de `replica/tests/`, `simulator/src/` ni el código de Tabbie.

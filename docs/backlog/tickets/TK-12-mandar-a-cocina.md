@@ -43,7 +43,7 @@ Que el mozo mande a cocina, con un toque en la tarjeta de la mesa en "Pendientes
 
 - Cancelar pedidos: HU-12, en la ampliación.
 - El aviso de pedido confirmado y el contador que parpadea: HU-03, en la ampliación. HU-03.h5 usa los envíos de este ticket.
-- Cambios en `backend/`: el envío es el `PUT` que ya existe (T08).
+- Cambios en la réplica: el envío es T08, que construye [TK-08](TK-08-simulador-ordenes.md).
 
 ## Dónde se trabaja
 

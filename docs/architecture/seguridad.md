@@ -8,11 +8,11 @@
 
 ## 1. Qué controla este proyecto
 
-- **El servidor no es de este proyecto.** El backend no se modifica, y la réplica es una copia sin cambios (0002): la seguridad del servidor es la del backend real, con sus huecos O1 a O4. Este proyecto no agrega guards, no filtra campos y no cambia endpoints.
+- **El servidor no es de este proyecto.** El backend de Tabbie no se modifica: la seguridad del servidor es la del backend real, con sus huecos O1 a O4. La réplica es propia, pero reproduce O1 a O4 a propósito, como comportamiento heredado que la app rodea (C3, C6, C7, C11; [0010](../adr/0010-replica-propia-desde-el-contrato.md), DP-50): no agrega guards que el backend no tiene, no filtra campos que el backend devuelve y no cambia endpoints.
 - **Lo que sí controla:**
   - lo que hace la app: quién entra, qué restaurante usa, qué guarda, qué muestra, qué registra, cómo se conecta y cómo repite (o no) una llamada (sección 2.1);
   - cómo se opera la réplica: sus secretos, sus datos iniciales y las cuentas de prueba (sección 2.2).
-- **Los huecos del servidor** quedan como riesgos aceptados (sección 3). O1 a O4 están "observados en el código, sin verificar en ejecución" (contexto, sección 7); con la réplica se verifican, y cada uno tiene su criterio de comprobación (SEG-c1 a SEG-c4).
+- **Los huecos del servidor** quedan como riesgos aceptados (sección 3). O1 a O4 están "observados en el código, sin verificar en ejecución" (contexto, sección 7). Cada uno tiene su criterio de comprobación (SEG-c1 a SEG-c4), que comprueba que la réplica lo reproduce (DP-50); en el backend real siguen siendo lo observado en su código.
 
 ## 2. Prácticas
 
@@ -165,14 +165,14 @@ Antes de cada acción, la app actualiza el estado que la acción necesita y, si 
 - **Cuándo:** cada vez que la app abre o reabre la conexión de eventos: al iniciar sesión, al renovar y después de cada corte (0006).
 - **Qué hace la app:** no registra la URL del stream (PA-6), la manda solo por HTTPS fuera de la réplica local (PA-7), y renueva el JWT antes de que venza (PA-8).
 - **Por qué se acepta:** así lo pedían 0004 y 0006, como lo hace el panel actual (contexto, sección 5).
-- **Decidido:** el stream recibe el JWT en el encabezado `Authorization: Bearer`, porque `jwt.strategy.ts` de la copia lo lee antes que el query param ([0008](../adr/0008-jwt-del-stream-en-el-encabezado.md); DP-28). Este riesgo se cierra cuando [TK-05](../backlog/tickets/TK-05-eventos-y-consulta-periodica.md) lo comprueba contra la réplica; está en los riesgos técnicos del [walking skeleton](walking-skeleton.md) (sección 6, "El JWT en la URL del stream").
+- **Decidido:** el stream recibe el JWT en el encabezado `Authorization: Bearer`, porque el backend lo lee antes que el query param (contexto, sección 0; [0008](../adr/0008-jwt-del-stream-en-el-encabezado.md); DP-28). Este riesgo se cierra cuando [TK-05](../backlog/tickets/TK-05-eventos-y-consulta-periodica.md) lo comprueba contra la réplica; está en los riesgos técnicos del [walking skeleton](walking-skeleton.md) (sección 6, "El JWT en la URL del stream").
 
 ### RA-7 · Las cuentas de prueba existen en el proyecto de Firebase de Tabbie
 
 - **Qué puede pasar:** las cuentas de prueba existen en el proyecto de Firebase de Tabbie (0002). Sus credenciales no se publican: se entregan con el formulario de entrega ([0009](../adr/0009-publicacion-del-repo-y-credenciales.md); DP-35). Quien las reciba puede iniciar sesión con ellas en ese proyecto. Si una inicia sesión contra el backend real, `POST /auth/login` le crea un usuario de comensal (T01).
 - **Cuándo:** mientras las cuentas existan en el proyecto de Firebase de Tabbie.
 - **Qué hace la app:** ese usuario no tiene el rol `waiter` en el backend real, así que la app lo rechaza y no llega a la operación (PA-1, HU-01.c2). Las cuentas se reconocen por su dominio reservado (PR-3) y sus contraseñas no se usan en otro lado.
-- **Por qué se acepta:** la réplica valida contra el mismo proyecto de Firebase para que la app pase al backend real cambiando solo la URL base (0002), y el evaluador necesita entrar sin preparar nada. Con estas cuentas se obtiene, en el backend real, lo mismo que cualquiera obtiene iniciando sesión como comensal con una cuenta propia (C1, T01). Además, el proyecto es de desarrollo: lo confirmó su dueño el 2026-11-14, porque la app de Tabbie todavía no se liberó (0009; DP-02).
+- **Por qué se acepta:** la réplica valida contra el mismo proyecto de Firebase para que la app pase al backend real cambiando solo la URL base, que es la intención de 0002 y 0010, y el evaluador necesita entrar sin preparar nada. Con estas cuentas se obtiene, en el backend real, lo mismo que cualquiera obtiene iniciando sesión como comensal con una cuenta propia (C1, T01). Además, el proyecto es de desarrollo: lo confirmó su dueño el 2026-11-14, porque la app de Tabbie todavía no se liberó (0009; DP-02).
 
 ## 4. Bajada a criterios
 
@@ -208,11 +208,11 @@ Si el criterio ya existe en una historia o en el walking skeleton, se cita por s
 
 **Cómo se comprueban O1 a O4:**
 
-- Se corren contra la réplica local, desde la máquina de desarrollo, con un cliente HTTP y el simulador; no con la app. Ninguno cambia el código de la réplica: usan sus endpoints, sus variables de entorno y los datos iniciales (0002).
-- **Un criterio pasa cuando la réplica se comporta como dice la observación.** Así el hueco pasa de "observado en el código" a verificado.
-- Si un hueco no se reproduce, se corrige la observación del contexto y se revisa su riesgo en este documento.
+- Se corren contra la réplica local, desde la máquina de desarrollo, con un cliente HTTP y el simulador; no con la app. Usan los endpoints de la réplica, sus variables de entorno y los datos iniciales: la réplica no tiene endpoints solo de prueba (DP-48).
+- **Un criterio pasa cuando la réplica se comporta como dice la observación.** O1 a O4 se reproducen a propósito (DP-50): así la app se prueba contra los mismos huecos que tiene el backend real.
+- Si un hueco no se reproduce, se corrige la réplica, no la observación del contexto.
 - **Evidencia:** las peticiones y respuestas de cada corrida, guardadas. Solo contienen datos sintéticos (PR-2).
-- **Cuándo:** al montar la réplica, antes del walking skeleton, y cada vez que la réplica pasa a otro commit del backend (0002, "Predicción del límite").
+- **Cuándo:** en los tickets que construyen los endpoints de cada hueco (TK-08 y TK-13), y después en cada PR que toca la réplica, porque viven en `replica/tests/` y corren en la CI (DP-14).
 
 ### 4.3 Criterios nuevos
 

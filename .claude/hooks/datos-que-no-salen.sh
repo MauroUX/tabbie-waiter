@@ -15,7 +15,7 @@
 #
 # Revisa lo staged y, si el mismo comando trae un `git add` o el commit lleva -a,
 # también lo que eso suma, incluidos los archivos ignorados que el `git add`
-# nombra (`git add -f .env`). No exime ninguna carpeta, tampoco `backend/`.
+# nombra (`git add -f .env`). No exime ninguna carpeta, tampoco `replica/`.
 #
 # Cada hallazgo deja una fila en docs/seguridad/registro-de-bloqueos.md con la
 # fecha, la regla y el archivo. El valor no se muestra ni se registra nunca.

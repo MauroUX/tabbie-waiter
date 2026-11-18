@@ -14,7 +14,7 @@
 - **Herencia en parte:** un ticket de réplica, simulador o datos hereda **en parte** un criterio de la app cuando hace lo que ese criterio necesita del lado de la réplica. Su scenario comprueba esa parte por HTTP, y el criterio se cumple completo en el ticket de la app que lo hereda entero, que el ticket nombra.
 - **Wireframes:** cada ticket de frontend con pantalla enlaza el wireframe de baja fidelidad de su pantalla, en `docs/design/` (DP-10): `ordenes.png`, `inicio-de-sesion.png` y `pagos.png`. Todavía no existen. Los tickets de frontend del skeleton no tienen wireframe, porque sus pantallas son sin diseño.
 - **Tamaño:** cada ticket se cierra con un PR. El skeleton se parte en siete tickets; HU-02, en tres (uno de simulador y dos de pantalla); HU-06, HU-07 y HU-08 comparten un ticket de simulador, y cada una tiene el suyo de pantalla.
-- **El backend no se modifica:** ningún ticket cambia el código de `backend/` (0002).
+- **El backend de Tabbie no se modifica:** la réplica es propia, en `replica/`, construida desde el contrato del contexto ([0010](../../adr/0010-replica-propia-desde-el-contrato.md)). Cada endpoint que hace falta entra en un ticket de Backend (DP-53), y ningún ticket cambia una ruta, un cuerpo o un evento del contexto si no lo dice.
 - **Renumeración:** en la revisión de la Entrega 1 se rehízo la descomposición para el lote 1 y se renumeró desde TK-01. Los tickets de la ampliación se borraron y se vuelven a escribir cuando arranque; la versión anterior queda en el historial de git.
 
 ## Antes del primer ticket
@@ -30,7 +30,7 @@ El **setup del proyecto** (DP-06) no es un ticket, pero va antes de TK-01, en la
 
 | # | ID | Título | Tipo | Origen | Depende de | Issue |
 |---|---|---|---|---|---|---|
-| 1 | [TK-01](TK-01-replica.md) | Réplica levantada con el contrato comprobado | Backend | Walking skeleton | Setup | [#2](https://github.com/MauroUX/tabbie-waiter/issues/2) |
+| 1 | [TK-01](TK-01-replica.md) | Réplica base: proyecto, migraciones, inicio de sesión, mesas activas y stream | Backend | Walking skeleton | Setup | [#2](https://github.com/MauroUX/tabbie-waiter/issues/2) |
 | 2 | [TK-02](TK-02-datos-iniciales.md) | Datos iniciales sintéticos y cuentas de prueba | Datos | Walking skeleton | TK-01 | [#3](https://github.com/MauroUX/tabbie-waiter/issues/3) |
 | 3 | [TK-03](TK-03-simulador-mesas-pedidos-y-cobros.md) | Simulador: ocupar mesas, confirmar pedidos y pedir cobros | Backend | Walking skeleton | TK-02 | [#4](https://github.com/MauroUX/tabbie-waiter/issues/4) |
 | 4 | [TK-04](TK-04-app-base.md) | App: proyecto, variantes, inicio de sesión mínimo y registro de diagnóstico | Frontend | Walking skeleton | TK-01, TK-02 | [#5](https://github.com/MauroUX/tabbie-waiter/issues/5) |
@@ -57,7 +57,7 @@ El **setup del proyecto** (DP-06) no es un ticket, pero va antes de TK-01, en la
 | Sección 6 del Readme.md | Ticket |
 |---|---|
 | Base de datos | [TK-02](TK-02-datos-iniciales.md) · Datos iniciales sintéticos y cuentas de prueba |
-| Backend | [TK-01](TK-01-replica.md) · Réplica levantada con el contrato comprobado |
+| Backend | [TK-01](TK-01-replica.md) · Réplica base: proyecto, migraciones, inicio de sesión, mesas activas y stream |
 | Frontend | [TK-12](TK-12-mandar-a-cocina.md) · Mandar a cocina desde "Órdenes" |
 
 ## Cobertura de los criterios
@@ -83,13 +83,14 @@ WS-c4, WS-c8 y WS-c10 pasaron a la ampliación ([walking-skeleton.md](../../arch
 
 | Riesgo | Ticket que lo despeja |
 |---|---|
-| La réplica no arranca sin las variables de MercadoPago ni de almacenamiento de archivos | TK-01 |
 | Un stream caído sin heartbeat | TK-06 |
 | La espera creciente de la reconexión no tiene tope | TK-06 |
 | El JWT del stream | TK-05 |
 | Los reintentos automáticos del cliente HTTP | TK-07 |
 | Unirse a la mesa y autenticar al comensal | TK-03 |
 | El reloj del emulador | TK-05 |
+
+El riesgo "La réplica no arranca sin las variables de MercadoPago ni de almacenamiento de archivos" lo cerró DP-48: la réplica propia no tiene esos módulos.
 
 ### HU-02
 
@@ -195,7 +196,7 @@ Fuente de cada una: decisión del humano después de la revisión de la Entrega 
 - **DP-06 · Configuración del proyecto:** `AGENTS.md` con la [Definition of Done](../definition-of-done.md), `CLAUDE.md`, `openspec/`, `.gitignore`, `.gitattributes` y el hook se hacen en un setup antes de TK-01, en la rama `feature/entrega-2-mc` y antes de cualquier código. Afecta a todos (ver "Antes del primer ticket").
 - **DP-07 · Hook de pre-commit:** en `.claude/hooks/`, bloquea `.env`, la cuenta de servicio de Firebase, `JWT_SECRET`, los tokens de MercadoPago, las contraseñas de las cuentas de prueba y los emails que no son del dominio de prueba. Afecta a todos.
 - **DP-08 · Criterios en el cambio de OpenSpec:** el ticket sigue heredando los criterios por ID, y el cambio de OpenSpec de cada ticket copia el texto de los criterios que hereda. Afecta a todos.
-- **DP-09 · OpenAPI:** se escribe a mano en `docs/api/openapi.yaml`, desde el código de la copia, con los campos sensibles marcados `x-sensitive: true`. Lo validan las pruebas de contrato de la réplica, y no se toca `backend/`. Afecta a TK-01.
+- **DP-09 · OpenAPI** (reemplazada por DP-52)**:** se escribe a mano en `docs/api/openapi.yaml`, desde el código de la copia, con los campos sensibles marcados `x-sensitive: true`. Lo validan las pruebas de contrato de la réplica, y no se toca `backend/`. Afecta a TK-01.
 - **DP-10 · Wireframes:** de baja fidelidad, en `docs/design/`, y se enlazan desde los tickets de frontend. Afecta a TK-09, TK-10, TK-11, TK-12, TK-14, TK-15 y TK-16.
 - **DP-11 · CI:** GitHub Actions desde el primer PR de código, con ktlint, tests de la app, tests de la réplica y gitleaks ([infraestructura.md](../../architecture/infraestructura.md#6-integración-continua)). Afecta a todos.
 - **DP-12 · Revisión adversarial:** en cada PR, antes del merge, el humano lanza el subagente `adversarial-reviewer` contra los criterios del ticket, y el informe queda como comentario del PR ([Definition of Done](../definition-of-done.md#para-todos)). Afecta a todos.
@@ -203,8 +204,8 @@ Fuente de cada una: decisión del humano después de la revisión de la Entrega 
 
 **De la réplica, los datos y el simulador:**
 
-- **DP-15 · El JWT de mozo para el contrato de TK-01:** la prueba inserta un mozo en MySQL y firma su JWT con el `JWT_SECRET` de la réplica, porque `src/guards/auth/jwt.strategy.ts` de la copia solo verifica la firma y busca el `userId`. El canje con Firebase se prueba en TK-02. Afecta a TK-01 y TK-02.
-- **DP-16 · Carga de los datos iniciales:** SQL propio en `replica/datos-iniciales/`, que carga un servicio de Compose que corre una sola vez, espera a que la réplica cree el esquema y ejecuta el SQL. No se usa el seeder de la copia ([componentes.md](../../architecture/componentes.md#decisiones-tomadas-2026-11-14)). Afecta a TK-02.
+- **DP-15 · El JWT de mozo para el contrato de TK-01:** la prueba inserta un mozo en MySQL y firma su JWT con el `JWT_SECRET` de la réplica, porque la réplica, como el backend (contexto, sección 0), solo verifica la firma y busca el `userId`. El canje con Firebase se prueba en TK-02. Afecta a TK-01 y TK-02.
+- **DP-16 · Carga de los datos iniciales** (ajustada por DP-48)**:** SQL propio en `replica/datos-iniciales/`, que carga un servicio de Compose que corre una sola vez, espera a que terminen las migraciones de la réplica (DP-51) y ejecuta el SQL. La réplica no tiene seeder ([componentes.md](../../architecture/componentes.md#decisiones-tomadas-2026-11-14)). Afecta a TK-02.
 - **DP-17 · Cómo se autentica el comensal:** como invitado, con `POST /auth/guest` y un `guestId` generado (rol `user`, sin Firebase). TK-02 no crea cuentas de comensales. Afecta a TK-02 y TK-03.
 - **DP-18 · Unirse a la mesa:** con `POST /table-sessions/join/restaurant/:restaurantId/table/:tableNumber`. Afecta a TK-03.
 - **DP-19 · Cancelar como comensal (ESC-7):** con `PUT /orders/:id/cancel`, con `JwtAuthGuard` y sin restricción de rol. Afecta a TK-08, y por él a TK-09 y TK-12.
@@ -239,11 +240,51 @@ Eran las decisiones pendientes de esta descomposición. Fuente de cada una: deci
 - **DP-39 · "Cerrar mesa" en el lote 1:** va al pie de la tarjeta de la mesa en "Pagos", debajo de las solicitudes. Cuando llega HU-13, los cobros se suman encima y queda "al pie de los cobros", como dice el backlog. Afecta a TK-16.
 - **DP-40 · HU-07 antes que HU-08:** se sigue el orden del flujo, cobrar y después cerrar, y el "Orden del backlog" se corrige para que coincida. La confirmación de HU-07 deja una mesa que pagó el total para HU-08.c2. Afecta a TK-15 y TK-16.
 - **DP-41 · Toxiproxy fuera del camino de la app en el lote 1:** `compose.yaml` no tiene Toxiproxy, y la variante local apunta directo a la réplica. Toxiproxy se suma con los cortes de punta a punta, en la ampliación, y desde entonces la app pasa siempre por él ([infraestructura.md](../../architecture/infraestructura.md), sección 2.1). Afecta a TK-01 y TK-04.
-- **DP-42 · `docs/api/openapi.yaml` lo escribe TK-01:** con una entrada por cada fila de la columna "Waiter App" del inventario, mientras escribe las pruebas del contrato, que validan las respuestas contra él. TK-01 copia tres endpoints en la sección 4 del `Readme.md`. Afecta a TK-01.
+- **DP-42 · `docs/api/openapi.yaml` lo escribe TK-01** (en parte reemplazada por DP-52: ya no se escribe a mano, y cada ticket de Backend genera la entrada de lo que construye)**:** con una entrada por cada fila de la columna "Waiter App" del inventario, mientras escribe las pruebas del contrato, que validan las respuestas contra él. TK-01 copia tres endpoints en la sección 4 del `Readme.md`. Afecta a TK-01.
 - **DP-43 · CI sin credenciales de Firebase:** las pruebas de la réplica corren en la CI con `USE_FIREBASE` desactivada y JWT firmados con un `JWT_SECRET` de prueba (como DP-15). Las que necesitan el proyecto de Firebase de Tabbie se marcan como locales y su evidencia va en el PR ([infraestructura.md](../../architecture/infraestructura.md#6-integración-continua)). Afecta a TK-01 y TK-02.
 - **DP-44 · Lo que el PRD dejaba para las historias:** la sección "Pendiente para las historias" del PRD pasa a "Definido en el backlog", con el lugar de cada definición. No afecta a los tickets.
-- **DP-46 · Cómo se comprueba que `backend/` no cambió:** al importar la copia, con `git diff --no-index` contra un export de `c18b0f7`; después, contra la etiqueta `backend-base` del commit que la importa, en local y en la CI. Fuente: decisión del humano durante el setup. Afecta a TK-01.
-- **DP-47 · Dónde vive la ficha de la copia:** en `docs/architecture/backend-upstream.md`, fuera de `backend/`, que queda idéntico al original sin excepciones. La importación de la copia en TK-01 es una parada del humano: `settings.json` bloquea que el agente escriba en `backend/`, y copiar por la terminal sería esquivar ese bloqueo. Fuente: decisión del humano durante el setup. Afecta a TK-01.
+- **DP-46 · Cómo se comprueba que `backend/` no cambió** (obsoleta por DP-48: no hay copia)**:** al importar la copia, con `git diff --no-index` contra un export de `c18b0f7`; después, contra la etiqueta `backend-base` del commit que la importa, en local y en la CI. Fuente: decisión del humano durante el setup. Afecta a TK-01.
+- **DP-47 · Dónde vive la ficha de la copia** (obsoleta por DP-48: no hay copia, ni ficha, ni parada del humano)**:** en `docs/architecture/backend-upstream.md`, fuera de `backend/`, que queda idéntico al original sin excepciones. La importación de la copia en TK-01 es una parada del humano: `settings.json` bloquea que el agente escriba en `backend/`, y copiar por la terminal sería esquivar ese bloqueo. Fuente: decisión del humano durante el setup. Afecta a TK-01.
+
+## Decisiones tomadas (2026-11-17)
+
+Fuente de cada una: decisión del humano en la revisión de la réplica. Las baja a un ADR [0010](../../adr/0010-replica-propia-desde-el-contrato.md), que reemplaza en parte a 0002.
+
+- **DP-48 · Réplica propia, sin oráculo:** la réplica es un proyecto NestJS propio en `replica/` (`replica/src/`, con las pruebas en `replica/tests/`), con el stack de 0003, construido desde el contrato y el comportamiento del contexto. Las pruebas de contrato van primero y corren solo contra la réplica, y el código de Tabbie no se lee. No tiene que ser 100 % igual a Tabbie: las diferencias aparecen al conectar con el backend real y se ajustan entonces; "cambiar solo la URL" pasa a ser una intención, con ese riesgo aceptado. Los requisitos de prueba se resuelven con variables de entorno, datos y el simulador, sin endpoints solo de prueba. DP-46 y DP-47 quedan obsoletas. Siguen igual DP-02, DP-14, DP-15, DP-16 (que ahora espera las migraciones), DP-17 a DP-19 y DP-43. Afecta a TK-01, TK-02, TK-03, TK-08 y TK-13.
+- **DP-49 · Alcance del contrato:** las filas de la columna "Waiter App" del inventario (T01, T05 a T09, T11 a T14), los tres eventos de `/sse/waiters` y los endpoints del comensal que necesita el simulador para originarlos y para sus escenarios. Las rutas, los cuerpos y los eventos son los del contexto. No se construyen T02 a T04, T10, T15 ni T18, salvo `POST /auth/guest`, que es la ruta de T02. **Excepción** (decisión del humano en la misma revisión): T04, T10 y T18 se construyen en TK-08, solo en lo que reproduce O1 y O3, porque SEG-c1 y SEG-c3 los usan. Afecta a TK-01, TK-03, TK-08 y TK-13.
+- **DP-50 · O1 a O4 se reproducen a propósito:** son comportamiento heredado que la app rodea (C3, C6, C7, C11), y la réplica deja provocarlos de punta a punta. Cada uno tiene su scenario y su prueba de contrato, con ese motivo escrito, y SEG-c1 a SEG-c4 los comprueban contra la réplica. Si uno no se reproduce, se corrige la réplica. Afecta a TK-01, TK-03, TK-08 y TK-13.
+- **DP-51 · Migraciones propias:** migraciones de TypeORM desde [modelo-de-datos.md](../../architecture/modelo-de-datos.md), solo con las 13 tablas del inventario, cada una con cómo se deshace ([Definition of Done](../definition-of-done.md#backend-réplica-y-simulador)). `synchronize` desactivado: no hay `DB_SYNC`. Afecta a TK-01 y TK-02.
+- **DP-52 · OpenAPI generado:** `docs/api/openapi.yaml` se genera desde el código con `@nestjs/swagger` y se contrasta con las specs de `openspec/`. Las pruebas de contrato validan las respuestas contra él, y la CI falla si el generado difiere del commiteado. Los campos sensibles siguen marcados `x-sensitive: true`; cómo se logra con el generador lo resuelve TK-01. Reemplaza a DP-09 y a la escritura a mano de DP-42; sigue en pie que la sección 4 del `Readme.md` copie tres endpoints, cuando existan. Afecta a TK-01, TK-03, TK-08 y TK-13.
+- **DP-53 · Reparto:** TK-01 deja la réplica base (el proyecto, las migraciones, T01 con Firebase y los guards, T05 y el stream `/sse/waiters` con el JWT en el encabezado, 0008). Cada endpoint restante entra en el ticket de Backend de su grupo que lo necesita primero, según la tabla de abajo. Afecta a TK-01, TK-03, TK-08, TK-12 y TK-13.
+
+**Reparto de los endpoints y eventos (DP-53):** cada uno, en un solo ticket.
+
+| Endpoint o evento | Ticket | Por qué |
+|---|---|---|
+| T01 `POST /auth/login`, con Firebase y los guards | TK-01 | La base |
+| T05 `GET /restaurants/:id/tables/active` | TK-01 | La base; reproduce O4 |
+| `GET /sse/waiters`, el stream de T16 y T17 | TK-01 | La base (0008) |
+| `POST /auth/guest` (la ruta de T02) | TK-03 | ESC-1 (DP-17) |
+| `POST /table-sessions/join/restaurant/:restaurantId/table/:tableNumber` | TK-03 | ESC-1 (DP-18) |
+| `POST /orders` | TK-03 | ESC-2 necesita un pedido para confirmarlo |
+| `PUT /orders/:id/confirm` y `order-confirmed-notification` (T16) | TK-03 | ESC-2 lo origina (WS-c2) |
+| `POST /payments/in-person-request` e `in-person-payment-request` (T17) | TK-03 | ESC-5 lo origina (WS-c3) |
+| T06 `GET /payments/in-person-requests` | TK-03 | Las comprobaciones de TK-03 |
+| T07 `GET /table-sessions/:id/payments` | TK-03 | TK-05 lo consulta contra la réplica; reproduce O2 |
+| T08 `PUT /orders/:id/send-to-kitchen` | TK-08 | Las comprobaciones de C5; después, TK-12 |
+| T09 `PUT /orders/:id/cancel` (también la del comensal) | TK-08 | ESC-7 (DP-19) |
+| T11 `POST /table-sessions/:id/add-payment` | TK-08 | Los cobros de otra tablet; reproduce O2 |
+| T14 `PATCH /table-sessions/close/:id` | TK-08 | SEG-c3 lo necesita antes que TK-13; reproduce O3 |
+| `PUT /table-sessions/:id/request-help` | TK-08 | ESC-4 y O1 (DP-50) |
+| T10 `PUT /table-sessions/:id/attend` | TK-08 | Solo para reproducir O1 (SEG-c1; DP-49, excepción) |
+| T04 `GET /table-sessions/:id/orders` | TK-08 | Solo para reproducir O3 (SEG-c3; DP-49, excepción) |
+| T18 `GET /table-sessions/:id/subscribe` | TK-08 | Solo para reproducir O3 (SEG-c3; DP-49, excepción) |
+| T12 `POST /table-sessions/:id/pay` | TK-13 | SEG-c2; después, TK-15; reproduce O2 |
+| T13 `DELETE /payments/in-person-requests/:requestId` e `in-person-payment-request-deleted` | TK-13 | La eliminación desde otra tablet; después, TK-15 |
+
+Ningún ticket de Frontend usa contra la réplica un endpoint antes de que lo construya un ticket de Backend del que depende. TK-05 escucha `in-person-payment-request-deleted` antes de TK-13, pero sus criterios no lo piden contra la réplica.
+
+**Huecos del contrato:** el contexto no fija el cuerpo de `POST /orders`, `/join` y `request-help` (ni si `PUT /orders/:id/confirm` lleva uno), las respuestas de `/auth/guest`, `/join`, `POST /orders`, `confirm` e `in-person-request`, el payload completo de `order-confirmed-notification` (solo que se lee `data` y después `data.body`, con `confirmedAt`), los códigos de los rechazos de negocio (mandar a cocina un pedido cancelado, cerrar una sesión ya cerrada) ni cómo `request-help` comprueba que el comensal sea de la sesión. Los resuelve con el humano el ticket que construye cada uno, sin leer el código de Tabbie.
 
 ## Decisiones pendientes
 
