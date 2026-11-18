@@ -63,7 +63,22 @@ Un número de cuatro cifras remite a un ADR; los demás IDs son los de cada docu
 
 ## Comandos
 
-Todavía no hay. Esta sección se completa con TK-01 (réplica) y TK-04 (app). No inventes comandos.
+Los de la réplica, desde TK-01. Los de la app se suman con TK-04. No inventes comandos.
+
+Todo corre en contenedores de Node 20 (0003): en la máquina no hace falta Node. El perfil se elige con `--env-file`: `replica/entornos/pruebas.env` (sin Firebase, el de la suite) o `replica/entornos/local.env` (con Firebase). Esos archivos los carga el humano y no se leen.
+
+| Para qué | Comando |
+|---|---|
+| Levantar la réplica, MySQL y Redis | `docker compose --env-file replica/entornos/pruebas.env up -d --build --wait` |
+| Volver a empezar desde cero (también al cambiar de perfil) | `docker compose --env-file replica/entornos/pruebas.env down -v` |
+| La suite de la réplica, con el stack levantado | `docker compose --env-file replica/entornos/pruebas.env --profile pruebas run --rm --build pruebas` |
+| Regenerar `docs/api/openapi.yaml` | `docker compose --profile herramientas run --rm --build --no-deps openapi` |
+| Detector de secretos, todo el historial y todas las ramas | `git fetch --all --prune; docker run --rm -v "${PWD}:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1 git /repo --log-opts="--all" --redact` |
+| Instalar dependencias o regenerar un `package-lock.json` | `docker run --rm -v "<ruta absoluta de replica o replica/tests>:/w" -w /w node:20.20.2-bookworm-slim npm install` |
+
+- Nunca `docker compose config`, `docker inspect` de los servicios ni `env` dentro de un contenedor: muestran los valores de los archivos locales.
+- Las pruebas que necesitan Firebase se corren solo con `PRUEBAS_LOCALES=1` y el perfil `local.env`, y no corren en la CI (DP-43).
+- Después de regenerar un `package-lock.json`, se le quitan los campos `deprecated`: npm copia ahí avisos de terceros con correos que el hook `datos-que-no-salen` bloquea, y `npm ci` no los lee. Si el lock es de `replica/tests/`, se vuelve a congelar su huella.
 
 ## OpenSpec
 
