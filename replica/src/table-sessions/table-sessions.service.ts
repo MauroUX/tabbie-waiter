@@ -1,10 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { Payment } from '../payments/payment.entity';
 import { Restaurant } from '../restaurants/restaurant.entity';
 import { Table } from '../tables/table.entity';
-import { User } from '../users/user.entity';
 import { TableSession } from './table-session.entity';
 
 @Injectable()
@@ -13,7 +12,8 @@ export class TableSessionsService {
 
   /**
    * `/join` (DP-74): suma al comensal a la sesión activa de la mesa, o abre una si está libre.
-   * Todo en una transacción con la fila de la mesa bloqueada: dos comensales a la vez no abren dos sesiones.
+   * Todo en una transacción con la fila de la mesa bloqueada como primera sentencia (D9): dos comensales a la vez
+   * no abren dos sesiones, y el mismo comensal dos veces no se duplica. Solo se unen comensales (DP-83).
    */
   async unirse(restaurantId: string, numeroDeMesa: string, userId: unknown): Promise<TableSession> {
     if (typeof userId !== 'number' || !Number.isInteger(userId)) {
@@ -25,37 +25,46 @@ export class TableSessionsService {
     const numero = Number(numeroDeMesa);
 
     const sesionId = await this.origen.transaction(async (manager) => {
-      const restaurante = await manager.findOne(Restaurant, { where: { id: restaurantId } });
-      if (restaurante === null) {
-        throw new NotFoundException(`No existe el restaurante ${restaurantId}`);
-      }
-      const usuario = await manager.findOne(User, { where: { id: userId } });
-      if (usuario === null) {
-        throw new NotFoundException(`No existe el usuario ${userId}`);
-      }
-      const mesa = await manager
-        .createQueryBuilder(Table, 'mesa')
-        .where('mesa.restaurantId = :restaurantId AND mesa.number = :numero', { restaurantId, numero })
-        .setLock('pessimistic_write')
-        .getOne();
-      if (mesa === null) {
+      // D9: la primera sentencia bloquea la fila de la mesa. MySQL corre en REPEATABLE READ: la primera lectura normal
+      // fija la foto de la transacción, así que un bloqueo que llega después no vería lo que otro /join confirmó.
+      const [mesa] = (await manager.query(
+        'SELECT id, isBusy, activeSessionId FROM `table` WHERE restaurantId = ? AND number = ? FOR UPDATE',
+        [restaurantId, numero],
+      )) as Array<{ id: number; isBusy: number; activeSessionId: number | null }>;
+      if (mesa === undefined) {
+        const restaurante = await manager.findOne(Restaurant, { where: { id: restaurantId } });
+        if (restaurante === null) {
+          throw new NotFoundException(`No existe el restaurante ${restaurantId}`);
+        }
         throw new NotFoundException(`No existe la mesa ${numero} en el restaurante ${restaurantId}`);
       }
-
-      let sesion = await this.sesionActiva(manager, mesa);
-      if (sesion === null) {
-        sesion = await manager.save(TableSession, manager.create(TableSession, { tableId: mesa.id }));
-        await manager.update(Table, { id: mesa.id }, { isBusy: true, activeSessionId: sesion.id });
+      const [usuario] = (await manager.query('SELECT role, restaurantId FROM `user` WHERE id = ?', [userId])) as Array<{
+        role: string;
+        restaurantId: string | null;
+      }>;
+      if (usuario === undefined) {
+        throw new NotFoundException(`No existe el usuario ${userId}`);
       }
-      // Sin duplicar al comensal: si ya está en la intermedia, no se vuelve a insertar.
+      // DP-83: solo se unen comensales (rol user y sin restaurante). Sin datos del usuario en el mensaje, sin tocar la mesa.
+      if (usuario.role !== 'user' || usuario.restaurantId !== null) {
+        throw new ForbiddenException('Solo se unen a una mesa los comensales: el usuario no es un comensal');
+      }
+
+      let sesionId = await this.sesionActiva(manager, mesa);
+      if (sesionId === null) {
+        const sesion = await manager.save(TableSession, manager.create(TableSession, { tableId: mesa.id }));
+        sesionId = sesion.id;
+        await manager.update(Table, { id: mesa.id }, { isBusy: true, activeSessionId: sesionId });
+      }
+      // Sin duplicar al comensal: la lectura bloquea, y con la mesa bloqueada nadie más inserta en esta sesión.
       const filas: unknown[] = await manager.query(
-        'SELECT 1 FROM `table_session_users_user` WHERE `tableSessionId` = ? AND `userId` = ?',
-        [sesion.id, userId],
+        'SELECT 1 FROM `table_session_users_user` WHERE `tableSessionId` = ? AND `userId` = ? FOR UPDATE',
+        [sesionId, userId],
       );
       if (filas.length === 0) {
-        await manager.createQueryBuilder().relation(TableSession, 'users').of(sesion.id).add(userId);
+        await manager.createQueryBuilder().relation(TableSession, 'users').of(sesionId).add(userId);
       }
-      return sesion.id;
+      return sesionId;
     });
 
     return this.origen.manager.findOneOrFail(TableSession, {
@@ -74,12 +83,17 @@ export class TableSessionsService {
     });
   }
 
-  /** La sesión a la que apunta `activeSessionId`, si la mesa está ocupada y esa sesión sigue abierta. */
-  private async sesionActiva(manager: EntityManager, mesa: Table): Promise<TableSession | null> {
+  /** El id de la sesión a la que apunta `activeSessionId`, si la mesa está ocupada y esa sesión sigue abierta (lectura con bloqueo). */
+  private async sesionActiva(
+    manager: EntityManager,
+    mesa: { isBusy: number; activeSessionId: number | null },
+  ): Promise<number | null> {
     if (!mesa.isBusy || mesa.activeSessionId === null) {
       return null;
     }
-    const sesion = await manager.findOne(TableSession, { where: { id: mesa.activeSessionId } });
-    return sesion !== null && sesion.closedAt === null ? sesion : null;
+    const [sesion] = (await manager.query('SELECT id, closedAt FROM `table_session` WHERE id = ? FOR UPDATE', [
+      mesa.activeSessionId,
+    ])) as Array<{ id: number; closedAt: Date | null }>;
+    return sesion !== undefined && sesion.closedAt === null ? sesion.id : null;
   }
 }

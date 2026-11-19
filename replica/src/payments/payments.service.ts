@@ -30,12 +30,17 @@ export class PaymentsService {
    * con un `id` uuid v4 propio, y emite T17 al restaurante del body. Solo exige `restaurantId`.
    */
   async crearSolicitud(cuerpo: unknown): Promise<Solicitud> {
+    // DP-86: se desenvuelve {body: "<JSON>"} solo si body es un string con el JSON de un objeto; si no, el body se
+    // guarda tal como llegó, con `body` incluido (contexto, 3.3).
     let solicitud: unknown = cuerpo;
     if (esObjeto(cuerpo) && typeof cuerpo.body === 'string') {
       try {
-        solicitud = JSON.parse(cuerpo.body);
+        const deAdentro: unknown = JSON.parse(cuerpo.body);
+        if (esObjeto(deAdentro)) {
+          solicitud = deAdentro;
+        }
       } catch {
-        throw new BadRequestException('body no es un JSON válido');
+        // No es JSON: se guarda el body entero.
       }
     }
     if (!esObjeto(solicitud)) {

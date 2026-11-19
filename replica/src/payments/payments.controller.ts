@@ -12,6 +12,7 @@ import { JwtAuthGuard } from '../guards/auth/jwt-auth.guard';
 import { ErrorHttp } from '../openapi/error-http';
 import { EventoSolicitudDeCobro } from '../sse/eventos';
 import type { User } from '../users/user.entity';
+import { SolicitudDeCobroEntrada } from './dto';
 import { PaymentsService } from './payments.service';
 
 @ApiTags('payments')
@@ -30,7 +31,7 @@ export class PaymentsController {
       'réplica, con vencimiento REDIS_EXPIRATION_TIME, y emite in-person-payment-request al restaurante del body. ' +
       'El único rechazo de negocio es 400 si falta restaurantId.',
   })
-  @ApiBody({ type: EventoSolicitudDeCobro })
+  @ApiBody({ type: SolicitudDeCobroEntrada })
   @ApiCreatedResponse({ type: EventoSolicitudDeCobro })
   @ApiResponse({ status: 400, description: 'Falta restaurantId.', type: ErrorHttp })
   @ApiResponse({ status: 401, description: 'Sin JWT válido.', type: ErrorHttp })

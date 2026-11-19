@@ -95,7 +95,9 @@ components:
             - type: number
             - type: string
         userName:
+          description: 'Nombre del comensal: dato personal (DP-84).'
           type: string
+          x-sensitive: true
       required:
         - id
         - userId
@@ -317,6 +319,7 @@ components:
           nullable: true
           type: string
         confirmedAt:
+          description: ISO 8601 en UTC con milisegundos; el datetime no guarda fracción, así que termina en .000Z.
           format: date-time
           nullable: true
           type: string
@@ -576,6 +579,48 @@ components:
         - closedAt
         - users
       type: object
+    SolicitudDeCobroEntrada:
+      additionalProperties: true
+      properties:
+        amount:
+          type: number
+        body:
+          description: 'Envoltorio: el JSON de la solicitud escrito en un string. Si no es el JSON de un objeto, se guarda tal cual.'
+          type: string
+        lineItemIds:
+          items:
+            type: number
+          type: array
+        method:
+          description: Por ejemplo POS, Cash o Mercadopago.
+          type: string
+        noTipAmount:
+          type: number
+        orderIds:
+          items:
+            type: number
+          type: array
+        prepaid:
+          type: boolean
+        restaurantId:
+          description: 'El restaurante de la solicitud: sin él no hay clave en Redis.'
+          type: string
+        tableNumber:
+          type: number
+        tableSessionId:
+          type: number
+        userId:
+          description: user.id, o un texto como "guest".
+          oneOf:
+            - type: number
+            - type: string
+        userName:
+          description: 'Nombre del comensal: dato personal (DP-84).'
+          type: string
+          x-sensitive: true
+      required:
+        - restaurantId
+      type: object
     Table:
       properties:
         activeSession:
@@ -666,6 +711,7 @@ components:
         name:
           nullable: true
           type: string
+          x-sensitive: true
         restaurant:
           allOf:
             - $ref: '#/components/schemas/Restaurant'
@@ -695,6 +741,7 @@ components:
         name:
           nullable: true
           type: string
+          x-sensitive: true
         restaurantId:
           description: El uuid del restaurante, o "-1" si el usuario no tiene.
           type: string
@@ -898,7 +945,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/EventoSolicitudDeCobro'
+              $ref: '#/components/schemas/SolicitudDeCobroEntrada'
         required: true
       responses:
         '201':
@@ -1023,7 +1070,7 @@ paths:
         - sse
   /table-sessions/join/restaurant/{restaurantId}/table/{tableNumber}:
     post:
-      description: Sin guard. Con la mesa libre abre la table_session y la deja ocupada; con la mesa ocupada suma al comensal a la sesión activa sin duplicarlo. Bloquea la fila de la mesa en una transacción. Responde con la sesión y sus users.
+      description: 'Sin guard. Con la mesa libre abre la table_session y la deja ocupada; con la mesa ocupada suma al comensal a la sesión activa sin duplicarlo. Solo se unen comensales: un userId con otro rol o con restaurante da 403. Bloquea la fila de la mesa en una transacción. Responde con la sesión y sus users.'
       operationId: TableSessionsController_unirse
       parameters:
         - description: Uuid del restaurante.
@@ -1057,6 +1104,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorHttp'
           description: Body sin userId entero.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorHttp'
+          description: El usuario no es un comensal (rol user y sin restaurante), DP-83.
         '404':
           content:
             application/json:
