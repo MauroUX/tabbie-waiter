@@ -127,4 +127,16 @@ Esta skill **no hace commit**: eso es la skill `commit`.
 
 ## Lo que ya se aprendió haciéndolo
 
-(Vacía. Se completa al cerrar cada ticket de Backend con lo que costó y no estaba escrito.)
+Se completa al cerrar cada ticket de Backend con lo que costó y no estaba escrito.
+
+**TK-01 (réplica base):**
+
+- **Los subagentes corren en segundo plano.** Se espera su aviso de que terminaron; mientras tanto no se toca lo que están escribiendo.
+- **Si el ticket tiene una parada del humano en medio de la implementación** (por ejemplo, el archivo local de variables), el `implementer` se lanza en dos fases: la infraestructura primero, después la parada, después el contrato. Entre las dos se corre un segundo rojo, con el stack levantado, y cada test tiene que fallar por lo que falta (404) y no por conexión.
+- **Rojo sin réplica:** se corre la imagen de las pruebas con `--network none` y las direcciones a puertos cerrados de `127.0.0.1`, así el motivo es `ECONNREFUSED` y no "falta la variable".
+- **Antes de congelar:** gitleaks `dir` sobre `replica/tests/` y una búsqueda de correos en los `package-lock.json`. npm copia en `deprecated` avisos de terceros con correos que bloquea el hook; se quitan antes del congelado.
+- **Dependencias:** `npm view <paquete>@<versión> engines` para cada una contra Node 20 (firebase-admin 14 pide Node 22).
+- **gitleaks `dir` también lee los archivos ignorados** (los `.env` del humano): se corre con `--redact` y se muestran solo la regla y el archivo. Un hallazgo en un archivo ignorado no es del repo.
+- **Cambiar de perfil exige `down -v`:** MySQL guarda el usuario y la contraseña del primer arranque.
+- **`@ApiProduces('text/event-stream')` alcanza también a las respuestas de error:** los 401 y 403 del stream se declaran con `application/json`.
+- **La carpeta temporal de la sesión puede cambiar entre turnos:** la huella se copia a la nueva antes de verificarla.

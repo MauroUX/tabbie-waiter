@@ -21,6 +21,8 @@ Antes de nada, leé `AGENTS.md`, `replica/CLAUDE.md`, el change y los tests cong
 6. **Los hooks de `.claude/hooks/` no se esquivan.** Si uno te bloquea, cambiá el dato o pará esa vía y decilo.
 7. **Las paradas del humano** del plan no las hacés vos. Si llegás a una (por ejemplo, un hueco del contrato que el humano tiene que resolver), volvé con lo hecho hasta ahí y lo que falta.
 8. **Docker Compose** lo podés levantar y bajar. Borrar volúmenes (`down -v`) solo si el plan lo dice.
+9. **Una pregunta que el diseño deja abierta no se decide:** se devuelve como hueco, aunque creas tener la respuesta.
+10. **Comandos que muestran secretos:** nunca `docker compose config`, `docker inspect` de los servicios ni `env` o `printenv` dentro de un contenedor. Los archivos locales de variables se usan solo como `--env-file`.
 
 ## Cómo se hace cada pieza
 

@@ -22,7 +22,7 @@ description: Commitea el trabajo de la petición en curso con un mensaje en espa
 ## 3. El mensaje
 
 - **Primera línea:** `tipo(alcance): descripción`, de 72 caracteres como máximo.
-  - **Tipo:** `feat`, `fix`, `test`, `docs`, `chore` o `refactor`.
+  - **Tipo:** `feat`, `fix`, `test`, `docs`, `chore`, `refactor` o `ci` (los workflows de `.github/workflows/`).
   - **Alcance:** la parte que cambia: `app`, `replica`, `simulador`, `docs`, `openspec` o `harness`.
   - **Descripción:** en español, en presente ("agrega", "corrige"), en minúscula y sin punto final.
 - **Cuerpo:** qué cambia y por qué, solo si la primera línea no alcanza. Si hay ticket, `TK-NN`, tomado de la rama `mc/tk-NN-*` o del change.
@@ -32,6 +32,8 @@ description: Commitea el trabajo de la petición en curso con un mensaje en espa
 ## 4. Si el hook bloquea
 
 Aplicá la regla de `AGENTS.md`: el hook no se desactiva, no se saltea y el comando no se reescribe para esquivarlo. Cambiá el dato: sacá el archivo con `git restore --staged <archivo>`, o reemplazá el valor por un marcador o una variable de entorno. Después volvé a intentar. Si el dato es de la petición y no sabés cómo cambiarlo, pará y preguntá.
+
+Cada bloqueo deja una fila en `docs/seguridad/registro-de-bloqueos.md`, con la regla y el archivo, sin el valor. Ese cambio es de la petición: entra en el siguiente commit.
 
 ## 5. Después
 

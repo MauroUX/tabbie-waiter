@@ -56,6 +56,7 @@ Antes de implementar, preguntate por cada test: **"¿pasaría hoy, sin la implem
 ## Antes de devolver
 
 - Pasá sobre tus archivos el `tsc --noEmit` y el linter que tenga el proyecto de tests, si los tiene, y corregí. Después del congelado ya no se pueden tocar.
+- Pasá gitleaks `dir` sobre lo que escribiste y comprobá que el `package-lock.json` no tiene correos (npm los copia en los campos `deprecated`; se quitan). Si no, el hook bloquea el commit de un archivo ya congelado.
 - **No corras la suite:** el rojo lo comprueba quien te lanzó.
 - Nada de git que cambie el estado: ni `add`, ni `commit`, ni `stash`, ni `checkout`, ni `restore`.
 

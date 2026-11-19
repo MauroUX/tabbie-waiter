@@ -79,6 +79,7 @@ Todo corre en contenedores de Node 20 (0003): en la máquina no hace falta Node.
 - Nunca `docker compose config`, `docker inspect` de los servicios ni `env` dentro de un contenedor: muestran los valores de los archivos locales.
 - Las pruebas que necesitan Firebase se corren solo con `PRUEBAS_LOCALES=1` y el perfil `local.env`, y no corren en la CI (DP-43).
 - Después de regenerar un `package-lock.json`, se le quitan los campos `deprecated`: npm copia ahí avisos de terceros con correos que el hook `datos-que-no-salen` bloquea, y `npm ci` no los lee. Si el lock es de `replica/tests/`, se vuelve a congelar su huella.
+- `FIREBASE_PRIVATE_KEY` va en una sola línea, como el campo `private_key` del JSON de la cuenta de servicio. Si la réplica no arranca con `Failed to parse private key … DECODER routines::unsupported`, el formato de esa línea en el archivo local está mal.
 
 ## OpenSpec
 
