@@ -170,7 +170,7 @@ Antes de cada acción, la app actualiza el estado que la acción necesita y, si 
 ### RA-7 · Las cuentas de prueba existen en el proyecto de Firebase de Tabbie
 
 - **Qué puede pasar:** las cuentas de prueba existen en el proyecto de Firebase de Tabbie (0002). Sus credenciales no se publican: se entregan con el formulario de entrega ([0009](../adr/0009-publicacion-del-repo-y-credenciales.md); DP-35). Quien las reciba puede iniciar sesión con ellas en ese proyecto. Si una inicia sesión contra el backend real, `POST /auth/login` le crea un usuario de comensal (T01).
-- **Cuándo:** mientras las cuentas existan en el proyecto de Firebase de Tabbie.
+- **Cuándo:** mientras las cuentas existan en el proyecto de Firebase de Tabbie. Son las cinco `waiterapp.<papel>@example.com` de los datos iniciales y la cuenta sin email `waiterapp-dp58-sin-email`, que crea la prueba local de DP-58; la lista está en [infraestructura.md](infraestructura.md#21-local-desarrollo-y-pruebas), sección 2.1 (TK-02).
 - **Qué hace la app:** ese usuario no tiene el rol `waiter` en el backend real, así que la app lo rechaza y no llega a la operación (PA-1, HU-01.c2). Las cuentas se reconocen por su dominio reservado (PR-3) y sus contraseñas no se usan en otro lado.
 - **Por qué se acepta:** la réplica valida contra el mismo proyecto de Firebase para que la app pase al backend real cambiando solo la URL base, que es la intención de 0002 y 0010, y el evaluador necesita entrar sin preparar nada. Con estas cuentas se obtiene, en el backend real, lo mismo que cualquiera obtiene iniciando sesión como comensal con una cuenta propia (C1, T01). Además, el proyecto es de desarrollo: lo confirmó su dueño el 2026-11-14, porque la app de Tabbie todavía no se liberó (0009; DP-02).
 

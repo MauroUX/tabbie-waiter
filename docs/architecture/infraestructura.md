@@ -4,7 +4,7 @@
 >
 > La base son las [decisiones de arquitectura](../adr/README.md), el [backlog](../backlog/README.md) y el [documento de contexto](../context/panel-mozos-actual.md). Las referencias siguen la convención del [README de arquitectura](README.md).
 
-**Qué ya existe:** el entorno local de la réplica (sección 2.1, pasos 1 a 3), las pruebas de la réplica y la CI (sección 6) tienen código y comandos reales desde TK-01. Lo demás sigue como propuesta hasta su ticket: la carga de los datos iniciales y el script de cuentas de Firebase (TK-02), Toxiproxy (ampliación) y la demo en Railway (final de la ampliación).
+**Qué ya existe:** el entorno local de la réplica (sección 2.1, pasos 1 a 3), las pruebas de la réplica y la CI (sección 6) tienen código y comandos reales desde TK-01, y la carga de los datos iniciales y el script de cuentas de Firebase (sección 2.1, pasos 4 y 5), desde TK-02. Lo demás sigue como propuesta hasta su ticket: Toxiproxy (ampliación) y la demo en Railway (final de la ampliación).
 
 > **Una sola instancia.** El backend real corre en una sola instancia en Railway (contexto, sección 0), y la réplica también, en los dos entornos. Los eventos de `/sse/waiters` salen de un `Subject` en la memoria del proceso, sin Redis ni cola de por medio: con dos instancias, un evento emitido en una no llega a los mozos conectados a la otra (0006; contexto, sección 5). Por eso la réplica **nunca se escala horizontalmente**, y cada despliegue o reinicio corta todas las conexiones.
 
@@ -127,6 +127,15 @@ docker compose --env-file replica/entornos/pruebas.env up -d --build --wait
 ```
 
 Cargar los datos es solo recrear la base: `cargar.sh` no borra nada, y si hay otro restaurante o faltan las migraciones sale con error y no inserta. Así se deshace una carga (TK-02, DP-51): no hay migración nueva ni `DELETE`.
+
+**La suite supone una base recién cargada.** Las pruebas de los datos iniciales comprueban exactamente lo que deja la carga (cinco usuarios, ninguna sesión, ningún pedido). Si la base ya tiene otras filas, porque alguien inició sesión con una cuenta que no está en los datos, porque corrió el simulador o porque una prueba se cortó antes de limpiar, esas pruebas fallan, o `up --wait` falla en `carga-lista`. En la CI no pasa, porque el paso de `carga-desde-cero.sh` recrea la base antes de la suite. En la máquina, antes de la suite se corre `carga-desde-cero.sh` o se hace `down -v` y `up`.
+
+**Cuentas del proyecto de Firebase de Tabbie que crea este repo** (RA-7):
+
+- las cinco de los datos iniciales, `waiterapp.<papel>@example.com`, una por fila `user`, que crea el script de cuentas;
+- `waiterapp-dp58-sin-email`, una cuenta sin email que crea, una sola vez, la prueba local de DP-58 (`replica/tests/contrato/t01-sin-email.test.ts`) al canjear un custom token. No tiene fila `user` ni contraseña; las corridas siguientes la reusan.
+
+Ninguna se borra al volver a empezar.
 
 **Comandos de la réplica:**
 

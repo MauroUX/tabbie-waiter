@@ -120,7 +120,9 @@ El servicio de carga SHALL esperar a que la réplica termine sus migraciones y e
 
 Origen: ticket TK-02, "Definition of Done", propio ("Cada cuenta de Firebase coincide con una fila `user` de los datos, y cada fila `user` tiene su cuenta"); `estructura.md`, sección 3; DP-37. No es un criterio heredado.
 
-El script de `replica/firebase/` SHALL derivar su lista de cuentas de los datos iniciales cargados, con un email por fila `user` que no es invitado, y MUST crear en el proyecto de Firebase de Tabbie, con la contraseña de su variable `CONTRASENA_<PAPEL>` (DP-71), solo las cuentas de esa lista que faltan. MUST no listar, leer ni tocar ninguna otra cuenta del proyecto: busca cada cuenta por su email. Tiene tres modos: `lista` (sin Firebase), `plan` (busca y no escribe) y `crear`.
+El script de `replica/firebase/` SHALL derivar su lista de cuentas de los datos iniciales cargados, con un email por fila `user` que no es invitado, y MUST crear en el proyecto de Firebase de Tabbie, con la contraseña de su variable `CONTRASENA_<PAPEL>` (DP-71), solo las cuentas de esa lista que faltan. MUST no listar, leer ni tocar ninguna otra cuenta del proyecto: busca cada cuenta por su email. Tiene tres modos: `lista` (sin Firebase), `plan` (busca y no escribe) y `crear`. Solo acepta emails con el prefijo `waiterapp.` del dominio `example.com` (D1).
+
+"Cada cuenta de Firebase" se lee como cada cuenta de prueba de los datos iniciales. La cuenta sin email `waiterapp-dp58-sin-email` no lo es: la crea la prueba local de DP-58 para T01, no tiene fila `user` ni contraseña, y figura en `infraestructura.md`, sección 2.1, y en RA-7 (hallazgo 4 de la revisión adversarial).
 
 #### Scenario: Cada fila `user` tiene su cuenta (local, con Firebase)
 
