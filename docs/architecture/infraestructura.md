@@ -87,7 +87,8 @@ flowchart TB
 | Carga de los datos iniciales | Servicio `carga` de `compose.yaml`, con la imagen de MySQL, que corre una sola vez | Espera a que la réplica esté sana (ya migró), comprueba que haya migraciones y que la base no tenga otro restaurante, y ejecuta `replica/datos-iniciales/cargar.sh` con el SQL de `replica/datos-iniciales/datos-iniciales.sql`, en una transacción. Monta solo esa carpeta, de solo lectura. Si los datos ya están, no hace nada (DP-16, DP-51, TK-02) |
 | Cuentas de prueba en Firebase | Servicio `cuentas` de `compose.yaml`, perfil `firebase`, construido con `replica/firebase/Dockerfile` (Node 20) | Lee de MySQL las filas `user` que no son invitados y trabaja con Firebase Admin (`local.env`). Sus contraseñas salen de `replica/entornos/cuentas.env` |
 | Waiter App, variante local | Emulador en la máquina de desarrollo, o tablet en la misma red | URL base apuntando a la réplica en el lote 1, y a Toxiproxy desde la ampliación (DP-41) |
-| Simulador de comensales | Línea de comandos en la máquina de desarrollo | URL de la réplica, **sin pasar por Toxiproxy** |
+| Simulador de comensales | Servicio `simulador` de `compose.yaml`, perfil `simulador`, construido con `simulator/Dockerfile` (Node 20): una línea de comandos que se corre con `docker compose run` | URL de la réplica (`REPLICA_URL`, `http://replica:3000`), **sin pasar por Toxiproxy**. No necesita secretos. Escribe el registro del turno en `simulator/registros/`, montada en `/registros`, que no entra al repo |
+| Pruebas del simulador | Servicio `pruebas-simulador` de `compose.yaml`, perfil `pruebas`, construido con `simulator/test/Dockerfile` | `JWT_SECRET` del perfil, para firmar el JWT del primer mozo con que comprueban T05, T06 y `/sse/waiters`, y el repo montado de solo lectura |
 
 **El camino de la app:**
 
@@ -117,7 +118,21 @@ flowchart TB
 5. El servicio `carga` ya cargó los datos iniciales sintéticos en el paso 3, porque `up` lo arranca después de la réplica (DP-16); el servicio `carga-lista` solo hace que `up --wait` termine en 0 cuando la carga termina bien. La réplica no tiene seeder.
 6. Desde la ampliación, se configura en Toxiproxy el proxy hacia la réplica (DP-41).
 7. Se instala la variante local de la app en el emulador o la tablet, y se inicia sesión con una cuenta de prueba.
-8. Se corre el simulador para generar mesas, pedidos, solicitudes de cobro y pedidos de ayuda.
+8. Se corre el simulador para generar mesas, pedidos, solicitudes de cobro y pedidos de ayuda (ver "El simulador", abajo).
+
+**El simulador** (TK-03). Cada corrida es un escenario, con sus parámetros, contra la réplica levantada:
+
+```powershell
+docker compose --env-file replica/entornos/pruebas.env --profile simulador run --rm --build simulador esc-1 --mesa 1 --comensales 2
+docker compose --env-file replica/entornos/pruebas.env --profile simulador run --rm --build simulador esc-2 --mesa 1 --pedidos 2 --productos 3x2,6
+docker compose --env-file replica/entornos/pruebas.env --profile simulador run --rm --build simulador esc-5 --mesa 1 --monto 2000 --propina 200 --metodo Cash
+```
+
+- **Escenarios:** `esc-1` ocupa una mesa con uno o más invitados (`--comensales`); `esc-2` crea y confirma pedidos (`--pedidos`, `--productos <id>[x<cantidad>],...`); `esc-5` pide un cobro presencial (`--monto`, `--propina`, `--metodo POS|Cash`, `--pedidos-cubiertos`, `--lineas-cubiertas`). Todos aceptan `--restaurante` (por defecto, el restaurante 1) y `--registro`. Cada corrida entra con un invitado nuevo por `POST /auth/guest` y se une a la mesa; si la mesa ya está ocupada, se suma a su sesión (DP-72 a DP-74).
+- **Salida:** 0 y una línea JSON con lo creado; 1 si la réplica rechaza una petición o no responde, con el motivo en stderr, sin reintentar; 2 con argumentos inválidos, sin mandar nada.
+- **Registro del turno:** `simulator/registros/turno-<AAAA-MM-DD>.jsonl` (fecha UTC), una línea JSON por petición, con la hora en que se mandó (UTC, con milisegundos), la mesa, el comensal, los ids y el resultado. No anota JWT ni emails, y la carpeta está en `.gitignore`. Es el "desde cuándo" de WS-c2 y WS-c3 ([walking-skeleton.md](walking-skeleton.md), sección 4).
+- **El reloj:** la hora del registro es la del contenedor, que en Docker Desktop corre en una VM cuyo reloj puede correrse después de una suspensión. Antes de medir, se compara con la de la máquina: `docker compose --env-file replica/entornos/pruebas.env --profile simulador run --rm --entrypoint date simulador -u` y la hora de Windows deberían coincidir al segundo.
+- **Lo que deja:** mesas ocupadas, invitados, pedidos y solicitudes. Las mesas no se liberan hasta T14 (TK-08), así que para volver a la foto de la carga se recrea la base.
 
 **Para volver a empezar:** se borran los volúmenes de MySQL y Redis y se repite el paso 3 (que vuelve a cargar los datos). Las cuentas de Firebase no se tocan. Al cambiar de perfil también se vuelve a empezar, porque MySQL guarda el usuario y la contraseña del primer arranque.
 
@@ -129,6 +144,12 @@ docker compose --env-file replica/entornos/pruebas.env up -d --build --wait
 Cargar los datos es solo recrear la base: `cargar.sh` no borra nada, y si hay otro restaurante o faltan las migraciones sale con error y no inserta. Así se deshace una carga (TK-02, DP-51): no hay migración nueva ni `DELETE`.
 
 **La suite supone una base recién cargada.** Las pruebas de los datos iniciales comprueban exactamente lo que deja la carga (cinco usuarios, ninguna sesión, ningún pedido). Si la base ya tiene otras filas, porque alguien inició sesión con una cuenta que no está en los datos, porque corrió el simulador o porque una prueba se cortó antes de limpiar, esas pruebas fallan, o `up --wait` falla en `carga-lista`. En la CI no pasa, porque el paso de `carga-desde-cero.sh` recrea la base antes de la suite. En la máquina, antes de la suite se corre `carga-desde-cero.sh` o se hace `down -v` y `up`.
+
+**La suite del simulador va después de la de la réplica, sobre la misma base.** Corre ESC-1, ESC-2 y ESC-5 por la línea de comandos y deja sus datos, que rompen la de la réplica hasta recrear la base. Antes de correr, comprueba que el restaurante 1 no tenga mesas ocupadas; si las tiene, falla con "la suite del simulador supone una base recién cargada: corré carga-desde-cero.sh". La CI las corre en ese orden.
+
+```powershell
+docker compose --env-file replica/entornos/pruebas.env --profile pruebas run --rm --build pruebas-simulador
+```
 
 **Cuentas del proyecto de Firebase de Tabbie que crea este repo** (RA-7):
 
@@ -287,6 +308,7 @@ Hay CI con GitHub Actions desde el primer PR de código, en `.github/workflows/`
 | ktlint | El estilo del código Kotlin de `android/` |
 | Tests de la app | Las pruebas locales de `android/app/src/test/`, incluidas las de MockWebServer (DP-20) |
 | Tests de la réplica | Las pruebas de `replica/tests/`, contra la réplica levantada con Docker Compose, con MySQL y Redis reales (DP-14), incluidas las de O1 a O4 (DP-50). Antes de la suite corre `replica/tests/datos/carga-desde-cero.sh`, que recrea la base y prueba la carga de los datos iniciales (TK-02) |
+| Tests del simulador | Las pruebas de `simulator/test/`, que corren ESC-1, ESC-2 y ESC-5 por la línea de comandos y comprueban T05, T06, T16 y T17 (TK-03). Van después de los de la réplica, sobre la misma base |
 | OpenAPI | Regenera `docs/api/openapi.yaml` desde el código de la réplica y falla si difiere del commiteado (DP-52) |
 | gitleaks | Que el repo, con todo su historial y todas sus ramas, no traiga secretos ni credenciales (DP-01, SEG-c10) |
 
