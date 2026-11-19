@@ -1,0 +1,5 @@
+# Change tk-03-simulador-mesas-pedidos-y-cobros · lo que no entra al contexto de test/Dockerfile (contexto ./simulator).
+# Las dependencias se instalan en la imagen con npm ci, y los registros del turno no salen de la máquina.
+**/node_modules
+dist
+registros
