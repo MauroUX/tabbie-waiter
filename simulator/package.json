@@ -1,0 +1,19 @@
+{
+  "name": "simulador-de-comensales",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Simulador de comensales de Tabbie Waiter App: corre un escenario por línea de comandos contra la réplica (HTTP), sin dependencias de ejecución.",
+  "engines": {
+    "node": ">=20 <21"
+  },
+  "bin": {
+    "simulador": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "20.19.43",
+    "typescript": "5.9.3"
+  }
+}
