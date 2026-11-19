@@ -134,7 +134,17 @@ export async function enviar(
     mensaje = limpiar(motivoDeFallo(error));
   }
 
-  const ids = resultado === 'ok' ? extraer(cuerpo) : {};
+  // D10: la línea se anota siempre. Si la respuesta exitosa no trae lo que el escenario necesita, queda como
+  // rechazada, con el estado que llegó y un mensaje que dice qué falta, y el escenario termina.
+  let ids: IdsDeLaRespuesta = {};
+  if (resultado === 'ok') {
+    try {
+      ids = extraer(cuerpo);
+    } catch (error) {
+      resultado = 'rechazada';
+      mensaje = limpiar(`respuesta incompleta: ${(error as Error).message}`);
+    }
+  }
   if (ids.tableSessionId !== undefined) {
     comensal.tableSessionId = ids.tableSessionId;
   }

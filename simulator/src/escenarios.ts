@@ -18,7 +18,7 @@ export interface Resumen {
 const numero = (valor: unknown, campo: string): number => {
   const dato = (valor as Record<string, unknown> | null)?.[campo];
   if (typeof dato !== 'number') {
-    throw new Error(`La respuesta de la réplica no trae ${campo} como número`);
+    throw new Error(`la respuesta no trae ${campo} como número`);
   }
   return dato;
 };
@@ -33,7 +33,7 @@ async function entrarYUnirse(turno: Turno): Promise<Comensal> {
     (cuerpo) => {
       const respuesta = cuerpo as { access_token?: unknown; user?: { id?: unknown } } | null;
       if (typeof respuesta?.access_token !== 'string' || typeof respuesta.user?.id !== 'number') {
-        throw new Error('La respuesta de /auth/guest no trae access_token y user.id');
+        throw new Error('/auth/guest no trae access_token y user.id');
       }
       comensal.jwt = respuesta.access_token;
       // El userId se conoce desde acá, pero la línea de /auth/guest lleva null: se asigna después de anotarla.
@@ -138,7 +138,7 @@ export async function correrEscenario(argumentos: Argumentos, turno: Turno): Pro
     (cuerpo) => {
       const id = (cuerpo as { id?: unknown } | null)?.id;
       if (typeof id !== 'string') {
-        throw new Error('La respuesta de la réplica no trae el id de la solicitud');
+        throw new Error('la respuesta no trae el id de la solicitud');
       }
       requestId = id;
       return { requestId: id };
