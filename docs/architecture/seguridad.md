@@ -111,7 +111,7 @@ Cada práctica dice qué hace, por qué y de dónde sale. El criterio que la pru
 
 ## 3. Riesgos aceptados
 
-Se aceptan porque el backend no se modifica (PRD, sección 9; 0002): este proyecto no puede cerrar un hueco del servidor, solo acotar lo que hace la app. Cada riesgo dice qué puede pasar, cuándo, qué hace la app para acotarlo y por qué se acepta.
+RA-1 a RA-7 se aceptan porque el backend no se modifica (PRD, sección 9; 0002): este proyecto no puede cerrar un hueco del servidor, solo acotar lo que hace la app. RA-8 es de la plataforma de la réplica. Cada riesgo dice qué puede pasar, cuándo, qué hace la app para acotarlo y por qué se acepta.
 
 ### RA-1 · O1: el pedido de ayuda no se puede apagar
 
@@ -174,6 +174,13 @@ Antes de cada acción, la app actualiza el estado que la acción necesita y, si 
 - **Qué hace la app:** ese usuario no tiene el rol `waiter` en el backend real, así que la app lo rechaza y no llega a la operación (PA-1, HU-01.c2). Las cuentas se reconocen por su dominio reservado (PR-3) y sus contraseñas no se usan en otro lado.
 - **Por qué se acepta:** la réplica valida contra el mismo proyecto de Firebase para que la app pase al backend real cambiando solo la URL base, que es la intención de 0002 y 0010, y el evaluador necesita entrar sin preparar nada. Con estas cuentas se obtiene, en el backend real, lo mismo que cualquiera obtiene iniciando sesión como comensal con una cuenta propia (C1, T01). Además, el proyecto es de desarrollo: lo confirmó su dueño el 2026-11-14, porque la app de Tabbie todavía no se liberó (0009; DP-02).
 
+### RA-8 · La réplica y las pruebas corren sobre Node 20, sin soporte
+
+- **Qué puede pasar:** Node 20 dejó de recibir parches de seguridad el 2026-04-30, y [0003](../adr/0003-stack.md) lo fija para la réplica, sus pruebas y el simulador. Una vulnerabilidad de Node que se publique después no se corrige en la imagen `node:20`.
+- **Cuándo:** mientras la réplica corra sobre Node 20: en el entorno local y en la demo.
+- **Qué lo acota:** la réplica es una herramienta de desarrollo y de demo, no el backend real. Tiene solo datos sintéticos, credenciales de cobro de mentira y una base desechable (PR-2, PR-3); en la demo, Railway termina TLS delante de ella. La imagen está fijada por versión y digest (`node:20.20.2-bookworm-slim`), así que lo que corre es siempre lo mismo que se probó. La app no corre sobre Node.
+- **Por qué se acepta:** cambiar de versión de Node es cambiar 0003 y pide un ADR nuevo, con las imágenes, los `engines` y los lock de la réplica, de sus pruebas y del simulador. No entra en TK-01, que construye la base sobre el stack decidido. El ADR que migra a una versión con soporte cierra este riesgo.
+
 ## 4. Bajada a criterios
 
 ### 4.1 De cada práctica a su criterio
@@ -205,6 +212,7 @@ Si el criterio ya existe en una historia o en el walking skeleton, se cita por s
 | RA-5 · Carreras entre tablets | — (no se cierra en la app) | HU-07.h2, HU-05.h1, HU-05.h8, HU-12.h3, HU-08.h4 |
 | RA-6 · JWT en la URL del stream | TK-05, con el JWT en el encabezado (0008) | SEG-c6, SEG-c7, WS-c10 |
 | RA-7 · Cuentas de prueba en Firebase de Tabbie | — (decisión de 0002 y 0009) | HU-01.c2, SEG-c11 |
+| RA-8 · Node 20 sin soporte | — (se cierra con un ADR que reemplace la versión de 0003) | — |
 
 **Cómo se comprueban O1 a O4:**
 

@@ -21,6 +21,8 @@ Un test por scenario, con su ID o su entrada del contrato en el nombre. Cada uno
 - [x] 1.12 T05 sin mesas ocupadas · test; se ve en rojo.
 - [x] 1.13 Stream abre con el JWT en el encabezado · test; se ve en rojo.
 - [x] 1.14 Stream responde 401 con un JWT vencido antes de abrirse · test; se ve en rojo.
+- [x] 1.16 T01 rechaza un body sin `firebaseIdToken` (local) · test agregado tras la revisión; su rojo se comprueba por mutación, porque la implementación ya existe.
+- [x] 1.17 El stream responde 403 a un usuario sin restaurante (DP-64) · test agregado tras la revisión; su rojo se comprueba por mutación.
 - [x] 1.15 Congelar los tests: `git add` de cada archivo y `sha256sum` a `congelados.sha` en el scratchpad; la huella se muestra en el chat.
 
 ## 2. Proyecto, migraciones y entorno (`implementer`)

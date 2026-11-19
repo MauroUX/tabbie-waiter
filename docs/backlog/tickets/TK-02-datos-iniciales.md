@@ -91,5 +91,6 @@ Por su fila de la [tabla de trazabilidad](../../context/panel-mozos-actual.md#2-
 - **Decidido (DP-16):** los datos iniciales son SQL propio en `replica/datos-iniciales/`, que carga un servicio de Compose que corre una sola vez ([componentes.md](../../architecture/componentes.md#decisiones-tomadas-2026-11-14)).
 - **Decidido (DP-17, DP-36 y DP-54):** el comensal del simulador entra como invitado. Este ticket crea una sola cuenta de comensal, para SEG-c4, y le da el rol `user` a la cuenta que no es de mozo.
 - **Decidido (DP-15):** este ticket prueba el canje con Firebase (T01) de cada cuenta; la prueba del contrato de [TK-01](TK-01-replica.md) no lo necesita.
+- **Decidido (DP-58):** este ticket prueba también que un ID token válido sin `email` recibe 401 sin JWT. TK-01 no puede, porque necesita un ID token de una cuenta de Firebase.
 - **Decidido (DP-37):** SEG-c11 compara los datos iniciales con las cuentas que crea el script de `replica/firebase/`, no con una lista del `Readme.md`.
 - **Decidido (DP-43):** la carga y SEG-c11 corren en la CI; el canje de cada cuenta por T01 necesita el proyecto de Firebase de Tabbie, así que se marca como prueba local y su evidencia va en el PR.
