@@ -37,7 +37,8 @@ Fuente: contexto, "Endpoints del comensal que usa el simulador", sección 4 ("Me
 La réplica SHALL atender `POST /table-sessions/join/restaurant/:restaurantId/table/:tableNumber` **sin guard**, con el comensal en el body. El comensal SHALL quedar en la sesión activa de la mesa `tableNumber` del restaurante `restaurantId`, y la mesa SHALL quedar activa: `isBusy = true` y `activeSessionId` apuntando a una `table_session` con `closedAt` nulo.
 
 - **Cuerpo (DP-74):** `{userId}`, el `user.id` que devolvió `/auth/guest`.
-- **Mesa libre o ocupada (DP-74):** si la mesa está libre, crea la `table_session` y la activa; si está ocupada, suma al comensal a la sesión activa, sin duplicarlo. Dos comensales a la vez no abren dos sesiones.
+- **Mesa libre o ocupada (DP-74):** si la mesa está libre, crea la `table_session` y la activa; si está ocupada, suma al comensal a la sesión activa, sin duplicarlo. Dos comensales a la vez no abren dos sesiones, y el mismo comensal dos veces a la vez queda una sola vez.
+- **Solo comensales (DP-83):** el `userId` tiene que ser de rol `user` y sin restaurante; con otro usuario, **403**, sin tocar la mesa.
 - **Respuesta (DP-74):** **201** con la sesión: sus columnas y `users[]`, cada uno con sus columnas y su `restaurant`, como `activeSession` en T05.
 - **Rechazos (DP-74):** body sin `userId` entero, **400**; restaurante, mesa o usuario inexistente, **404**. Ninguno abre una sesión.
 
@@ -62,6 +63,18 @@ La réplica SHALL atender `POST /table-sessions/join/restaurant/:restaurantId/ta
 - **WHEN** se llama `/join` con un número de mesa que no existe en el restaurante, con un `restaurantId` que no existe, con un `userId` que no está en `user`, y con un body sin `userId`
 - **THEN** la réplica responde 404, 404, 404 y 400, con un mensaje que nombra lo que falta, y no crea ninguna `table_session` ni cambia la mesa (DP-74)
 
+#### Scenario: Dos comensales que se unen a la vez quedan en una sola sesión
+
+- **GIVEN** un restaurante con una mesa libre y dos invitados, insertados o creados por la prueba
+- **WHEN** los dos invitados llaman `/join` a la misma mesa al mismo tiempo, y en otra mesa libre el mismo invitado llama `/join` dos veces al mismo tiempo; cada caso se repite 10 veces sobre una mesa libre nueva
+- **THEN** en cada repetición todas las llamadas responden 201, la mesa queda con una sola `table_session` abierta, su `activeSessionId` apunta a ella y `users[]` trae a cada invitado una sola vez (DP-74)
+
+#### Scenario: `/join` rechaza a quien no es un comensal
+
+- **GIVEN** un restaurante con una mesa libre, un mozo de ese restaurante y un usuario con rol `user` y ese restaurante, insertados por la prueba
+- **WHEN** se llama `/join` sin `Authorization` con el `userId` del mozo, y otra vez con el del usuario con restaurante
+- **THEN** la réplica responde 403 las dos veces, con un mensaje que dice que solo se unen comensales, sin email ni restaurante en la respuesta, y no crea ninguna `table_session` ni cambia la mesa (DP-83)
+
 ### Requirement: Contrato `POST /orders`
 
 Fuente: contexto, sección 4 (tabla de transiciones: "→ `pending`") y C3; DP-53; `modelo-de-datos.md`, 2.6 a 2.12.
@@ -70,7 +83,7 @@ La réplica SHALL atender `POST /orders` y crear el pedido en estado `pending`, 
 
 - **Guards y cuerpo (DP-75):** **J**, sin roles. Body `{tableSessionId, items: [{productId, quantity, note?, selectedOptions?: [{productOptionId, valueIds: []}]}]}`. El `userId` sale del JWT; el `restaurantId`, de la mesa de la sesión.
 - **Respuesta (DP-75):** **201** con el pedido: sus columnas e `items[]` con `product` y `selectedOptions[]` con `productOption` y `values[]`, sin `user`.
-- **Rechazos (DP-75):** **400** si no hay ítems, si una cantidad no es un entero ≥ 1, si un producto no existe o es de otro restaurante, si una opción no es del producto o un valor no es de la opción; **404** si la sesión no existe; **409** si está cerrada; **403** si el comensal no está en la sesión; **401** sin JWT. Ninguno crea el pedido.
+- **Rechazos (DP-75, DP-87):** **400** si no hay ítems, si una cantidad no es un entero entre 1 y 2147483647, si un producto no existe o es de otro restaurante, si una opción no es del producto o un valor no es de la opción; **404** si la sesión no existe; **409** si está cerrada; **403** si el comensal no está en la sesión; **401** sin JWT. Ninguno crea el pedido.
 
 #### Scenario: `POST /orders` crea un pedido `pending` con su árbol de ítems
 
@@ -93,6 +106,12 @@ La réplica SHALL atender `POST /orders` y crear el pedido en estado `pending`, 
 - **WHEN** llama `POST /orders` sin ítems, con una cantidad 0, con un producto de otro restaurante, con un valor que no es de la opción, con una sesión que no existe y con una sesión cerrada por la prueba
 - **THEN** la réplica responde 400, 400, 400, 400, 404 y 409, con un mensaje que nombra el motivo, y no crea ningún pedido (DP-75)
 
+#### Scenario: `POST /orders` rechaza una cantidad fuera del rango de la columna
+
+- **GIVEN** un invitado unido a una mesa
+- **WHEN** llama `POST /orders` con una cantidad de 2147483648, y otra vez con 2147483647
+- **THEN** la réplica responde 400 con un mensaje que nombra la cantidad a la primera, sin crear ningún pedido, y 201 a la segunda (DP-87)
+
 ### Requirement: Contrato `PUT /orders/:id/confirm` y el evento T16
 
 Fuente: contexto, C4, sección 4 (`pending` → `confirmed`), "Origen de los eventos que escucha el panel" (`order-confirmed-notification`), sección 5; DP-53; `modelo-de-datos.md`, 2.4 y 2.6.
@@ -107,10 +126,10 @@ La réplica SHALL atender `PUT /orders/:id/confirm` con **J + R**, roles `admin`
 #### Scenario: `confirm` confirma el pedido, recalcula el total y emite T16
 
 - **GIVEN** un mozo del restaurante con `/sse/waiters` abierto con su JWT en el encabezado, y un mozo de otro restaurante con su stream abierto
-- **AND** un invitado unido a una mesa del restaurante, con un pedido `pending` de dos unidades de un producto de precio 4500 y un valor de opción de precio 0
+- **AND** un invitado unido a una mesa del restaurante, con un pedido `pending` de dos unidades de un producto de precio 4500 y un valor de opción de precio 500
 - **WHEN** el invitado llama `PUT /orders/<id>/confirm` con su JWT
 - **THEN** la réplica responde 200 con el pedido en `confirmed` y `confirmedAt` (DP-76)
-- **AND** la sesión queda con `total` `"9000.00"` (DP-77), y T05 muestra el pedido en la mesa
+- **AND** la sesión queda con `total` `"10000.00"` (DP-77, DP-85), y T05 muestra el pedido en la mesa
 - **AND** el stream del restaurante recibe `order-confirmed-notification` con `data.body` igual al JSON de `{orderId, tableNumber, tableSessionId, restaurantId, confirmedAt}` del pedido (DP-78), que valida contra su esquema en `docs/api/openapi.yaml`
 - **AND** el stream del otro restaurante no recibe ningún evento
 
@@ -125,14 +144,28 @@ La réplica SHALL atender `PUT /orders/:id/confirm` con **J + R**, roles `admin`
 - **WHEN** el invitado confirma un pedido ya `confirmed`, un id que no existe, y un pedido de una sesión a la que no se unió
 - **THEN** la réplica responde 409, 404 y 403, no cambia ningún pedido ni `total`, y no emite T16 (DP-76)
 
+#### Scenario: El total suma cada valor elegido de cada opción
+
+- **GIVEN** un invitado unido a una mesa, y un producto de precio 3000 con dos opciones, cada una con un valor de precio 200 y otro de precio 300, insertados por la prueba
+- **WHEN** el invitado crea un pedido de tres unidades de ese producto con el valor de 200 de la primera opción y el de 300 de la segunda, y lo confirma
+- **THEN** la sesión queda con `total` `"10500.00"`, o sea `(3000 + 200 + 300) × 3` (DP-77, DP-85)
+
+#### Scenario: Dos confirmaciones a la vez dejan el total completo
+
+- **GIVEN** un invitado unido a una mesa, con dos pedidos `pending` de la misma sesión, de 4500 y de 1500
+- **WHEN** el invitado confirma los dos al mismo tiempo; el caso se repite 10 veces con dos pedidos nuevos en una sesión nueva
+- **THEN** en cada repetición las dos llamadas responden 200 y la sesión queda con `total` `"6000.00"` (DP-77)
+
 ### Requirement: Contrato `POST /payments/in-person-request` y el evento T17
 
 Fuente: contexto, 3.3 (Redis), "Origen de los eventos que escucha el panel" (`in-person-payment-request`), sección 4 ("Ciclo de una solicitud de pago presencial"), sección 0 ("Validación"); `modelo-de-datos.md`, 3.1; DP-53.
 
 La réplica SHALL atender `POST /payments/in-person-request` con **J**, guardar la solicitud en Redis bajo la clave `in-person-request:restaurant-<restaurantId>:<requestId>`, con el vencimiento `REDIS_EXPIRATION_TIME` (3600 s si está vacía), y emitir `in-person-payment-request` (T17) a los suscriptores de `/sse/waiters` del restaurante.
 
-- **Sin validar (contexto, 3.3):** guarda el body tal como llega, con los campos de `InPersonPaymentRequestDto`, aunque `userId` sea `"guest"` o traiga campos de más; si el body es `{body: "<JSON>"}`, guarda el JSON de adentro.
+- **Sin validar (contexto, 3.3):** guarda el body tal como llega, con los campos de `InPersonPaymentRequestDto`, aunque `userId` sea `"guest"` o traiga campos de más; si el body es `{body: "<JSON>"}` y `body` es el JSON de un objeto, guarda el JSON de adentro; si `body` es otro texto, guarda el body tal como llegó, con `body` incluido (DP-86).
 - **`id`, respuesta y evento (DP-79):** el `id` lo genera la réplica (uuid v4) y reemplaza al del body. **201** con la solicitud guardada; el evento lleva esa misma solicitud en `data` y va al restaurante de `restaurantId` del body.
+- **Cuerpo de entrada en el OpenAPI (DP-86):** un esquema aparte de la solicitud guardada, sin `id` y con `restaurantId` como único campo obligatorio.
+- **Nombres sensibles (DP-84):** `userName` lleva `x-sensitive: true`, como `user.name`.
 - **Rechazos (DP-79):** **400** si falta `restaurantId` (un string no vacío), porque sin él no hay clave; **401** sin JWT. Ninguno guarda ni emite.
 - **Vencimiento inválido (DP-80):** si `REDIS_EXPIRATION_TIME` no es un entero positivo, la réplica no arranca y lo dice nombrando la variable.
 
@@ -156,6 +189,24 @@ La réplica SHALL atender `POST /payments/in-person-request` con **J**, guardar 
 - **WHEN** un invitado llama `POST /payments/in-person-request` con su JWT y sin `restaurantId`, y otra vez sin JWT
 - **THEN** la réplica responde 400 y 401, no escribe ninguna clave en Redis y no emite T17 (DP-79)
 
+#### Scenario: Una solicitud con un campo `body` que no es JSON se guarda tal cual
+
+- **GIVEN** un invitado con su JWT
+- **WHEN** llama `POST /payments/in-person-request` con una solicitud completa que trae además `body: "nota"`
+- **THEN** la réplica responde 201 y guarda en Redis la solicitud tal como llegó, con `body: "nota"` y el `id` que generó (DP-86)
+
+#### Scenario: El OpenAPI declara el cuerpo de entrada y marca los nombres
+
+- **WHEN** se lee `docs/api/openapi.yaml`
+- **THEN** el cuerpo de `POST /payments/in-person-request` tiene un esquema propio sin `id`, con `restaurantId` como único campo obligatorio (DP-86)
+- **AND** `userName` y el `name` del usuario llevan `x-sensitive: true` en todos los esquemas donde aparecen (DP-84)
+
+#### Scenario: La réplica no arranca con un `REDIS_EXPIRATION_TIME` inválido
+
+- **WHEN** se arranca la réplica con el perfil de pruebas y `REDIS_EXPIRATION_TIME=abc`
+- **THEN** el proceso termina con código distinto de 0 y su registro dice que `REDIS_EXPIRATION_TIME` tiene un valor inválido, sin mostrar el valor (DP-80)
+- Es una prueba de la máquina, en un script de `replica/tests/arranque/`, porque necesita arrancar la réplica con otro entorno; corre en la CI.
+
 ### Requirement: Contrato T06 · `GET /payments/in-person-requests`
 
 Fuente: contexto, C9, T06, 3.3 (Redis: `SCAN` + `GET`); DP-53.
@@ -176,6 +227,12 @@ La réplica SHALL atender `GET /payments/in-person-requests` con **J** y sin `Ro
 
 - **WHEN** un mozo de un restaurante sin solicitudes llama T06, y un usuario sin restaurante llama T06
 - **THEN** la réplica responde 200 con `[]` al mozo y 403 al usuario sin restaurante (DP-81)
+
+#### Scenario: T06 omite un valor que no es JSON
+
+- **GIVEN** un restaurante con un mozo, y en Redis, escritas por la prueba, una solicitud válida y una clave del mismo restaurante con un valor que no es JSON
+- **WHEN** el mozo llama T06
+- **THEN** la réplica responde 200 solo con la solicitud válida (DP-81)
 
 ### Requirement: Contrato T07 · `GET /table-sessions/:id/payments`
 

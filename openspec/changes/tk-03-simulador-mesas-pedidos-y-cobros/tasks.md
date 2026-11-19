@@ -51,10 +51,17 @@ Un test por scenario, con su ID o su entrada del contrato en el nombre. Cada uno
 
 - [x] 5.1 Desde cero (`carga-desde-cero.sh`), la suite de la réplica y después la del simulador, enteras, corridas por la sesión principal; `sha256sum -c congelados.sha` en OK.
 - [x] 5.2 Los tres escenarios corridos a mano con los comandos de `design.md`, D7, con su registro como evidencia en el PR (sin JWT).
-- [ ] 5.3 `.github/workflows/replica.yml` con el paso "Suite del simulador"; se verifica en la CI del PR.
+- [x] 5.3 `.github/workflows/replica.yml` con el paso "Suite del simulador"; se verifica en la CI del PR.
 - [x] 5.4 `docs/api/openapi.yaml` regenerado sin diferencias, y gitleaks sobre todo el historial y todas las ramas.
 
 ## 6. Documentación y cierre
 
 - [x] 6.1 `infraestructura.md` (cómo se corre el simulador, el registro del turno y cómo comparar el reloj del contenedor con el de la máquina), `estructura.md` (`simulator/test/` y `simulator/registros/`), la sección "Comandos" de `AGENTS.md`, y `componentes.md` si los endpoints quedaron distintos de DP-17 y DP-18. Se verifica releyendo cada uno contra lo que se corrió.
 - [x] 6.2 `/opsx:verify` sin hallazgos críticos.
+
+## 7. Revisión adversarial del PR (DP-83 a DP-87)
+
+- [x] 7.1 Decisiones delegadas por el humano, como DP-83 a DP-87 en `docs/backlog/tickets/README.md`, y las specs y el diseño (D9, D10) actualizados.
+- [x] 7.2 Tests nuevos y cambiados (`test-writer`): concurrencia de `/join` y de `confirm`, `/join` solo para comensales, total con precio de opciones y con dos opciones, cantidad fuera de rango, `body` que no es JSON, cuerpo de entrada y marcas de nombres en el OpenAPI, T06 con un valor que no es JSON, el arranque con `REDIS_EXPIRATION_TIME` inválido, la primera línea de stderr con argumentos inválidos, la hora de antes de mandar y la línea de una respuesta con otra forma. Rojo y nueva huella.
+- [x] 7.3 Arreglos (`implementer`): D9, D10, DP-83, DP-84, DP-86, DP-87, y la descripción de `confirmedAt` en el OpenAPI como DP-78.
+- [x] 7.4 Verde desde cero en las dos suites, huella, OpenAPI regenerado sin diferencias, gitleaks, y el paso del script de arranque en la CI.
