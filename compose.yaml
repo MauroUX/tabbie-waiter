@@ -87,7 +87,10 @@ services:
   openapi:
     profiles: ["herramientas"]
     build: ./replica
-    user: root
+    # En Linux corre con el usuario de la máquina (HOST_UID y HOST_GID, con `id -u` e `id -g`; la CI los pasa),
+    # para que docs/api/openapi.yaml no quede de root. Sin ellos usa root: Docker Desktop en Windows no deja escribir
+    # a otro usuario en la carpeta montada, y ahí el archivo queda del usuario de Windows igual.
+    user: "${HOST_UID:-0}:${HOST_GID:-0}"
     command: ["node", "dist/scripts/generar-openapi.js", "/salida/openapi.yaml"]
     volumes:
       - ./docs/api:/salida
