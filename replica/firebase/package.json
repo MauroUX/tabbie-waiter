@@ -1,0 +1,16 @@
+{
+  "name": "tabbie-waiter-cuentas",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Script de las cuentas de prueba en Firebase (TK-02, D6): lista, plan y crear. Solo crea; nunca actualiza ni borra.",
+  "engines": {
+    "node": ">=20 <21"
+  },
+  "scripts": {
+    "start": "node src/cuentas.js"
+  },
+  "dependencies": {
+    "firebase-admin": "13.10.0",
+    "mysql2": "3.24.6"
+  }
+}

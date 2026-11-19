@@ -1,5 +1,6 @@
 # CI de la réplica (design D8 del change tk-01-replica-base, DP-11, DP-43, DP-52).
-# Tres jobs: gitleaks sobre todo el historial, el OpenAPI sin diferencias y la suite de contrato contra el stack.
+# Tres jobs: gitleaks sobre todo el historial, el OpenAPI sin diferencias y la suite de contrato contra el stack
+# (con las pruebas de la carga de datos iniciales de TK-02 antes de la suite).
 # Corre sin Firebase (USE_FIREBASE=false). Ningún secreto está en este archivo: los de la corrida se generan con
 # `openssl rand` y se enmascaran antes de usarse.
 name: replica
@@ -81,6 +82,8 @@ jobs:
           } > replica/entornos/pruebas.env
       - name: Levantar la réplica, MySQL y Redis desde cero
         run: docker compose --env-file replica/entornos/pruebas.env up -d --build --wait
+      - name: Pruebas de la carga de datos iniciales (recrean la base y la dejan cargada)
+        run: bash replica/tests/datos/carga-desde-cero.sh replica/entornos/pruebas.env
       - name: Suite de contrato
         run: docker compose --env-file replica/entornos/pruebas.env --profile pruebas run --rm --build pruebas
       - name: Registro de la réplica (solo si falló)
