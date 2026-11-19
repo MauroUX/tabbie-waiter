@@ -309,6 +309,7 @@ Hay CI con GitHub Actions desde el primer PR de código, en `.github/workflows/`
 | Tests de la app | Las pruebas locales de `android/app/src/test/`, incluidas las de MockWebServer (DP-20) |
 | Tests de la réplica | Las pruebas de `replica/tests/`, contra la réplica levantada con Docker Compose, con MySQL y Redis reales (DP-14), incluidas las de O1 a O4 (DP-50). Antes de la suite corre `replica/tests/datos/carga-desde-cero.sh`, que recrea la base y prueba la carga de los datos iniciales (TK-02) |
 | Tests del simulador | Las pruebas de `simulator/test/`, que corren ESC-1, ESC-2 y ESC-5 por la línea de comandos y comprueban T05, T06, T16 y T17 (TK-03). Van después de los de la réplica, sobre la misma base |
+| Arranque con un entorno inválido | `replica/tests/arranque/redis-expiration-invalida.sh`: la réplica no arranca con un `REDIS_EXPIRATION_TIME` que no es un entero positivo, y lo dice nombrando la variable (DP-80) |
 | OpenAPI | Regenera `docs/api/openapi.yaml` desde el código de la réplica y falla si difiere del commiteado (DP-52) |
 | gitleaks | Que el repo, con todo su historial y todas sus ramas, no traiga secretos ni credenciales (DP-01, SEG-c10) |
 
