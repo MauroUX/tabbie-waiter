@@ -15,6 +15,7 @@
 // `hora` de cada línea del registro en el último test.
 import { rmSync } from 'node:fs';
 import path from 'node:path';
+import { performance } from 'node:perf_hooks';
 import { jwtDelMozo1 } from './apoyo/jwt';
 import { mesasOcupadas, RESTAURANTE_1, solicitudesDeCobro } from './apoyo/replica';
 import type { Registro } from './apoyo/replica';
@@ -57,7 +58,10 @@ interface CorridaAnotada {
   escenario: string;
   /** Date.now() justo antes de lanzar el proceso. */
   inicio: number;
-  /** Date.now() justo después de que el proceso terminó. */
+  /**
+   * El mayor entre Date.now() justo después de que el proceso terminó e `inicio` más la duración de la corrida medida
+   * con performance.now(), que es monótono: si el reloj retrocedió durante la corrida, `fin` no queda antes de `inicio`.
+   */
   fin: number;
   /** Índice de la primera línea del registro que agregó esta corrida. */
   desde: number;
@@ -98,8 +102,10 @@ describe('Con la réplica cargada desde cero, los tres escenarios corren y T16 y
   async function correr(argumentos: string[]): Promise<{ resultado: ResultadoDeCorrida; lineas: LineaDelRegistro[] }> {
     const desde = lineasDeTexto(registro).length;
     const inicio = Date.now();
+    const comienzo = performance.now();
     const resultado = await correrSimulador([...argumentos, '--registro', registro]);
-    const fin = Date.now();
+    const duracion = performance.now() - comienzo;
+    const fin = Math.max(Date.now(), inicio + duracion);
     const nuevas = lineasDeTexto(registro).slice(desde);
     corridas.push({ escenario: argumentos[0], inicio, fin, desde, hasta: desde + nuevas.length });
     return { resultado, lineas: leerLineas(nuevas) };
@@ -363,9 +369,16 @@ describe('Con la réplica cargada desde cero, los tres escenarios corren y T16 y
       }
     });
 
-    // Las horas de una corrida van en orden, entre el momento en que se lanzó y el momento en que terminó.
+    // Las horas de una corrida van en orden, entre el momento en que se lanzó y el momento en que terminó, con un
+    // margen de 2 s en las dos cosas. Docker Desktop corre los contenedores en una VM que reajusta su reloj sola, y ese
+    // reloj puede retroceder durante una corrida (se vio medio segundo): sin margen, una hora correcta del registro
+    // queda fuera de la ventana o antes de la línea previa (spec, scenario "Cada petición tiene su línea…";
+    // design.md, Risks).
+    const MARGEN_DEL_RELOJ_MS = 2000;
     for (const corrida of corridas) {
       const propias = lineas.slice(corrida.desde, corrida.hasta);
+      const desdeHora = corrida.inicio - MARGEN_DEL_RELOJ_MS;
+      const hastaHora = corrida.fin + MARGEN_DEL_RELOJ_MS;
       let anterior = corrida.inicio;
       propias.forEach((linea, posicion) => {
         const indice = corrida.desde + posicion;
@@ -373,13 +386,15 @@ describe('Con la réplica cargada desde cero, los tres escenarios corren y T16 y
           problemas.push(`línea ${indice + 1}: escenario ${linea.escenario} en una corrida de ${corrida.escenario}`);
         }
         const hora = Date.parse(linea.hora);
-        if (Number.isNaN(hora) || hora < corrida.inicio || hora > corrida.fin) {
+        if (Number.isNaN(hora) || hora < desdeHora || hora > hastaHora) {
           problemas.push(
-            `línea ${indice + 1}: hora ${linea.hora} fuera de la corrida ` +
-              `(${new Date(corrida.inicio).toISOString()} a ${new Date(corrida.fin).toISOString()})`,
+            `línea ${indice + 1}: hora ${linea.hora} fuera de la corrida con su margen ` +
+              `(${new Date(desdeHora).toISOString()} a ${new Date(hastaHora).toISOString()})`,
           );
-        } else if (hora < anterior) {
-          problemas.push(`línea ${indice + 1}: hora ${linea.hora} anterior a la de la línea previa`);
+        } else if (hora < anterior - MARGEN_DEL_RELOJ_MS) {
+          problemas.push(
+            `línea ${indice + 1}: hora ${linea.hora} más de ${MARGEN_DEL_RELOJ_MS} ms anterior a la de la línea previa`,
+          );
         }
         if (!Number.isNaN(hora)) {
           anterior = Math.max(anterior, hora);

@@ -1,6 +1,7 @@
 // Change tk-03-simulador-mesas-pedidos-y-cobros · spec simulador-comensales.
 // Scenarios:
-//   - "Argumentos inválidos" (requirement "Cada escenario se corre desde la línea de comandos con sus parámetros");
+//   - "Argumentos inválidos" (requirement "Cada escenario se corre desde la línea de comandos con sus parámetros"),
+//     cambiado en la segunda vuelta con el OK del humano: el argumento y su valor van en la primera línea de stderr;
 //   - "Una mesa que no existe" (requirement "Una petición rechazada termina el escenario con un error explícito").
 // Cada test usa su propio archivo de registro en un directorio temporal. Códigos de salida: design.md, D2 (0 bien,
 // 1 petición rechazada o sin respuesta, 2 argumentos inválidos). La mesa 99 no existe en el restaurante 1 (DP-70);
@@ -12,6 +13,11 @@ import { urlReplica } from './apoyo/entorno';
 import { RESTAURANTE_1 } from './apoyo/replica';
 import { directorioTemporal, leerLineas, lineasDeTexto, PETICION } from './apoyo/registro';
 import { correrSimulador } from './apoyo/simulador';
+
+/** La primera línea no vacía de un texto, o '' si no tiene ninguna. */
+function primeraLinea(texto: string): string {
+  return texto.split('\n').find((linea) => linea.trim() !== '')?.trim() ?? '';
+}
 
 describe('Línea de comandos del simulador', () => {
   let directorio = '';
@@ -40,11 +46,13 @@ describe('Línea de comandos del simulador', () => {
     ]);
     const escenarioInexistente = await correrSimulador(['esc-9', '--registro', registro]);
 
-    // Las dos terminan con código 2 y un mensaje que nombra el argumento o el escenario.
+    // Las dos terminan con código 2, y la primera línea de stderr, antes del texto de uso, nombra el argumento y su
+    // valor (--metodo y Tarjeta) o el escenario (esc-9). Se toma la primera línea no vacía.
     expect(metodoInvalido).toMatchObject({ codigo: 2 });
-    expect(metodoInvalido.stderr).toMatch(/--metodo|metodo|método|Tarjeta/i);
+    expect(primeraLinea(metodoInvalido.stderr)).toContain('--metodo');
+    expect(primeraLinea(metodoInvalido.stderr)).toContain('Tarjeta');
     expect(escenarioInexistente).toMatchObject({ codigo: 2 });
-    expect(escenarioInexistente.stderr).toContain('esc-9');
+    expect(primeraLinea(escenarioInexistente.stderr)).toContain('esc-9');
 
     // Ninguna agrega una línea al registro.
     expect(lineasDeTexto(registro)).toEqual([]);
