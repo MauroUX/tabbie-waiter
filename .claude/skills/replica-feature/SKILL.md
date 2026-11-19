@@ -140,3 +140,16 @@ Se completa al cerrar cada ticket de Backend con lo que costó y no estaba escri
 - **Cambiar de perfil exige `down -v`:** MySQL guarda el usuario y la contraseña del primer arranque.
 - **`@ApiProduces('text/event-stream')` alcanza también a las respuestas de error:** los 401 y 403 del stream se declaran con `application/json`.
 - **La carpeta temporal de la sesión puede cambiar entre turnos:** la huella se copia a la nueva antes de verificarla.
+
+**TK-02 (datos iniciales y cuentas de prueba):**
+
+- **`up --wait` con un servicio de una sola vez falla aunque salga con 0,** salvo que otro servicio del mismo `up` dependa de él con `service_completed_successfully`. Una prueba con un servicio que sigue corriendo cuando Compose mira no lo detecta: se prueba con uno que termina enseguida.
+- **`docker compose run --build` escribe el progreso del build en stdout** (Compose v2.39): si un test lee la salida, `--progress quiet`.
+- **Git Bash convierte `/repo` de `docker run -v` en una ruta de Windows:** `MSYS_NO_PATHCONV=1` y `pwd -W`.
+- **En Compose, `environment` pisa a `env_file`:** una variable interpolada vacía en `environment` tapa la del `env_file`. Cada variable, en un solo archivo.
+- **Un rojo por mutación tiene que compilar:** si el `up` de la imagen mutada falla, la prueba corre contra la anterior. Se mira el código de salida del `up` antes de leer el resultado.
+- **Un rojo que solo falla porque falta una variable no prueba nada:** se muestra cambiando los datos de entrada (una contraseña equivocada, una fecha anterior).
+- **Un servicio externo puede tener ya lo que el ticket crea:** primero el modo que no escribe (`plan`), y si algo ya existe, se para y se pregunta.
+- **Un subagente puede volver "esperando su trabajo en segundo plano":** antes de correr nada, se mira el estado del stack.
+- **Las reglas de los tests congelados se le pasan al `implementer`:** por ejemplo, lo que `seg-c11` prohíbe en el SQL también vale en los comentarios.
+- **El scratchpad cambió tres veces en el ticket:** la huella se copia cada vez.

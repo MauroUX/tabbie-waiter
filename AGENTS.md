@@ -52,6 +52,8 @@ Un número de cuatro cifras remite a un ADR; los demás IDs son los de cada docu
 
 **Tickets de Frontend: skill `app-feature`, siempre, aunque nadie la pida.** Cubre los pasos 4 a 6, con los subagentes `android-test-writer` y `android-implementer`.
 
+**Tickets de Datos: skill `datos-iniciales`, siempre, aunque nadie la pida.** Usa el ciclo de `replica-feature`, con los subagentes `test-writer` e `implementer`, y suma los controles de Datos.
+
 ## Ramas
 
 - Una por ticket: `mc/tk-NN-<slug>`, con PR hacia `feature/entrega-2-mc`.
