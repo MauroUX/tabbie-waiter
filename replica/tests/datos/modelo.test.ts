@@ -2,8 +2,10 @@
 // (DoD de Datos)" · scenario "Los datos cargados respetan los tipos, las FK, los enums, los umbrales y los precios".
 // Origen: Definition of Done, "Datos", fila 2; modelo-de-datos.md, secciones 2.1, 2.2, 2.3, 2.10, 2.11, 2.12 y 4.
 // Corre en la CI, contra MySQL directo, sin pasar por la réplica, sobre la base recién cargada por el servicio `carga`.
-// "Cada precio de la base es igual al que escribe el SQL" se lee así: el SQL no escribe ningún literal con decimales
-// (fuera de comillas), y cada precio de la base es entero; así MySQL no redondeó nada en silencio.
+// Precios: datos-iniciales.sql no tiene ningún literal con punto decimal en ninguna parte (ni entre comillas ni en
+// comentarios), y cada precio de la base es igual al que escribe el SQL. Para compararlos, el test lee las sentencias
+// `INSERT INTO \`product\`` y `INSERT INTO \`product_option_value\`` (una por tabla, con la lista de columnas entre
+// backticks, VALUES y una tupla por fila, terminada en `;`) con un tokenizador que respeta las comillas simples.
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { abrirConexion, consultar, contarFilas } from '../apoyo/base';
@@ -13,7 +15,10 @@ import { rutaRepo, variable } from '../apoyo/entorno';
 const FORMA_DE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const COMENSAL = 'waiterapp.comensal@example.com';
 const RUTA_DEL_SQL = 'replica/datos-iniciales/datos-iniciales.sql';
-const LITERAL_CON_DECIMALES = /\b\d+\.\d+\b/g;
+/** Un literal con punto decimal, con o sin dígitos adelante (`12.5`, `.5`), en cualquier parte del texto. */
+const LITERAL_CON_DECIMALES = /\d*\.\d+/g;
+/** Filas que carga el SQL en cada tabla con precio (DP-70): 8 + 3 productos y los 3 valores de "Punto de cocción". */
+const FILAS_CON_PRECIO: Record<string, number> = { product: 11, product_option_value: 3 };
 
 const ENUMS = {
   role: ['user', 'admin', 'waiter', 'backoffice'],
@@ -31,12 +36,171 @@ const FK_A_LLENAR: Array<{ tabla: string; columna: string; padre: string; filtro
   { tabla: 'user', columna: 'restaurantId', padre: 'restaurant', filtro: 'h.email <> ?' },
 ];
 
-/** Quita del SQL lo que va entre comillas simples, dobles o invertidas, con sus escapes. */
-function sinComillas(sql: string): string {
-  return sql
-    .replace(/'(?:[^'\\]|\\.|'')*'/g, "''")
-    .replace(/"(?:[^"\\]|\\.|"")*"/g, '""')
-    .replace(/`(?:[^`]|``)*`/g, '``');
+type Token =
+  | { tipo: 'simbolo'; valor: '(' | ')' | ',' | ';' }
+  | { tipo: 'cadena'; valor: string }
+  | { tipo: 'identificador'; valor: string }
+  | { tipo: 'palabra'; valor: string };
+
+/**
+ * Tokeniza desde `inicio` hasta el primer `;` fuera de comillas (incluido).
+ * Cadenas entre comillas simples (con `''` y `\x` como escapes), identificadores entre backticks,
+ * los símbolos `( ) , ;` y, el resto, palabras sueltas (números, NULL, VALUES…).
+ */
+function tokenizarSentencia(sql: string, inicio: number): Token[] {
+  const tokens: Token[] = [];
+  let i = inicio;
+  while (i < sql.length) {
+    const c = sql[i];
+    if (/\s/.test(c)) {
+      i += 1;
+    } else if (c === '(' || c === ')' || c === ',' || c === ';') {
+      tokens.push({ tipo: 'simbolo', valor: c });
+      i += 1;
+      if (c === ';') {
+        return tokens;
+      }
+    } else if (c === "'") {
+      let valor = '';
+      i += 1;
+      for (;;) {
+        if (i >= sql.length) {
+          throw new Error('El SQL tiene una cadena entre comillas simples sin cerrar.');
+        }
+        if (sql[i] === '\\') {
+          valor += sql[i + 1] ?? '';
+          i += 2;
+        } else if (sql[i] === "'" && sql[i + 1] === "'") {
+          valor += "'";
+          i += 2;
+        } else if (sql[i] === "'") {
+          i += 1;
+          break;
+        } else {
+          valor += sql[i];
+          i += 1;
+        }
+      }
+      tokens.push({ tipo: 'cadena', valor });
+    } else if (c === '`') {
+      const fin = sql.indexOf('`', i + 1);
+      if (fin < 0) {
+        throw new Error('El SQL tiene un identificador entre backticks sin cerrar.');
+      }
+      tokens.push({ tipo: 'identificador', valor: sql.slice(i + 1, fin) });
+      i = fin + 1;
+    } else {
+      let valor = '';
+      while (i < sql.length && !/[\s(),;'`]/.test(sql[i])) {
+        valor += sql[i];
+        i += 1;
+      }
+      tokens.push({ tipo: 'palabra', valor });
+    }
+  }
+  throw new Error('Una sentencia INSERT del SQL no termina en `;`.');
+}
+
+/**
+ * Las filas de la única sentencia `INSERT INTO \`<tabla>\`` del SQL, como `{ id, price }` en texto.
+ * Falla si no hay exactamente una sentencia, si la forma no es la del contrato, o si un `price` no es un entero
+ * sin comillas.
+ */
+function preciosDelSql(sql: string, tabla: string): Array<{ id: string; price: string }> {
+  const encabezado = new RegExp(`INSERT\\s+INTO\\s+\`${tabla}\`\\s*\\(`, 'gi');
+  const sentencias = [...sql.matchAll(encabezado)];
+  if (sentencias.length !== 1) {
+    throw new Error(`El SQL tiene ${sentencias.length} sentencias INSERT INTO \`${tabla}\`; se esperaba una.`);
+  }
+  const tokens = tokenizarSentencia(sql, (sentencias[0].index as number) + sentencias[0][0].length - 1);
+  let posicion = 0;
+  const siguiente = (): Token => {
+    const token = tokens[posicion];
+    if (token === undefined) {
+      throw new Error(`La sentencia INSERT INTO \`${tabla}\` termina antes de tiempo.`);
+    }
+    posicion += 1;
+    return token;
+  };
+  const esperarSimbolo = (simbolo: string): void => {
+    const token = siguiente();
+    if (token.tipo !== 'simbolo' || token.valor !== simbolo) {
+      throw new Error(`En INSERT INTO \`${tabla}\` se esperaba "${simbolo}" y vino "${token.valor}".`);
+    }
+  };
+
+  // La lista de columnas, entre backticks.
+  esperarSimbolo('(');
+  const columnas: string[] = [];
+  for (;;) {
+    const columna = siguiente();
+    if (columna.tipo !== 'identificador') {
+      throw new Error(`En INSERT INTO \`${tabla}\` la lista de columnas no va entre backticks ("${columna.valor}").`);
+    }
+    columnas.push(columna.valor);
+    const separador = siguiente();
+    if (separador.tipo === 'simbolo' && separador.valor === ')') {
+      break;
+    }
+    if (separador.tipo !== 'simbolo' || separador.valor !== ',') {
+      throw new Error(`En INSERT INTO \`${tabla}\` la lista de columnas tiene "${separador.valor}".`);
+    }
+  }
+  const indiceId = columnas.indexOf('id');
+  const indicePrecio = columnas.indexOf('price');
+  if (indiceId < 0 || indicePrecio < 0) {
+    throw new Error(`INSERT INTO \`${tabla}\` no trae las columnas id y price.`);
+  }
+
+  const values = siguiente();
+  if (values.tipo !== 'palabra' || values.valor.toUpperCase() !== 'VALUES') {
+    throw new Error(`En INSERT INTO \`${tabla}\` se esperaba VALUES y vino "${values.valor}".`);
+  }
+
+  // Una tupla por fila, separadas por coma, hasta el `;`.
+  const filas: Array<{ id: string; price: string }> = [];
+  for (;;) {
+    esperarSimbolo('(');
+    const tupla: Token[] = [];
+    for (;;) {
+      const valor = siguiente();
+      if (valor.tipo === 'simbolo') {
+        throw new Error(`En INSERT INTO \`${tabla}\` una tupla tiene "${valor.valor}" donde iba un valor.`);
+      }
+      tupla.push(valor);
+      const separador = siguiente();
+      if (separador.tipo === 'simbolo' && separador.valor === ')') {
+        break;
+      }
+      if (separador.tipo !== 'simbolo' || separador.valor !== ',') {
+        throw new Error(`En INSERT INTO \`${tabla}\` una tupla tiene "${separador.valor}" donde iba una coma.`);
+      }
+    }
+    if (tupla.length !== columnas.length) {
+      throw new Error(
+        `En INSERT INTO \`${tabla}\` la fila ${filas.length + 1} tiene ${tupla.length} valores y hay ${columnas.length} columnas.`,
+      );
+    }
+    const id = tupla[indiceId];
+    const precio = tupla[indicePrecio];
+    if (id.tipo !== 'palabra' || !/^\d+$/.test(id.valor)) {
+      throw new Error(`En INSERT INTO \`${tabla}\` la fila ${filas.length + 1} no tiene un id entero.`);
+    }
+    if (precio.tipo !== 'palabra' || !/^\d+$/.test(precio.valor)) {
+      throw new Error(
+        `En INSERT INTO \`${tabla}\` el price de la fila con id ${id.valor} no es un entero sin comillas ("${precio.valor}").`,
+      );
+    }
+    filas.push({ id: id.valor, price: precio.valor });
+    const separador = siguiente();
+    if (separador.tipo === 'simbolo' && separador.valor === ';') {
+      break;
+    }
+    if (separador.tipo !== 'simbolo' || separador.valor !== ',') {
+      throw new Error(`En INSERT INTO \`${tabla}\` después de una tupla vino "${separador.valor}".`);
+    }
+  }
+  return filas;
 }
 
 describe('DoD Datos · los datos iniciales cumplen el modelo de datos', () => {
@@ -120,23 +284,42 @@ describe('DoD Datos · los datos iniciales cumplen el modelo de datos', () => {
       ['product_option_value', 'decimal(10,0)'],
     ]);
 
-    // Ningún precio del SQL tiene decimales: ningún literal numérico con punto fuera de comillas.
+    // Ningún precio del SQL tiene decimales: ningún literal con punto decimal en ninguna parte del archivo,
+    // ni entre comillas ni en comentarios.
     const sql = readFileSync(path.join(rutaRepo(), RUTA_DEL_SQL), 'utf8');
     expect(sql.trim().length).toBeGreaterThan(0);
-    const literalesConDecimales = sinComillas(sql)
+    const literalesConDecimales = sql
       .split(/\r?\n/)
       .flatMap((linea, indice) =>
         (linea.match(LITERAL_CON_DECIMALES) ?? []).map((literal) => `línea ${indice + 1}: ${literal}`),
       );
     expect(literalesConDecimales).toEqual([]);
 
-    // Y cada precio de la base es entero: igual al que escribe el SQL, sin redondeo de MySQL.
-    for (const tabla of ['product', 'product_option_value']) {
-      const conDecimales = await consultar<{ id: number }>(
+    // Y cada precio de la base es igual al que escribe el SQL, fila por fila (por id).
+    for (const [tabla, filasEsperadas] of Object.entries(FILAS_CON_PRECIO)) {
+      const delSql = preciosDelSql(sql, tabla);
+      // Control positivo: el parser encontró las filas que carga el SQL.
+      expect({ tabla, filasDelSql: delSql.length }).toEqual({ tabla, filasDelSql: filasEsperadas });
+
+      const deLaBase = await consultar<{ id: number | string; price: string }>(
         base,
-        `SELECT id FROM \`${tabla}\` WHERE price <> ROUND(price) ORDER BY id`,
+        `SELECT id, price FROM \`${tabla}\` ORDER BY id`,
       );
-      expect({ tabla, conDecimales: conDecimales.map(({ id }) => id) }).toEqual({ tabla, conDecimales: [] });
+      const porId = (a: { id: string }, b: { id: string }): number => Number(a.id) - Number(b.id);
+      const sqlOrdenado = [...delSql].sort(porId);
+      const baseOrdenada = deLaBase.map(({ id, price }) => ({ id: String(id), price: String(price) })).sort(porId);
+
+      // Los mismos ids.
+      expect({ tabla, ids: baseOrdenada.map(({ id }) => Number(id)) }).toEqual({
+        tabla,
+        ids: sqlOrdenado.map(({ id }) => Number(id)),
+      });
+      // Y, para cada id, el mismo precio.
+      const precioDelSql = new Map(sqlOrdenado.map(({ id, price }) => [id, Number(price)]));
+      const distintos = baseOrdenada
+        .filter(({ id, price }) => Number(price) !== precioDelSql.get(id))
+        .map(({ id, price }) => `id ${id}: base ${price}, SQL ${String(precioDelSql.get(id))}`);
+      expect({ tabla, distintos }).toEqual({ tabla, distintos: [] });
     }
   });
 });

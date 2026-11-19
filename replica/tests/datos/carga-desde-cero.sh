@@ -229,9 +229,12 @@ rc=$?
 [ "$rc" -ne 0 ] || problema+="; la carga salió con 0 con un restaurante ajeno"
 grep -qi "restaurante" "$TMP/carga-6.log" || problema+="; la salida de la carga no nombra el restaurante"
 r=$(contar restaurant)
-u=$(contar user)
 [ "$r" = "1" ] || problema+="; restaurant tiene ${r:-?} filas, se esperaba 1 (el ajeno)"
-[ "$u" = "0" ] || problema+="; user tiene ${u:-?} filas, se esperaban 0"
+# Sin insertar ninguna fila: ninguna de las otras tablas que carga el SQL tiene filas.
+for tabla in user table product product_option product_option_value; do
+  n=$(contar "$tabla")
+  [ "$n" = "0" ] || problema+="; $tabla tiene ${n:-?} filas, se esperaban 0"
+done
 informar "DoD Datos · falla en alto con un restaurante ajeno" "$problema"
 
 # --- 7. Deja el stack recién cargado para la suite --------------------------------------------
