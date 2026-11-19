@@ -40,7 +40,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Regenerar docs/api/openapi.yaml desde el código
-        run: docker compose --profile herramientas run --rm --build --no-deps openapi
+        run: HOST_UID="$(id -u)" HOST_GID="$(id -g)" docker compose --profile herramientas run --rm --build --no-deps openapi
       - name: Sin diferencias con lo commiteado
         run: git diff --exit-code -- docs/api/openapi.yaml
 
