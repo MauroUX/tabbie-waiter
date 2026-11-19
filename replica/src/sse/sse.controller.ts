@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import { JwtAuthGuard } from '../guards/auth/jwt-auth.guard';
 import { ErrorHttp } from '../openapi/error-http';
 import type { User } from '../users/user.entity';
+import { CuerpoDePedidoConfirmado, EventoPedidoConfirmado, EventoSolicitudDeCobro } from './eventos';
 import { SseService } from './sse.service';
 
 @ApiTags('sse')
@@ -21,10 +22,12 @@ export class SseController {
       'Server-Sent Events del restaurante del usuario. El JWT va en Authorization: Bearer o en ?token=; con un JWT ' +
       'vencido responde 401 antes de abrir el stream. Sin heartbeat ni replay. Eventos: ' +
       '`order-confirmed-notification` (data: {"body": "<JSON en string>"} con orderId, tableNumber, tableSessionId, ' +
-      'restaurantId y confirmedAt; lo emite PUT /orders/:id/confirm, TK-03), ' +
-      '`in-person-payment-request` (data: la solicitud de cobro; lo emite POST /payments/in-person-request, TK-03) e ' +
+      'restaurantId y confirmedAt, esquemas EventoPedidoConfirmado y CuerpoDePedidoConfirmado; lo emite ' +
+      'PUT /orders/:id/confirm), ' +
+      '`in-person-payment-request` (data: la solicitud de cobro, esquema EventoSolicitudDeCobro; lo emite ' +
+      'POST /payments/in-person-request) e ' +
       '`in-person-payment-request-deleted` (data: {requestId, restaurantId}; lo emite ' +
-      'DELETE /payments/in-person-requests/:requestId, TK-13). Este ticket no emite ninguno.',
+      'DELETE /payments/in-person-requests/:requestId, TK-13, todavía no construido).',
   })
   @ApiProduces('text/event-stream')
   @ApiResponse({
@@ -33,7 +36,7 @@ export class SseController {
     content: { 'text/event-stream': { schema: { type: 'string' } } },
   })
   // Los errores salen como JSON antes de abrir el stream, no como text/event-stream.
-  @ApiExtraModels(ErrorHttp)
+  @ApiExtraModels(ErrorHttp, EventoPedidoConfirmado, CuerpoDePedidoConfirmado, EventoSolicitudDeCobro)
   @ApiResponse({
     status: 401,
     description: 'Sin JWT, vencido, con otra firma o con un userId inexistente.',

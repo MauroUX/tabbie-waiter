@@ -8,6 +8,15 @@ export class LoginDto {
   firebaseIdToken: string;
 }
 
+export class GuestDto {
+  @ApiProperty({
+    type: 'string',
+    pattern: '^[A-Za-z0-9-]{1,64}$',
+    description: 'Identificador del invitado, de 1 a 64 caracteres.',
+  })
+  guestId: string;
+}
+
 export class UsuarioDeLogin {
   @ApiProperty({ type: 'integer' })
   id: number;

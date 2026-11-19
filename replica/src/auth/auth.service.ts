@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Inject,
   Injectable,
   InternalServerErrorException,
@@ -17,6 +18,7 @@ import type { RespuestaDeLogin } from './dto';
 /** Vencimiento del JWT de los mozos si `JWT_EXPIRATION_WAITERS` no está (contexto, C1). */
 const VENCIMIENTO_DE_MOZOS_POR_DEFECTO = '16h';
 const SIN_RESTAURANTE = '-1';
+const FORMA_DE_GUEST_ID = /^[A-Za-z0-9-]{1,64}$/;
 
 @Injectable()
 export class AuthService {
@@ -54,7 +56,19 @@ export class AuthService {
       throw new UnauthorizedException('El firebaseIdToken no trae email');
     }
 
-    const usuario = await this.buscarOCrear(email, nombre);
+    return this.emitir(await this.buscarOCrear(email, nombre, false));
+  }
+
+  /** `POST /auth/guest` (DP-72, DP-73): el invitado de un `guestId`, sin Firebase. Reusa su fila si ya existe. */
+  async loginDeInvitado(guestId: unknown): Promise<RespuestaDeLogin> {
+    if (typeof guestId !== 'string' || !FORMA_DE_GUEST_ID.test(guestId)) {
+      throw new BadRequestException('guestId es obligatorio: de 1 a 64 caracteres, solo letras, números y guiones');
+    }
+    return this.emitir(await this.buscarOCrear(`invitado.${guestId}@example.com`, undefined, true));
+  }
+
+  /** Firma el JWT del usuario (vencimiento según su rol) y arma la respuesta de la forma de T01 (DP-56). */
+  private async emitir(usuario: User): Promise<RespuestaDeLogin> {
     const vencimiento = this.vencimientoPara(usuario.role);
     let accessToken: string;
     try {
@@ -77,14 +91,14 @@ export class AuthService {
   }
 
   /** Busca el `user` por email; si no existe, lo inserta con rol `user` y sin restaurante (contexto, T01). */
-  private async buscarOCrear(email: string, nombre: string | undefined): Promise<User> {
+  private async buscarOCrear(email: string, nombre: string | undefined, esInvitado: boolean): Promise<User> {
     const existente = await this.usuarios.findOne({ where: { email } });
     if (existente !== null) {
       return existente;
     }
     try {
       return await this.usuarios.save(
-        this.usuarios.create({ email, name: nombre ?? null, role: 'user', isGuest: false, restaurant: null }),
+        this.usuarios.create({ email, name: nombre ?? null, role: 'user', isGuest: esInvitado, restaurant: null }),
       );
     } catch (error) {
       // Dos logins simultáneos del mismo email: gana el primero y el segundo lee su fila.

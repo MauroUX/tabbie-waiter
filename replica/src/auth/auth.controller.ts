@@ -2,7 +2,7 @@ import { Body, Controller, Post } from '@nestjs/common';
 import { ApiBody, ApiCreatedResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ErrorHttp } from '../openapi/error-http';
 import { AuthService } from './auth.service';
-import { LoginDto, RespuestaDeLogin } from './dto';
+import { GuestDto, LoginDto, RespuestaDeLogin } from './dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -23,5 +23,20 @@ export class AuthController {
   @ApiResponse({ status: 503, description: 'Firebase desactivado (USE_FIREBASE).', type: ErrorHttp })
   login(@Body() cuerpo: LoginDto): Promise<RespuestaDeLogin> {
     return this.auth.login(cuerpo?.firebaseIdToken);
+  }
+
+  /** T02 (DP-72, DP-73). Público y sin Firebase: escribe el invitado en `user`. */
+  @Post('guest')
+  @ApiOperation({
+    summary: 'JWT de invitado para un comensal (T02)',
+    description:
+      'Público, sin Firebase. Inserta o reusa la fila user del guestId (isGuest, rol user, sin restaurante, ' +
+      'email invitado.<guestId>@example.com). El JWT vence a los JWT_EXPIRATION. Sin guestId o con otro formato, 400.',
+  })
+  @ApiBody({ type: GuestDto })
+  @ApiCreatedResponse({ type: RespuestaDeLogin })
+  @ApiResponse({ status: 400, description: 'guestId ausente o con formato inválido.', type: ErrorHttp })
+  guest(@Body() cuerpo: GuestDto): Promise<RespuestaDeLogin> {
+    return this.auth.loginDeInvitado(cuerpo?.guestId);
   }
 }

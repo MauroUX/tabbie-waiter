@@ -20,6 +20,8 @@ export interface Entorno {
   puerto: number;
   baseDeDatos: EntornoDeBaseDeDatos;
   redis: EntornoDeRedis;
+  /** Vencimiento, en segundos, de las solicitudes de cobro en Redis (DP-80). */
+  redisExpiracionSegundos: number;
   jwtSecret: string;
   firebase: EntornoDeFirebase;
 }
@@ -34,6 +36,7 @@ export class EntornoIncompleto extends Error {
 type Variables = Record<string, string | undefined>;
 
 const PUERTO_POR_DEFECTO = 3000;
+const REDIS_EXPIRACION_POR_DEFECTO = 3600;
 
 /** Una variable vacía cuenta como ausente: compose pasa `VAR: ${VAR:-}` aunque no esté definida. */
 function leer(variables: Variables, nombre: string): string | undefined {
@@ -54,6 +57,7 @@ function aPuerto(nombre: string, valor: string, invalidas: string[]): number {
 export function leerEntorno(variables: Variables = process.env): Entorno {
   const faltan: string[] = [];
   const invalidas: string[] = [];
+  const valoresInvalidos: string[] = [];
 
   const obligatoria = (nombre: string): string => {
     const valor = leer(variables, nombre);
@@ -104,6 +108,18 @@ export function leerEntorno(variables: Variables = process.env): Entorno {
     firebase = { activado: true, projectId, clientEmail, privateKey: privateKey.split('\\n').join('\n') };
   }
 
+  // DP-80: vacía o ausente, 3600 s; un entero positivo, esos segundos; otro valor, el arranque falla sin mostrarlo.
+  const expiracionTexto = leer(variables, 'REDIS_EXPIRATION_TIME');
+  let redisExpiracionSegundos = REDIS_EXPIRACION_POR_DEFECTO;
+  if (expiracionTexto !== undefined) {
+    const segundos = Number(expiracionTexto.trim());
+    if (/^\d+$/.test(expiracionTexto.trim()) && Number.isSafeInteger(segundos) && segundos > 0) {
+      redisExpiracionSegundos = segundos;
+    } else {
+      valoresInvalidos.push('REDIS_EXPIRATION_TIME');
+    }
+  }
+
   const puertoTexto = leer(variables, 'PORT');
   const puerto = puertoTexto === undefined ? PUERTO_POR_DEFECTO : aPuerto('PORT', puertoTexto, invalidas);
   const puertoBaseDeDatos = puertoDb === '' ? 0 : aPuerto('DB_PORT', puertoDb, invalidas);
@@ -115,6 +131,9 @@ export function leerEntorno(variables: Variables = process.env): Entorno {
   if (invalidas.length > 0) {
     problemas.push(`Variables de entorno con un puerto inválido: ${invalidas.join(', ')}.`);
   }
+  if (valoresInvalidos.length > 0) {
+    problemas.push(`Variables de entorno con un valor inválido (tiene que ser un entero positivo de segundos): ${valoresInvalidos.join(', ')}.`);
+  }
   if (problemas.length > 0) {
     throw new EntornoIncompleto(problemas.join(' '));
   }
@@ -123,6 +142,7 @@ export function leerEntorno(variables: Variables = process.env): Entorno {
     puerto,
     baseDeDatos: { host, puerto: puertoBaseDeDatos, usuario, clave, nombre },
     redis,
+    redisExpiracionSegundos,
     jwtSecret,
     firebase,
   };
