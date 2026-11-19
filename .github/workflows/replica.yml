@@ -90,6 +90,10 @@ jobs:
       # romperían las pruebas de la carga (TK-03, design D4).
       - name: Suite del simulador
         run: docker compose --env-file replica/entornos/pruebas.env --profile pruebas run --rm --build pruebas-simulador
+      # La réplica no arranca con un REDIS_EXPIRATION_TIME inválido (DP-80): necesita arrancarla con otro entorno, y el
+      # contenedor de pruebas no puede. No toca la base ni los datos.
+      - name: Arranque con REDIS_EXPIRATION_TIME inválido
+        run: bash replica/tests/arranque/redis-expiration-invalida.sh replica/entornos/pruebas.env
       - name: Registro de la réplica (solo si falló)
         if: failure()
         run: docker compose --env-file replica/entornos/pruebas.env logs --no-color --tail 200 replica
