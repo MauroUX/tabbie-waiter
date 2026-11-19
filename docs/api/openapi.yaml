@@ -2,6 +2,40 @@
 # Se regenera con: docker compose --profile herramientas run --rm --build --no-deps openapi
 components:
   schemas:
+    CrearPedidoDto:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/ItemDePedidoDto'
+          type: array
+        tableSessionId:
+          type: integer
+      required:
+        - tableSessionId
+        - items
+      type: object
+    CuerpoDePedidoConfirmado:
+      properties:
+        confirmedAt:
+          description: ISO 8601 en UTC; sin fracción, como la columna.
+          format: date-time
+          type: string
+        orderId:
+          type: integer
+        restaurantId:
+          format: uuid
+          type: string
+        tableNumber:
+          type: integer
+        tableSessionId:
+          type: integer
+      required:
+        - orderId
+        - tableNumber
+        - tableSessionId
+        - restaurantId
+        - confirmedAt
+      type: object
     ErrorHttp:
       properties:
         error:
@@ -18,6 +52,95 @@ components:
         - message
         - error
       type: object
+    EventoPedidoConfirmado:
+      properties:
+        body:
+          description: JSON en string con la forma de CuerpoDePedidoConfirmado.
+          type: string
+      required:
+        - body
+      type: object
+    EventoSolicitudDeCobro:
+      additionalProperties: true
+      properties:
+        amount:
+          type: number
+        id:
+          description: uuid v4 que genera la réplica; las de MercadoPago, mp-<userId>-<sessionId>-<timestamp>.
+          type: string
+        lineItemIds:
+          items:
+            type: number
+          type: array
+        method:
+          description: Por ejemplo POS, Cash o Mercadopago.
+          type: string
+        noTipAmount:
+          type: number
+        orderIds:
+          items:
+            type: number
+          type: array
+        prepaid:
+          type: boolean
+        restaurantId:
+          type: string
+        tableNumber:
+          type: number
+        tableSessionId:
+          type: number
+        userId:
+          description: user.id, o un texto como "guest".
+          oneOf:
+            - type: number
+            - type: string
+        userName:
+          type: string
+      required:
+        - id
+        - userId
+        - userName
+        - restaurantId
+        - tableNumber
+        - tableSessionId
+        - amount
+        - noTipAmount
+        - method
+      type: object
+    GuestDto:
+      properties:
+        guestId:
+          description: Identificador del invitado, de 1 a 64 caracteres.
+          pattern: ^[A-Za-z0-9-]{1,64}$
+          type: string
+      required:
+        - guestId
+      type: object
+    ItemDePedidoDto:
+      properties:
+        note:
+          type: string
+        productId:
+          type: integer
+        quantity:
+          minimum: 1
+          type: integer
+        selectedOptions:
+          items:
+            $ref: '#/components/schemas/OpcionElegidaDto'
+          type: array
+      required:
+        - productId
+        - quantity
+      type: object
+    JoinDto:
+      properties:
+        userId:
+          description: El user.id que devolvió /auth/guest.
+          type: integer
+      required:
+        - userId
+      type: object
     LoginDto:
       properties:
         firebaseIdToken:
@@ -26,6 +149,19 @@ components:
           x-sensitive: true
       required:
         - firebaseIdToken
+      type: object
+    OpcionElegidaDto:
+      properties:
+        productOptionId:
+          type: integer
+        valueIds:
+          description: Los ids de los product_option_value elegidos de esa opción.
+          items:
+            type: number
+          type: array
+      required:
+        - productOptionId
+        - valueIds
       type: object
     Order:
       properties:
@@ -133,6 +269,114 @@ components:
         - id
         - productOption
         - values
+      type: object
+    PagoDeSesion:
+      properties:
+        amount:
+          description: 'decimal(10,2): llega como string.'
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        currency:
+          type: string
+        id:
+          type: integer
+        method:
+          nullable: true
+          type: string
+        prepaid:
+          type: boolean
+        sessionId:
+          type: integer
+        user:
+          allOf:
+            - $ref: '#/components/schemas/User'
+          nullable: true
+        userId:
+          nullable: true
+          type: integer
+      required:
+        - id
+        - sessionId
+        - amount
+        - currency
+        - method
+        - createdAt
+        - prepaid
+        - userId
+        - user
+      type: object
+    PedidoDeRespuesta:
+      properties:
+        canceledAt:
+          format: date-time
+          nullable: true
+          type: string
+        cancellationReason:
+          nullable: true
+          type: string
+        confirmedAt:
+          format: date-time
+          nullable: true
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        id:
+          type: integer
+        isPaid:
+          type: boolean
+        items:
+          items:
+            $ref: '#/components/schemas/OrderProductDetails'
+          type: array
+        paidAt:
+          format: date-time
+          nullable: true
+          type: string
+        restaurantId:
+          format: uuid
+          nullable: true
+          type: string
+        sentToKitchenAt:
+          format: date-time
+          nullable: true
+          type: string
+        status:
+          enum:
+            - pending
+            - confirmed
+            - in_kitchen
+            - canceled
+          type: string
+        tableSessionId:
+          nullable: true
+          type: integer
+        type:
+          enum:
+            - appetizer
+            - main_course
+            - dessert
+          type: string
+        userId:
+          nullable: true
+          type: integer
+      required:
+        - id
+        - userId
+        - restaurantId
+        - tableSessionId
+        - items
+        - type
+        - status
+        - createdAt
+        - confirmedAt
+        - sentToKitchenAt
+        - canceledAt
+        - cancellationReason
+        - isPaid
+        - paidAt
       type: object
     Product:
       properties:
@@ -293,6 +537,45 @@ components:
         - redTicketSeconds
         - redPulseTicketSeconds
       type: object
+    SesionDeJoin:
+      properties:
+        amountPaid:
+          description: 'decimal(10,2): llega como string.'
+          type: string
+        closedAt:
+          format: date-time
+          nullable: true
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        id:
+          type: integer
+        requestingHelp:
+          type: boolean
+        tableId:
+          type: integer
+        tips:
+          description: 'decimal(10,2): llega como string.'
+          type: string
+        total:
+          description: 'decimal(10,2): llega como string.'
+          type: string
+        users:
+          items:
+            $ref: '#/components/schemas/User'
+          type: array
+      required:
+        - id
+        - tableId
+        - amountPaid
+        - tips
+        - total
+        - requestingHelp
+        - createdAt
+        - closedAt
+        - users
+      type: object
     Table:
       properties:
         activeSession:
@@ -441,6 +724,33 @@ info:
   version: 1.0.0
 openapi: 3.0.0
 paths:
+  /auth/guest:
+    post:
+      description: Público, sin Firebase. Inserta o reusa la fila user del guestId (isGuest, rol user, sin restaurante, email invitado.<guestId>@example.com). El JWT vence a los JWT_EXPIRATION. Sin guestId o con otro formato, 400.
+      operationId: AuthController_guest
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GuestDto'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaDeLogin'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorHttp'
+          description: guestId ausente o con formato inválido.
+      summary: JWT de invitado para un comensal (T02)
+      tags:
+        - auth
   /auth/login:
     post:
       description: Público. Con USE_FIREBASE desactivada responde 503 y no emite ningún JWT. Un body sin firebaseIdToken, un token inválido o vencido, o un token sin email responden 401.
@@ -474,6 +784,177 @@ paths:
       summary: Canjea un ID token de Firebase por un JWT propio (T01)
       tags:
         - auth
+  /orders:
+    post:
+      description: J, sin roles. El userId sale del JWT y el restaurantId, de la mesa de la sesión. Un pedido pending no aparece en T05 ni cuenta en table_session.total.
+      operationId: OrdersController_crear
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrearPedidoDto'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PedidoDeRespuesta'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorHttp'
+          description: Cuerpo inválido, producto, opción o valor que no corresponden.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorHttp'
+          description: Sin JWT válido.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorHttp'
+          description: El usuario no está en la sesión.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorHttp'
+          description: La sesión no existe.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorHttp'
+          description: La sesión está cerrada.
+      security:
+        - bearer: []
+      summary: El comensal crea un pedido pending (DP-75)
+      tags:
+        - orders
+  /orders/{id}/confirm:
+    put:
+      description: 'Sin body. Fija status confirmed y confirmedAt (UTC, sin fracción), recalcula table_session.total (DP-77) y emite order-confirmed-notification al restaurante del pedido (DP-78). El mozo no confirma: 403.'
+      operationId: OrdersController_confirmar
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PedidoDeRespuesta'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorHttp'
+          description: El id no es un entero.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorHttp'
+          description: Sin JWT válido.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorHttp'
+          description: Rol fuera de admin y user, o un user que no está en la sesión del pedido.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorHttp'
+          description: El pedido no existe.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorHttp'
+          description: El pedido no está pending.
+      security:
+        - bearer: []
+      summary: Confirma un pedido pending (DP-76)
+      tags:
+        - orders
+  /payments/in-person-request:
+    post:
+      description: 'J. Guarda el body sin validar en Redis (si trae {body: "<JSON>"}, el de adentro) con un id uuid v4 que genera la réplica, con vencimiento REDIS_EXPIRATION_TIME, y emite in-person-payment-request al restaurante del body. El único rechazo de negocio es 400 si falta restaurantId.'
+      operationId: PaymentsController_crear
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventoSolicitudDeCobro'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventoSolicitudDeCobro'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorHttp'
+          description: Falta restaurantId.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorHttp'
+          description: Sin JWT válido.
+      security:
+        - bearer: []
+      summary: El comensal pide pagar en persona (DP-79)
+      tags:
+        - payments
+  /payments/in-person-requests:
+    get:
+      description: Las solicitudes guardadas en Redis (SCAN), incluidas las de MercadoPago, sin orden garantizado. Sin solicitudes, []. Un valor que no es JSON se omite. Un usuario sin restaurante recibe 403 (DP-64).
+      operationId: PaymentsController_solicitudes
+      parameters: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/EventoSolicitudDeCobro'
+                type: array
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorHttp'
+          description: Sin JWT válido.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorHttp'
+          description: El usuario no tiene restaurante.
+      security:
+        - bearer: []
+      summary: Solicitudes de cobro del restaurante del usuario (T06)
+      tags:
+        - payments
   /restaurants/{id}/tables/active:
     get:
       description: 'Mesas con isBusy y una sesión activa (closedAt nulo), por number ascendente. Cada sesión trae sus usuarios y sus pedidos (sin los pending, con los canceled, por createdAt ascendente). Reproduce O4 a propósito (DP-50): no excluye campos, así que llegan mercadoPagoToken, mercadoPagoRefreshToken y los email. El JWT va en Authorization: Bearer o en ?token=.'
@@ -513,7 +994,7 @@ paths:
         - restaurants
   /sse/waiters:
     get:
-      description: 'Server-Sent Events del restaurante del usuario. El JWT va en Authorization: Bearer o en ?token=; con un JWT vencido responde 401 antes de abrir el stream. Sin heartbeat ni replay. Eventos: `order-confirmed-notification` (data: {"body": "<JSON en string>"} con orderId, tableNumber, tableSessionId, restaurantId y confirmedAt; lo emite PUT /orders/:id/confirm, TK-03), `in-person-payment-request` (data: la solicitud de cobro; lo emite POST /payments/in-person-request, TK-03) e `in-person-payment-request-deleted` (data: {requestId, restaurantId}; lo emite DELETE /payments/in-person-requests/:requestId, TK-13). Este ticket no emite ninguno.'
+      description: 'Server-Sent Events del restaurante del usuario. El JWT va en Authorization: Bearer o en ?token=; con un JWT vencido responde 401 antes de abrir el stream. Sin heartbeat ni replay. Eventos: `order-confirmed-notification` (data: {"body": "<JSON en string>"} con orderId, tableNumber, tableSessionId, restaurantId y confirmedAt, esquemas EventoPedidoConfirmado y CuerpoDePedidoConfirmado; lo emite PUT /orders/:id/confirm), `in-person-payment-request` (data: la solicitud de cobro, esquema EventoSolicitudDeCobro; lo emite POST /payments/in-person-request) e `in-person-payment-request-deleted` (data: {requestId, restaurantId}; lo emite DELETE /payments/in-person-requests/:requestId, TK-13, todavía no construido).'
       operationId: SseController_mozos
       parameters: []
       responses:
@@ -540,5 +1021,86 @@ paths:
       summary: Stream de eventos para los mozos del restaurante (T16, T17)
       tags:
         - sse
+  /table-sessions/join/restaurant/{restaurantId}/table/{tableNumber}:
+    post:
+      description: Sin guard. Con la mesa libre abre la table_session y la deja ocupada; con la mesa ocupada suma al comensal a la sesión activa sin duplicarlo. Bloquea la fila de la mesa en una transacción. Responde con la sesión y sus users.
+      operationId: TableSessionsController_unirse
+      parameters:
+        - description: Uuid del restaurante.
+          in: path
+          name: restaurantId
+          required: true
+          schema:
+            type: string
+        - description: Número de la mesa en el restaurante.
+          in: path
+          name: tableNumber
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JoinDto'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SesionDeJoin'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorHttp'
+          description: Body sin userId entero.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorHttp'
+          description: Restaurante, mesa o usuario inexistente.
+      summary: El comensal se une a la mesa (DP-74)
+      tags:
+        - table-sessions
+  /table-sessions/{id}/payments:
+    get:
+      description: 'Los payment de la sesión por createdAt e id ascendente, cada uno con su user y el restaurant del user (null en los pagos manuales). Sin pagos o con una sesión que no existe, []. Reproduce O2 a propósito (DP-50): sin RolesGuard ni chequeo de restaurante.'
+      operationId: TableSessionsController_pagos
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/PagoDeSesion'
+                type: array
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorHttp'
+          description: El id no es un entero.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorHttp'
+          description: Sin JWT válido.
+      security:
+        - bearer: []
+      summary: Pagos de la sesión (T07)
+      tags:
+        - table-sessions
 servers: []
 tags: []
