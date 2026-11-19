@@ -91,7 +91,7 @@ Origen: Definition of Done propia de TK-03 ("Cada escenario se corre desde la l�
 #### Scenario: Argumentos inválidos
 
 - **WHEN** se corre `simulador esc-5 --mesa 1 --monto 100 --metodo Tarjeta`, y otra vez `simulador esc-9`
-- **THEN** las dos corridas terminan con código 2 y un mensaje que nombra el argumento o el escenario, sin agregar ninguna línea al registro
+- **THEN** las dos corridas terminan con código 2, y la primera línea de stderr, antes del uso, nombra el argumento y su valor (`--metodo` y `Tarjeta`) o el escenario (`esc-9`), sin agregar ninguna línea al registro
 
 ### Requirement: El registro del turno
 
@@ -104,13 +104,26 @@ Origen: Definition of Done propia de TK-03 ("El registro del turno tiene, de cad
 - **GIVEN** el registro que dejaron los scenarios de WS-c1, WS-c2 y WS-c3
 - **WHEN** se lee línea por línea
 - **THEN** cada línea es un JSON con `hora` (ISO 8601 en UTC con milisegundos), `escenario`, `peticion`, `restaurantId`, `mesa`, `comensal` (con `userId`, salvo la de `/auth/guest`, y `guestId`) y `resultado`
-- **AND** las horas de una corrida van en orden, y cada una está entre el momento en que la prueba lanzó la corrida y el momento en que terminó
+- **AND** las horas de una corrida van en orden y cada una está entre el momento en que la prueba lanzó la corrida y el momento en que terminó, con un margen de 2 s en las dos cosas: el reloj de la VM de Docker Desktop se reajusta solo y puede retroceder durante una corrida (design.md, Risks)
 - **AND** ninguna línea tiene un JWT (`eyJ…`), un encabezado `Authorization` ni un email
 
 #### Scenario: El registro no entra al repo
 
 - **WHEN** se mira `.gitignore` y el árbol versionado
 - **THEN** `simulator/registros/` está ignorada y no hay ningún archivo de registro versionado
+
+#### Scenario: La hora es la de antes de mandar la petición
+
+- **GIVEN** un servidor HTTP de la prueba que tarda 3 s en contestar `POST /auth/guest` y responde 500
+- **WHEN** se corre `simulador esc-1 --mesa 1 --replica <ese servidor>`
+- **THEN** la corrida termina con código 1, y la `hora` de la línea de `/auth/guest` es al menos 2 s anterior al momento en que terminó la corrida (1 s de margen por los reajustes del reloj de la VM de Docker Desktop; una hora tomada después de la respuesta queda a menos de 1 s del fin)
+
+#### Scenario: Una respuesta exitosa con otra forma también deja su línea
+
+- **GIVEN** un servidor HTTP de la prueba que responde 201 a `POST /auth/guest` con un cuerpo sin `access_token` ni `user`
+- **WHEN** se corre `simulador esc-1 --mesa 1 --replica <ese servidor>`
+- **THEN** la corrida termina con código 1, con un mensaje en stderr que nombra `esc-1`, la petición y lo que le falta a la respuesta
+- **AND** el registro tiene la línea de `/auth/guest` con `estado: 201`, `resultado: "rechazada"` y un `mensaje` que dice lo que falta, y ninguna línea después
 
 ### Requirement: Una petición rechazada termina el escenario con un error explícito
 

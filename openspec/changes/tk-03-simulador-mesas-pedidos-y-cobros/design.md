@@ -97,6 +97,20 @@ docker compose --env-file replica/entornos/pruebas.env --profile pruebas run --r
 - `config/entorno.ts` la lee: vacía o ausente vale **3600** s (contexto, 3.3); un entero positivo son segundos; cualquier otro valor termina el arranque con un error que nombra la variable, sin mostrar el valor (DoD de Backend). Es DP-80 (H-9).
 - **No hace falta tocar los archivos locales:** `compose.yaml` ya pasa la variable, los ejemplos la nombran (DP-63) y la CI escribe `30`. La prueba del vencimiento lee la misma variable que la réplica y espera su valor, o 3600 si está vacía, así que pasa con cualquier perfil válido. Solo es una parada si la réplica no arranca porque el valor local no es un entero (ver "Paradas del humano").
 
+### D9 · Concurrencia en `/join` y `confirm` (revisión adversarial)
+
+- MySQL corre en REPEATABLE READ: la primera lectura normal de una transacción fija su foto, y las lecturas normales siguientes no ven lo que otra transacción confirmó después. Por eso un bloqueo que llega tarde no alcanza.
+- **`/join`:** la primera sentencia de la transacción bloquea la fila de la mesa (`FOR UPDATE`); la sesión activa y la intermedia se leen con bloqueo. Así dos comensales a la vez esperan uno al otro, y el segundo ve la sesión que abrió el primero (DP-74).
+- **`confirm`:** la primera sentencia bloquea la fila de la `table_session` del pedido, y después el pedido. Así dos confirmaciones de la misma sesión se ordenan, y cada recálculo ve los pedidos ya confirmados (DP-77).
+- **T16:** `table.number` y `confirmedAt` se leen dentro de la transacción, y el evento se emite apenas termina el commit, antes de cualquier otra lectura: un pedido confirmado no se queda sin su evento.
+- **Las pruebas:** dos llamadas simultáneas con `Promise.all`, repetidas 10 veces, en `replica/tests/contrato/`.
+- **Alternativa descartada:** pasar esas transacciones a READ COMMITTED. Funciona, pero deja la corrección atada a un nivel de aislamiento que nada en el código hace visible.
+
+### D10 · El registro del turno, siempre
+
+- La línea de cada petición se anota en cuanto llega la respuesta, antes de leer sus ids. Si la respuesta exitosa no trae lo que el simulador necesita, la línea queda con `resultado: "rechazada"` y un `mensaje` que dice qué falta, y el escenario termina con código 1.
+- Las pruebas de la hora y de la respuesta con otra forma usan un servidor HTTP de la prueba en lugar de la réplica, con `--replica`: no hace falta ningún endpoint de prueba en la réplica (DP-48).
+
 ## Huecos del contrato
 
 Lo que el contexto no fija en los endpoints que construye este cambio ([índice de tickets](../../../docs/backlog/tickets/README.md#decisiones-tomadas-2026-11-17), "Huecos del contrato"). El humano aprobó las propuestas: H-1 a H-11 son DP-72 a DP-82 en `docs/backlog/tickets/README.md`, y las specs citan cada DP. No se leyó el código de Tabbie. La réplica puede diferir de Tabbie en estos puntos y, si difiere, se ajusta al conectar con el backend real (DP-48); ninguno es una ruta que use la app, salvo T06 y T07.
