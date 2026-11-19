@@ -7,6 +7,8 @@
 //   plan   busca cada email en Firebase Admin e informa "existe" o "la crearía". No escribe nada.
 //   crear  comprueba que estén todas las CONTRASENA_<PAPEL>; después crea solo las cuentas que no existen.
 //
+// Solo acepta emails waiterapp.<papel>@example.com (D1), y cada uno tiene que dar un nombre de variable de contraseña
+// propio: si no, falla en alto antes de tocar Firebase.
 // Solo usa getUserByEmail y createUser. Nunca listUsers, updateUser ni deleteUser, y nunca imprime contraseñas
 // ni credenciales. Un error termina con código distinto de 0 y un mensaje por stderr.
 
@@ -27,13 +29,43 @@ function exigir(nombres) {
   }
 }
 
+/** Un email de prueba: `waiterapp.` + un papel no vacío + `@example.com`, sin otra `@`. */
+function esDePrueba(email) {
+  return (
+    email.startsWith(PREFIJO_LOCAL) &&
+    email.endsWith(DOMINIO) &&
+    email.length > PREFIJO_LOCAL.length + DOMINIO.length &&
+    email.indexOf('@') === email.length - DOMINIO.length
+  );
+}
+
 /** CONTRASENA_ + la parte local sin `waiterapp.`, en mayúsculas, con `_` por cada carácter que no es letra ni número. */
 function variableDeContrasena(email) {
-  let parteLocal = email.split('@')[0];
-  if (parteLocal.startsWith(PREFIJO_LOCAL)) {
-    parteLocal = parteLocal.slice(PREFIJO_LOCAL.length);
+  const papel = email.slice(PREFIJO_LOCAL.length, email.length - DOMINIO.length);
+  return `CONTRASENA_${papel.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`;
+}
+
+/** Falla en alto si un email no es de prueba o si dos emails dan la misma variable de contraseña. */
+function validarEmails(usuarios) {
+  const ajenos = usuarios.map(({ email }) => String(email)).filter((email) => !esDePrueba(email));
+  if (ajenos.length > 0) {
+    fallar(
+      `estos emails de user no son de prueba (${PREFIJO_LOCAL}<papel>${DOMINIO}); el script no toca cuentas ajenas: ` +
+        ajenos.join(', '),
+    );
   }
-  return `CONTRASENA_${parteLocal.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`;
+  const porVariable = new Map();
+  for (const { email } of usuarios) {
+    const variable = variableDeContrasena(email);
+    porVariable.set(variable, [...(porVariable.get(variable) || []), email]);
+  }
+  const choques = [...porVariable.entries()].filter(([, emails]) => emails.length > 1);
+  if (choques.length > 0) {
+    fallar(
+      'estos emails dan el mismo nombre de variable de contraseña: ' +
+        choques.map(([variable, emails]) => `${emails.join(' y ')} (${variable})`).join('; '),
+    );
+  }
 }
 
 async function leerUsuarios() {
@@ -89,10 +121,7 @@ async function principal() {
   if (usuarios.length === 0) {
     fallar('la tabla user no tiene cuentas: ¿se cargaron los datos iniciales?');
   }
-  const ajenos = usuarios.filter(({ email }) => !String(email).endsWith(DOMINIO));
-  if (ajenos.length > 0) {
-    fallar(`${ajenos.length} email(s) de user no terminan en ${DOMINIO}: el script no toca cuentas que no son de prueba`);
-  }
+  validarEmails(usuarios);
 
   if (modo === 'lista') {
     for (const { email } of usuarios) {
