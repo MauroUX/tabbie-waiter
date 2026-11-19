@@ -64,7 +64,7 @@
 | Pieza | Capa | Disparador |
 |---|---|---|
 | CI de `.github/workflows/`: ktlint, tests de la app, tests de la réplica, el control del OpenAPI generado y gitleaks (DP-11, DP-52) | CI | TK-01 |
-| MCP `dbhub` | MCP | TK-02 |
+| MCP `dbhub`: pide un usuario de MySQL de solo `SELECT` (script de inicio de MySQL), `DB_LECTURA_PASSWORD` en los dos perfiles, un servicio con imagen fijada y `--readonly`, y un `.mcp.json` que lo lance con `docker compose run --rm -i`; lo reemplazan los tests de Datos de TK-02 (D10) | MCP | TK-03 |
 | Evals E1 y E2 (no son las épicas del PRD) | Eval | Después del tercer ticket |
 | Skills `ticket-a-change` y `cerrar-ticket` | Skill | Después del tercer ticket |
 | E2E con Maestro | CI | Entrega final |

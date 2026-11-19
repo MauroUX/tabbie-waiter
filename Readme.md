@@ -94,6 +94,8 @@ Se completa con el desarrollo.
 
 Se completa con el desarrollo.
 
+**Cuentas de prueba:** las credenciales de las cuentas de prueba (los mozos y los demás usuarios de los datos iniciales) se entregan con el formulario de entrega y no se publican en el repositorio.
+
 ---
 
 ## 2. Arquitectura del Sistema

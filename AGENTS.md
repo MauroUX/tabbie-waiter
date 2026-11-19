@@ -72,6 +72,8 @@ Todo corre en contenedores de Node 20 (0003): en la máquina no hace falta Node.
 | Levantar la réplica, MySQL y Redis | `docker compose --env-file replica/entornos/pruebas.env up -d --build --wait` |
 | Volver a empezar desde cero (también al cambiar de perfil) | `docker compose --env-file replica/entornos/pruebas.env down -v` |
 | La suite de la réplica, con el stack levantado | `docker compose --env-file replica/entornos/pruebas.env --profile pruebas run --rm --build pruebas` |
+| Probar la carga de datos desde cero (hace `down -v` con el perfil de pruebas y deja el stack cargado) | `bash replica/tests/datos/carga-desde-cero.sh replica/entornos/pruebas.env` |
+| Cuentas de prueba de Firebase: `lista`, `plan` o `crear` (solo con el OK del humano y `local.env`) | `docker compose --env-file replica/entornos/local.env --profile firebase run --rm --build cuentas <lista\|plan\|crear>` |
 | Regenerar `docs/api/openapi.yaml` | `docker compose --profile herramientas run --rm --build --no-deps openapi` |
 | Detector de secretos, todo el historial y todas las ramas | `git fetch --all --prune; docker run --rm -v "${PWD}:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1 git /repo --log-opts="--all" --redact` |
 | Instalar dependencias o regenerar un `package-lock.json` | `docker run --rm -v "<ruta absoluta de replica o replica/tests>:/w" -w /w node:20.20.2-bookworm-slim npm install` |
