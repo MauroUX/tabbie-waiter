@@ -17,7 +17,7 @@ La réplica SHALL atender `POST /auth/login` **sin guards** (público), con el b
 - **Éxito (DP-55):** 201.
 - **Cuerpo de la respuesta (DP-56):** `{"access_token": "<jwt>", "user": {"id", "email", "name", "role", "restaurantId"}}`, con `restaurantId` string y `"-1"` sin restaurante.
 - **JWT propio (DP-57):** HS256 con `JWT_SECRET`, claims `{userId, role, iat, exp}`.
-- **Errores (DP-58):** un body sin `firebaseIdToken`, un ID token inválido o vencido, o un ID token sin `email` responden 401, con un mensaje que nombra el motivo y sin JWT.
+- **Errores (DP-58):** un body sin `firebaseIdToken`, un ID token inválido o vencido, o un ID token sin `email` responden 401, con un mensaje que nombra el motivo y sin JWT. El caso del ID token sin `email` necesita un ID token válido de una cuenta de Firebase, así que se prueba en TK-02, que crea las cuentas (DP-15).
 - **Sin Firebase (DP-59):** con `USE_FIREBASE` desactivada responde 503, con el mensaje "Firebase desactivado (USE_FIREBASE)" y sin JWT.
 
 #### Scenario: T01 es público
@@ -37,6 +37,13 @@ La réplica SHALL atender `POST /auth/login` **sin guards** (público), con el b
 - **GIVEN** la réplica arrancada con `USE_FIREBASE` activada y las credenciales del archivo local de variables
 - **WHEN** se llama `POST /auth/login` con un `firebaseIdToken` que no es un ID token de Firebase
 - **THEN** la réplica responde 401, sin emitir ningún JWT y sin insertar ninguna fila en `user` (DP-58)
+- Esta prueba se marca **local**: no corre en la CI (DP-43), y su evidencia va en el PR.
+
+#### Scenario: T01 rechaza un body sin `firebaseIdToken` (local, con Firebase)
+
+- **GIVEN** la réplica arrancada con `USE_FIREBASE` activada y las credenciales del archivo local de variables
+- **WHEN** se llama `POST /auth/login` con un body sin `firebaseIdToken`
+- **THEN** la réplica responde 401 con un mensaje que nombra el campo, sin emitir ningún JWT y sin insertar ninguna fila en `user` (DP-58)
 - Esta prueba se marca **local**: no corre en la CI (DP-43), y su evidencia va en el PR.
 
 ### Requirement: Contrato de los guards (`JwtAuthGuard` y `RolesGuard`)
@@ -117,7 +124,7 @@ Los `decimal` SHALL llegar como string (`"1250.00"`) y `mercadoPagoUserId` tambi
 
 Fuente: contexto, T16, T17, 3.1 ("Streams y eventos SSE"), 3.3 ("Memoria del proceso"), sección 5, C4 y C9; 0008; DP-53.
 
-La réplica SHALL atender `GET /sse/waiters` con **J**, sin roles, como un stream de eventos (`text/event-stream`) del restaurante del usuario. SHALL alimentarlo con un `Subject` por restaurante en la memoria del proceso: todo evento llega a todos los suscriptores de ese restaurante, sin heartbeat ni replay, y un evento sin suscriptores se pierde. SHALL aceptar el JWT en el encabezado `Authorization: Bearer` (0008) o en `?token=`, y con un JWT vencido SHALL responder 401 **antes** de abrir el stream. Con un JWT válido de un usuario sin restaurante SHALL responder 403, también antes de abrirlo (DP-64); la app no llega a ese caso, y no tiene prueba de contrato en este cambio.
+La réplica SHALL atender `GET /sse/waiters` con **J**, sin roles, como un stream de eventos (`text/event-stream`) del restaurante del usuario. SHALL alimentarlo con un `Subject` por restaurante en la memoria del proceso: todo evento llega a todos los suscriptores de ese restaurante, sin heartbeat ni replay, y un evento sin suscriptores se pierde. SHALL aceptar el JWT en el encabezado `Authorization: Bearer` (0008) o en `?token=`, y con un JWT vencido SHALL responder 401 **antes** de abrir el stream. Con un JWT válido de un usuario sin restaurante SHALL responder 403, también antes de abrirlo (DP-64); la app no llega a ese caso.
 
 Los eventos que llevará, y su `data` tal como la fija el contexto, los emiten los endpoints de otros tickets (DP-53):
 
@@ -140,3 +147,9 @@ Este cambio no emite ninguno.
 - **GIVEN** un JWT del mismo mozo, firmado con el `JWT_SECRET` de la réplica y ya vencido
 - **WHEN** abre `GET /sse/waiters` con ese JWT en el encabezado
 - **THEN** la réplica responde 401 y no abre el stream: no llega ningún `Content-Type: text/event-stream`
+
+#### Scenario: El stream responde 403 a un usuario sin restaurante (DP-64)
+
+- **GIVEN** un usuario con rol `user` y sin restaurante, insertado por la prueba, y un JWT vigente para su `userId`
+- **WHEN** abre `GET /sse/waiters` con ese JWT en el encabezado
+- **THEN** la réplica responde 403 con un mensaje que dice que el usuario no tiene restaurante, y no abre el stream: no llega ningún `Content-Type: text/event-stream`
