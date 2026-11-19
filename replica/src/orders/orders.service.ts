@@ -17,6 +17,9 @@ import { recalcularTotalDeSesion } from './total-de-sesion';
 
 export const EVENTO_PEDIDO_CONFIRMADO = 'order-confirmed-notification';
 
+/** El rango de la columna `int` (DP-87). */
+const CANTIDAD_MAXIMA = 2147483647;
+
 interface OpcionValidada {
   productOptionId: number;
   valueIds: number[];
@@ -54,8 +57,10 @@ function validarCuerpo(cuerpo: unknown): CuerpoValidado {
     if (!esEntero(item.productId)) {
       throw new BadRequestException(`items[${i}].productId es obligatorio y tiene que ser un entero`);
     }
-    if (!esEntero(item.quantity) || item.quantity < 1) {
-      throw new BadRequestException(`items[${i}].quantity (cantidad) tiene que ser un entero mayor o igual a 1`);
+    if (!esEntero(item.quantity) || item.quantity < 1 || item.quantity > CANTIDAD_MAXIMA) {
+      throw new BadRequestException(
+        `items[${i}].quantity (cantidad) tiene que ser un entero entre 1 y ${CANTIDAD_MAXIMA}`,
+      );
     }
     if (item.note !== undefined && item.note !== null && typeof item.note !== 'string') {
       throw new BadRequestException(`items[${i}].note tiene que ser un texto`);
@@ -137,8 +142,10 @@ export class OrdersService {
     }
     const pedidoId = Number(idCrudo);
 
-    const { sesionId, restauranteId } = await this.origen.transaction(async (manager) => {
-      // Con la fila bloqueada, dos confirmaciones a la vez no pasan las dos por `pending`.
+    const { sesionId, restauranteId, tableNumber, confirmedAt } = await this.origen.transaction(async (manager) => {
+      // D9: la primera sentencia bloquea la fila del pedido y la segunda, la de su table_session, antes de cualquier
+      // lectura normal (REPEATABLE READ fija la foto en la primera). Así dos confirmaciones de la misma sesión se
+      // ordenan, y cada recálculo ve los pedidos que la anterior ya confirmó (DP-77).
       const [fila] = (await manager.query(
         'SELECT status, tableSessionId, restaurantId FROM `order` WHERE id = ? FOR UPDATE',
         [pedidoId],
@@ -149,6 +156,7 @@ export class OrdersService {
       if (fila.tableSessionId === null || fila.restaurantId === null) {
         throw new ConflictException(`El pedido ${pedidoId} no tiene sesión o restaurante`);
       }
+      await manager.query('SELECT id FROM `table_session` WHERE id = ? FOR UPDATE', [fila.tableSessionId]);
       // El mozo ya quedó afuera por rol; un `user` solo confirma los pedidos de su sesión.
       if (usuario.role === 'user' && !(await this.estaEnLaSesion(manager, fila.tableSessionId, usuario.id))) {
         throw new ForbiddenException('El usuario no está en la sesión del pedido');
@@ -157,31 +165,30 @@ export class OrdersService {
         throw new ConflictException(`El pedido ${pedidoId} no está pending: está ${fila.status}`);
       }
       // `confirmedAt` es un datetime sin fracción: se fija ya truncado a segundos (UTC).
-      const confirmedAt = new Date(Math.floor(Date.now() / 1000) * 1000);
-      await manager.update(Order, { id: pedidoId }, { status: 'confirmed', confirmedAt });
+      await manager.update(Order, { id: pedidoId }, { status: 'confirmed', confirmedAt: new Date(Math.floor(Date.now() / 1000) * 1000) });
       await recalcularTotalDeSesion(manager, fila.tableSessionId);
-      return { sesionId: fila.tableSessionId, restauranteId: fila.restaurantId };
+      // Para T16, dentro de la transacción: el número de la mesa y el `confirmedAt` tal como quedó en la columna.
+      const [mesa] = (await manager.query(
+        'SELECT t.number AS number FROM `table_session` s JOIN `table` t ON t.id = s.tableId WHERE s.id = ?',
+        [fila.tableSessionId],
+      )) as Array<{ number: number }>;
+      const confirmado = await manager.findOneOrFail(Order, { where: { id: pedidoId } });
+      return {
+        sesionId: fila.tableSessionId,
+        restauranteId: fila.restaurantId,
+        tableNumber: mesa.number,
+        confirmedAt: (confirmado.confirmedAt as Date).toISOString(),
+      };
     });
 
-    const pedido = await this.leerPedido(pedidoId);
-    const sesion = await this.origen.manager.findOneOrFail(TableSession, {
-      where: { id: sesionId },
-      relations: { table: true },
-    });
-    // El `confirmedAt` del evento sale de la columna, tal como lo devuelve la respuesta.
+    // T16 apenas termina el commit, antes de cualquier otra lectura: un pedido confirmado no se queda sin su evento.
     this.sse.emitir(restauranteId, {
       type: EVENTO_PEDIDO_CONFIRMADO,
       data: {
-        body: JSON.stringify({
-          orderId: pedidoId,
-          tableNumber: sesion.table.number,
-          tableSessionId: sesionId,
-          restaurantId: restauranteId,
-          confirmedAt: pedido.confirmedAt?.toISOString() ?? null,
-        }),
+        body: JSON.stringify({ orderId: pedidoId, tableNumber, tableSessionId: sesionId, restaurantId: restauranteId, confirmedAt }),
       },
     });
-    return pedido;
+    return this.leerPedido(pedidoId);
   }
 
   private async estaEnLaSesion(manager: EntityManager, sesionId: number, userId: number): Promise<boolean> {

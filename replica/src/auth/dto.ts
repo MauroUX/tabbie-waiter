@@ -24,7 +24,7 @@ export class UsuarioDeLogin {
   @CampoSensible({ type: 'string' })
   email: string;
 
-  @ApiProperty({ type: 'string', nullable: true })
+  @CampoSensible({ type: 'string', nullable: true })
   name: string | null;
 
   @ApiProperty({ enum: ROLES_DE_USUARIO })

@@ -47,9 +47,11 @@ async function generar(): Promise<void> {
   const documento = SwaggerModule.createDocument(app, configuracion);
   marcarCamposSensibles(documento);
   // La solicitud de cobro se guarda sin validar (DP-79): admite propiedades que el esquema no declara.
-  const solicitud = documento.components?.schemas?.EventoSolicitudDeCobro as Record<string, unknown> | undefined;
-  if (solicitud !== undefined) {
-    solicitud.additionalProperties = true;
+  for (const nombre of ['EventoSolicitudDeCobro', 'SolicitudDeCobroEntrada']) {
+    const solicitud = documento.components?.schemas?.[nombre] as Record<string, unknown> | undefined;
+    if (solicitud !== undefined) {
+      solicitud.additionalProperties = true;
+    }
   }
 
   // Claves ordenadas, sin anchors y con LF: dos corridas seguidas producen el mismo archivo, byte a byte.

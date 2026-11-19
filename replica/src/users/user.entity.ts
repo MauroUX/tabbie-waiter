@@ -29,7 +29,8 @@ export class User {
   @Column({ type: 'boolean', default: false })
   isGuest: boolean;
 
-  @ApiProperty({ type: 'string', nullable: true })
+  /** Nombre del comensal: dato personal (DP-84). */
+  @CampoSensible({ type: 'string', nullable: true })
   @Column({ type: 'varchar', length: 255, nullable: true })
   name: string | null;
 

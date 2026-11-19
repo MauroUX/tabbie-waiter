@@ -26,13 +26,14 @@ export class TableSessionsController {
     summary: 'El comensal se une a la mesa (DP-74)',
     description:
       'Sin guard. Con la mesa libre abre la table_session y la deja ocupada; con la mesa ocupada suma al comensal a la ' +
-      'sesión activa sin duplicarlo. Bloquea la fila de la mesa en una transacción. Responde con la sesión y sus users.',
+      'sesión activa sin duplicarlo. Solo se unen comensales: un userId con otro rol o con restaurante da 403. Bloquea la fila de la mesa en una transacción. Responde con la sesión y sus users.',
   })
   @ApiParam({ name: 'restaurantId', type: 'string', description: 'Uuid del restaurante.' })
   @ApiParam({ name: 'tableNumber', type: 'integer', description: 'Número de la mesa en el restaurante.' })
   @ApiBody({ type: JoinDto })
   @ApiCreatedResponse({ type: SesionDeJoin })
   @ApiResponse({ status: 400, description: 'Body sin userId entero.', type: ErrorHttp })
+  @ApiResponse({ status: 403, description: 'El usuario no es un comensal (rol user y sin restaurante), DP-83.', type: ErrorHttp })
   @ApiResponse({ status: 404, description: 'Restaurante, mesa o usuario inexistente.', type: ErrorHttp })
   unirse(
     @Param('restaurantId') restaurantId: string,

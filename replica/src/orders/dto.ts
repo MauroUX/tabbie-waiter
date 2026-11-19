@@ -58,7 +58,12 @@ export class PedidoDeRespuesta {
   @ApiProperty({ type: 'string', format: 'date-time' })
   createdAt: Date;
 
-  @ApiProperty({ type: 'string', format: 'date-time', nullable: true })
+  @ApiProperty({
+    type: 'string',
+    format: 'date-time',
+    nullable: true,
+    description: 'ISO 8601 en UTC con milisegundos; el datetime no guarda fracción, así que termina en .000Z.',
+  })
   confirmedAt: Date | null;
 
   @ApiProperty({ type: 'string', format: 'date-time', nullable: true })

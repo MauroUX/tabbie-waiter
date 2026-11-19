@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { CampoSensible } from '../openapi/campo-sensible';
 
 /** `data` de `order-confirmed-notification` (T16, DP-78): el JSON del pedido va escrito dentro de `body`. */
 export class EventoPedidoConfirmado {
@@ -38,7 +39,7 @@ export class EventoSolicitudDeCobro {
   @ApiProperty({ oneOf: [{ type: 'number' }, { type: 'string' }], description: 'user.id, o un texto como "guest".' })
   userId: number | string;
 
-  @ApiProperty({ type: 'string' })
+  @CampoSensible({ type: 'string', description: 'Nombre del comensal: dato personal (DP-84).' })
   userName: string;
 
   @ApiProperty({ type: 'string' })
