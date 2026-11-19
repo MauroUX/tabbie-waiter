@@ -305,6 +305,17 @@ Fuente: decisión del humano sobre el cambio de OpenSpec de TK-01 (`tk-01-replic
 - **DP-64 · Stream de un usuario sin restaurante:** con un JWT válido de un usuario sin restaurante, `GET /sse/waiters` responde 403 con el mensaje "El usuario no tiene restaurante: no hay stream que abrir", antes de abrir el stream. El contexto dice que el stream usa el restaurante del usuario y no qué hace si no tiene, y la réplica no se queda en silencio. La app no llega a este caso, porque solo admite `waiter` y todo `waiter` tiene restaurante (contexto, sección 0). Su prueba de contrato está en TK-01. Afecta a TK-01.
 - **DP-65 · Los `package-lock.json` van sin los campos `deprecated`:** npm copia en esos campos avisos de terceros, algunos con un correo, y el hook `datos-que-no-salen` los bloquea con razón: el repo no versiona correos fuera de los dominios de ejemplo (PR-3). `npm ci` no los lee, así que quitarlos no cambia ninguna dependencia. Cada vez que se regenera un lock se le quitan (`AGENTS.md`, "Comandos"), y si es el de `replica/tests/` se vuelve a congelar su huella. El hook no cambia. Afecta a todos los tickets que regeneran un lock.
 
+## Decisiones tomadas en TK-02 (2026-11-19)
+
+Fuente: decisión del humano sobre el plan de TK-02 (`tk-02-datos-iniciales`), que aprobó las propuestas para los huecos del [modelo de datos](../../architecture/modelo-de-datos.md) que los datos iniciales tienen que llenar. El contexto no los fijaba y el código de Tabbie no se leyó (0010).
+
+- **DP-66 · `paymentStyle` de los datos iniciales:** `after-order` en los dos restaurantes, el valor por defecto de la columna. La cadena del mozo no lo lee. Afecta a TK-02.
+- **DP-67 · Umbrales de demora de los datos iniciales:** el restaurante 1 usa 60, 120 y 180 s, para ver los tres colores de HU-02.c5 en tres minutos; el restaurante 2 usa los valores por defecto, 300, 420 y 600 s. Los dos cumplen el orden y el rango de 10 a 10800 s, que la base no controla. Afecta a TK-02 y TK-10.
+- **DP-68 · `limit` de las opciones de producto:** el contexto no dice qué significan `product_option.limit` y `product_option_value.limit`. Los datos iniciales usan opciones `single-choice` con `limit` 1 en la opción y en cada valor; T05 solo los devuelve. Afecta a TK-02 y TK-08.
+- **DP-69 · `mercadoPagoUserId` de los datos iniciales:** `NULL`. PR-2 nombra solo `mercadoPagoToken` y `mercadoPagoRefreshToken`, y un número inventado se confunde con uno real. Afecta a TK-02.
+- **DP-70 · Tamaño de los datos iniciales:** el restaurante 1 tiene las mesas 1 a 8, con 2 a 6 lugares, y 8 productos en 4 categorías (Entradas, Principales, Bebidas y Postres), uno con la opción "Punto de cocción" y tres valores; el restaurante 2 tiene las mesas 1 a 4 y 3 productos. Las imágenes y las URL van en `NULL`. Afecta a TK-02, TK-03 y TK-08.
+- **DP-71 · Claves y marcas de los datos iniciales:** los restaurantes tienen los uuid `11111111-1111-4111-8111-111111111111` y `22222222-2222-4222-8222-222222222222`, y todas las filas llevan su ID fijo en el SQL, para que dos cargas desde cero den la misma base. Los valores de mentira de MercadoPago empiezan con `FALSO-NO-ES-MERCADOPAGO-`, sin la forma de un token real. Los emails son `waiterapp.<papel>@example.com`, y la contraseña de cada cuenta va en la variable `CONTRASENA_<PAPEL>` de `replica/entornos/cuentas.env`, que no entra al repo. Afecta a TK-02, TK-03, TK-08 y TK-13.
+
 ## Decisiones pendientes
 
 Ninguna. Las que quedaban se cerraron con DP-36 a DP-44.

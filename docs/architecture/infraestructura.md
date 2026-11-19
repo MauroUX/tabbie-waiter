@@ -84,7 +84,8 @@ flowchart TB
 | Pruebas de la réplica | Servicio `pruebas` de `compose.yaml`, perfil `pruebas`, construido con `replica/tests/Dockerfile` (Node 20) | Las mismas variables del perfil, más el repo montado de solo lectura |
 | Generador del OpenAPI | Servicio `openapi` de `compose.yaml`, perfil `herramientas` | No necesita variables ni MySQL ni Redis; escribe `docs/api/openapi.yaml` |
 | Toxiproxy | Contenedor de Docker Compose, desde la ampliación (DP-41) | Un proxy hacia la réplica. Su API queda accesible solo desde la máquina de desarrollo |
-| Carga de los datos iniciales | Servicio de Docker Compose que corre una sola vez | Espera a que terminen las migraciones de la réplica y ejecuta el SQL de `replica/datos-iniciales/` (DP-16, DP-51) |
+| Carga de los datos iniciales | Servicio `carga` de `compose.yaml`, con la imagen de MySQL, que corre una sola vez | Espera a que la réplica esté sana (ya migró), comprueba que haya migraciones y que la base no tenga otro restaurante, y ejecuta `replica/datos-iniciales/cargar.sh` con el SQL de `replica/datos-iniciales/datos-iniciales.sql`, en una transacción. Monta solo esa carpeta, de solo lectura. Si los datos ya están, no hace nada (DP-16, DP-51, TK-02) |
+| Cuentas de prueba en Firebase | Servicio `cuentas` de `compose.yaml`, perfil `firebase`, construido con `replica/firebase/Dockerfile` (Node 20) | Lee de MySQL las filas `user` que no son invitados y trabaja con Firebase Admin (`local.env`). Sus contraseñas salen de `replica/entornos/cuentas.env` |
 | Waiter App, variante local | Emulador en la máquina de desarrollo, o tablet en la misma red | URL base apuntando a la réplica en el lote 1, y a Toxiproxy desde la ampliación (DP-41) |
 | Simulador de comensales | Línea de comandos en la máquina de desarrollo | URL de la réplica, **sin pasar por Toxiproxy** |
 
@@ -107,17 +108,25 @@ flowchart TB
    ```
 
    Con el perfil de pruebas, el mismo comando con `replica/entornos/pruebas.env`.
-4. Se corre, una sola vez por proyecto de Firebase, el script que crea las cuentas de prueba en Firebase. Si las cuentas ya existen, no las duplica.
-5. El servicio de carga de Docker Compose espera a que terminen las migraciones y ejecuta en MySQL el SQL de los datos iniciales sintéticos (DP-16). La réplica no tiene seeder.
+4. Se corre, una sola vez por proyecto de Firebase, el script de cuentas (`replica/firebase/`), con `local.env`. Primero `plan`, que dice cuáles crearía y cuáles ya existen, sin escribir; después `crear`, que crea solo las que faltan, con las contraseñas de `replica/entornos/cuentas.env` (una `CONTRASENA_<PAPEL>` por cuenta), y no toca las que ya existen. `lista` imprime solo los emails, sin Firebase.
+
+   ```powershell
+   docker compose --env-file replica/entornos/local.env --profile firebase run --rm --build cuentas plan
+   docker compose --env-file replica/entornos/local.env --profile firebase run --rm cuentas crear
+   ```
+5. El servicio `carga` ya cargó los datos iniciales sintéticos en el paso 3, porque `up` lo arranca después de la réplica (DP-16); el servicio `carga-lista` solo hace que `up --wait` termine en 0 cuando la carga termina bien. La réplica no tiene seeder.
 6. Desde la ampliación, se configura en Toxiproxy el proxy hacia la réplica (DP-41).
 7. Se instala la variante local de la app en el emulador o la tablet, y se inicia sesión con una cuenta de prueba.
 8. Se corre el simulador para generar mesas, pedidos, solicitudes de cobro y pedidos de ayuda.
 
-**Para volver a empezar:** se borran los volúmenes de MySQL y Redis y se repiten los pasos 3 y 5. Las cuentas de Firebase no se tocan. Al cambiar de perfil también se vuelve a empezar, porque MySQL guarda el usuario y la contraseña del primer arranque.
+**Para volver a empezar:** se borran los volúmenes de MySQL y Redis y se repite el paso 3 (que vuelve a cargar los datos). Las cuentas de Firebase no se tocan. Al cambiar de perfil también se vuelve a empezar, porque MySQL guarda el usuario y la contraseña del primer arranque.
 
 ```powershell
 docker compose --env-file replica/entornos/pruebas.env down -v
+docker compose --env-file replica/entornos/pruebas.env up -d --build --wait
 ```
+
+Cargar los datos es solo recrear la base: `cargar.sh` no borra nada, y si hay otro restaurante o faltan las migraciones sale con error y no inserta. Así se deshace una carga (TK-02, DP-51): no hay migración nueva ni `DELETE`.
 
 **Comandos de la réplica:**
 
@@ -125,6 +134,8 @@ docker compose --env-file replica/entornos/pruebas.env down -v
 |---|---|
 | Correr la suite de la réplica, con el stack levantado | `docker compose --env-file replica/entornos/pruebas.env --profile pruebas run --rm --build pruebas` |
 | Correr también las pruebas locales, que necesitan Firebase (DP-43) | Con el stack levantado con `local.env`: `$env:PRUEBAS_LOCALES='1'; docker compose --env-file replica/entornos/local.env --profile pruebas run --rm pruebas` |
+| Probar la carga desde cero, con el perfil de pruebas (hace `down -v`, vuelve a cargar varias veces y deja el stack recién cargado) | `bash replica/tests/datos/carga-desde-cero.sh replica/entornos/pruebas.env` |
+| Cuentas de prueba de Firebase: emails, plan y creación (TK-02) | `docker compose --env-file replica/entornos/local.env --profile firebase run --rm --build cuentas <lista\|plan\|crear>` |
 | Regenerar `docs/api/openapi.yaml` (DP-52) | `docker compose --profile herramientas run --rm --build --no-deps openapi`. En Linux, con `HOST_UID=$(id -u) HOST_GID=$(id -g)` delante, para que el archivo no quede de root |
 | Detector de secretos sobre todo el historial y todas las ramas (SEG-c10) | `git fetch --all --prune; docker run --rm -v "${PWD}:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1 git /repo --log-opts="--all" --redact` |
 | Buscar en el historial los valores de un archivo local (SEG-c10) | `bash replica/scripts/buscar-valores-de-secretos.sh replica/entornos/local.env`. Imprime solo el nombre de cada variable y si aparece |
@@ -250,6 +261,9 @@ Solo los nombres y para qué sirve cada una. Los valores van en el archivo local
 | Firebase | `FIREBASE_PRIVATE_KEY` | Clave privada de la cuenta de servicio, en una sola línea, como el campo `private_key` del JSON (con los saltos escritos `
 `). Secreto |
 | Firebase | `FIREBASE_CLIENT_EMAIL` | Email de la cuenta de servicio |
+| Firebase | `FIREBASE_WEB_API_KEY` | Web API key del proyecto de Firebase. Solo la lee el servicio `pruebas`, en `local.env`, para canjear email y contraseña por un ID token en las pruebas locales (TK-02). Secreto |
+| Cuentas de prueba | `CONTRASENA_<PAPEL>` | Contraseña de cada cuenta de prueba: `CONTRASENA_` más la parte local del email sin `waiterapp.`, en mayúsculas (`CONTRASENA_MOZO1_R1`, `CONTRASENA_MOZO2_R1`, `CONTRASENA_MOZO1_R2`, `CONTRASENA_USUARIO_R1` y `CONTRASENA_COMENSAL`). Van en `replica/entornos/cuentas.env`, que cargan solo `cuentas` y `pruebas` (la réplica no las ve) y no entra al repo. Secreto |
+| Pruebas | `SEGUNDA_CORRIDA_DESDE` | Marca de tiempo anotada antes de la segunda corrida de `cuentas crear`, que la prueba local de la segunda corrida compara con las fechas de las cuentas (TK-02). Solo la lee `pruebas`; no es un secreto |
 | Servidor | `PORT` | Puerto donde escucha la réplica. En Railway lo asigna la plataforma |
 | Servidor | `CORS_ORIGINS` | Orígenes web permitidos. No afecta a la app nativa ni al simulador, que no son navegadores |
 
@@ -263,7 +277,7 @@ Hay CI con GitHub Actions desde el primer PR de código, en `.github/workflows/`
 |---|---|
 | ktlint | El estilo del código Kotlin de `android/` |
 | Tests de la app | Las pruebas locales de `android/app/src/test/`, incluidas las de MockWebServer (DP-20) |
-| Tests de la réplica | Las pruebas de `replica/tests/`, contra la réplica levantada con Docker Compose, con MySQL y Redis reales (DP-14), incluidas las de O1 a O4 (DP-50) |
+| Tests de la réplica | Las pruebas de `replica/tests/`, contra la réplica levantada con Docker Compose, con MySQL y Redis reales (DP-14), incluidas las de O1 a O4 (DP-50). Antes de la suite corre `replica/tests/datos/carga-desde-cero.sh`, que recrea la base y prueba la carga de los datos iniciales (TK-02) |
 | OpenAPI | Regenera `docs/api/openapi.yaml` desde el código de la réplica y falla si difiere del commiteado (DP-52) |
 | gitleaks | Que el repo, con todo su historial y todas sus ramas, no traiga secretos ni credenciales (DP-01, SEG-c10) |
 
