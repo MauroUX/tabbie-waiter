@@ -40,3 +40,7 @@ desktop.ini
 # Claude Code: lo local de cada máquina
 .claude/settings.local.json
 .claude/hooks/*.local
+
+# Registros del turno del simulador (TK-03, D3): solo entra el .gitkeep.
+simulator/registros/*
+!simulator/registros/.gitkeep

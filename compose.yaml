@@ -7,6 +7,8 @@
 #   docker compose --env-file replica/entornos/local.env --profile firebase run --rm --build cuentas <lista|plan|crear>   # cuentas de Firebase (TK-02)
 #   docker compose --env-file replica/entornos/pruebas.env --profile pruebas run --rm pruebas
 #   docker compose --profile herramientas run --rm --build --no-deps openapi   # regenerar docs/api/openapi.yaml
+#   docker compose --env-file replica/entornos/pruebas.env --profile simulador run --rm --build simulador esc-1 --mesa 1   # simulador de comensales (TK-03)
+#   docker compose --env-file replica/entornos/pruebas.env --profile pruebas run --rm --build pruebas-simulador   # pruebas del simulador (base recién cargada)
 # Los ejemplos con los nombres están en replica/entornos/*.env.example (cuentas.env trae las contraseñas de las cuentas de prueba). Ningún valor está en este archivo.
 name: tabbie-waiter
 
@@ -180,6 +182,50 @@ services:
     env_file:
       - path: ./replica/entornos/cuentas.env
         required: false
+    volumes:
+      - .:/repo:ro
+    depends_on:
+      replica:
+        condition: service_healthy
+      carga:
+        condition: service_completed_successfully
+
+  # Simulador de comensales (TK-03, D7). Perfil `simulador`: un escenario por corrida, contra la réplica ya cargada.
+  #   docker compose --env-file replica/entornos/pruebas.env --profile simulador run --rm --build simulador esc-1 --mesa 1
+  # Los argumentos son los del escenario (esc-1, esc-2 o esc-5); el registro del turno queda en simulator/registros/.
+  # No necesita variables de la base ni de Redis: habla con la réplica solo por HTTP.
+  simulador:
+    profiles: ["simulador"]
+    build:
+      context: ./simulator
+      target: runtime
+    environment:
+      REPLICA_URL: http://replica:3000
+    # En Linux, HOST_UID y HOST_GID (`id -u`, `id -g`) hacen que el registro no quede de root; sin ellos usa root,
+    # como `openapi`, porque Docker Desktop en Windows no deja escribir en la carpeta montada a otro usuario.
+    user: "${HOST_UID:-0}:${HOST_GID:-0}"
+    volumes:
+      - ./simulator/registros:/registros
+    depends_on:
+      replica:
+        condition: service_healthy
+      carga:
+        condition: service_completed_successfully
+
+  # Las pruebas del simulador (TK-03, D4): corren su línea de comandos como un proceso aparte contra la réplica y
+  # comprueban el efecto por HTTP. Suponen una base recién cargada (carga-desde-cero.sh). Perfil `pruebas`:
+  #   docker compose --env-file replica/entornos/pruebas.env --profile pruebas run --rm --build pruebas-simulador
+  pruebas-simulador:
+    profiles: ["pruebas"]
+    build:
+      context: ./simulator
+      dockerfile: test/Dockerfile
+    environment:
+      REPLICA_URL: http://replica:3000
+      JWT_SECRET: ${JWT_SECRET:-}
+      SIMULADOR_CLI: /simulador/dist/cli.js
+      REPO_PATH: /repo
+      OPENAPI_PATH: /repo/docs/api/openapi.yaml
     volumes:
       - .:/repo:ro
     depends_on:

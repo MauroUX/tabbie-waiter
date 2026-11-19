@@ -1,0 +1,6 @@
+# Lo que no entra al contexto de simulator/Dockerfile: las dependencias se instalan en la imagen con npm ci,
+# las pruebas tienen su propia imagen (test/Dockerfile) y los registros del turno no salen de la máquina.
+**/node_modules
+dist
+registros
+test
