@@ -332,6 +332,16 @@ Fuente: decisión del humano sobre el cambio de OpenSpec de TK-03 (`tk-03-simula
 - **DP-81 · T06, forma y usuario sin restaurante:** 200 con un arreglo de las solicitudes del restaurante del usuario, cada una el JSON guardado, sin orden garantizado (sale de `SCAN`), incluidas las de MercadoPago. Sin solicitudes, `[]`. Un valor que no es JSON se omite y se anota en el registro de la réplica. Un usuario sin restaurante recibe 403, con el mismo criterio que DP-64. Afecta a TK-03, TK-05 y TK-14.
 - **DP-82 · T07, forma y sesión inexistente:** 200 con un arreglo de `payment` de la sesión, por `createdAt` e `id` ascendente, cada uno con sus columnas (`amount` string) y `user` con su `restaurant` (`null` en los pagos manuales, C10). Sin pagos o con una sesión que no existe, `[]`. Sin `RolesGuard` ni chequeo de restaurante: reproduce O2 a propósito (DP-50). Afecta a TK-03, TK-05 y TK-13.
 
+## Decisiones tomadas en la revisión de TK-03 (2026-11-19)
+
+Fuente: decisión que el humano delegó en la IA, que eligió la opción recomendada para cada hallazgo de la revisión adversarial del PR de TK-03 que pedía una decisión.
+
+- **DP-83 · `/join` solo para comensales:** acepta solo un `userId` con rol `user` y sin restaurante (un invitado o un comensal registrado). Con otro usuario responde 403 sin tocar la mesa. Sin esto, `/join`, que no tiene guard, devolvía sin JWT el email de un mozo y la fila de su restaurante con los tokens de MercadoPago: una vía anónima a O4 que el contexto no describe. Ajusta DP-74. Afecta a TK-03 y TK-08.
+- **DP-84 · Los nombres de comensales son datos sensibles:** `user.name` y `userName` de la solicitud de cobro llevan `x-sensitive: true` en el OpenAPI, como el email (PR-3, PA-6, SEG-c5). Solo cambia la marca, no las respuestas. Afecta a TK-03 y TK-04.
+- **DP-85 · Precio de las opciones en el total:** el scenario de `confirm` usa un valor de opción con precio distinto de 0 y suma un caso con dos opciones en la misma línea, para que la prueba detecte si `total` no suma las opciones (DP-77). Afecta a TK-03.
+- **DP-86 · Cuerpo de la solicitud de cobro:** se desenvuelve `{body: "<JSON>"}` solo si `body` es un string con el JSON de un objeto; si no, el body se guarda tal como llegó, con `body` incluido (contexto, 3.3). El OpenAPI declara el cuerpo de entrada aparte de la solicitud guardada: sin `id` (lo genera la réplica) y con `restaurantId` como único campo obligatorio. Ajusta DP-79. Afecta a TK-03 y TK-13.
+- **DP-87 · Cantidad de una línea de pedido:** un entero entre 1 y 2147483647, el rango de la columna `int`; fuera de ese rango, 400. Ajusta DP-75. Afecta a TK-03.
+
 ## Decisiones pendientes
 
 Ninguna. Las que quedaban se cerraron con DP-36 a DP-44.
