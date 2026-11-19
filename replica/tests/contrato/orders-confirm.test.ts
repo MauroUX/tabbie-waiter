@@ -102,7 +102,7 @@ describe('confirm · confirma, recalcula y emite T16', () => {
     ids.valor = await s.insertar('product_option_value', {
       description: 'A punto de Prueba',
       limit: 1,
-      price: '0',
+      price: '500',
       productOptionId: ids.opcion,
     });
   });
@@ -123,7 +123,7 @@ describe('confirm · confirma, recalcula y emite T16', () => {
     const base = conexion as Conexion;
     const invitado = await invitados.entrar();
     const sesionId = Number((await unirseOk(restauranteId, NUMERO_DE_MESA, invitado.userId)).id);
-    // Un pedido pending de dos unidades de un producto de 4500 con un valor de opción de 0.
+    // Un pedido pending de dos unidades de un producto de 4500 con un valor de opción de 500 (DP-85).
     const pendiente = await pedirOk(invitado.jwt, {
       tableSessionId: sesionId,
       items: [
@@ -148,11 +148,11 @@ describe('confirm · confirma, recalcula y emite T16', () => {
     expect(confirmado.confirmedAt).toMatch(FECHA_SIN_FRACCION);
     expect(await leerPedido(base, pedidoId)).toEqual({ status: 'confirmed', confirmedAt: confirmado.confirmedAt });
 
-    // total = (4500 + 0) × 2 (DP-77), y T05 muestra el pedido en la mesa.
-    expect(await leerTotal(base, sesionId)).toBe('9000.00');
+    // total = (4500 + 500) × 2 (DP-77, DP-85), y T05 muestra el pedido en la mesa.
+    expect(await leerTotal(base, sesionId)).toBe('10000.00');
     const [mesa] = await mesasActivas(jwtVigente(ids.mozo, 'waiter'), restauranteId);
     expect(mesa.id).toBe(ids.mesa);
-    expect(mesa.activeSession.total).toBe('9000.00');
+    expect(mesa.activeSession.total).toBe('10000.00');
     expect((mesa.activeSession.orders as Registro[]).map((orden) => [orden.id, orden.status])).toEqual([
       [pedidoId, 'confirmed'],
     ]);
