@@ -2,10 +2,12 @@
 # Las variables salen de un archivo local que no entra al repo; el perfil se elige con --env-file:
 #   docker compose --env-file replica/entornos/local.env up -d --build
 #   docker compose --env-file replica/entornos/pruebas.env up -d --build
-#   docker compose --env-file replica/entornos/pruebas.env down -v        # volver a empezar desde cero
+#   docker compose --env-file replica/entornos/pruebas.env down -v        # volver a empezar desde cero (la carga se repite al volver a levantar)
+#   bash replica/tests/datos/carga-desde-cero.sh replica/entornos/pruebas.env   # pruebas de la carga; hace down -v y deja el stack cargado
+#   docker compose --env-file replica/entornos/local.env --profile firebase run --rm --build cuentas <lista|plan|crear>   # cuentas de Firebase (TK-02)
 #   docker compose --env-file replica/entornos/pruebas.env --profile pruebas run --rm pruebas
 #   docker compose --profile herramientas run --rm --build --no-deps openapi   # regenerar docs/api/openapi.yaml
-# Los ejemplos con los nombres están en replica/entornos/*.env.example. Ningún valor está en este archivo.
+# Los ejemplos con los nombres están en replica/entornos/*.env.example (cuentas.env trae las contraseñas de las cuentas de prueba). Ningún valor está en este archivo.
 name: tabbie-waiter
 
 services:
@@ -67,6 +69,56 @@ services:
       retries: 30
       start_period: 20s
 
+  # Carga de una sola vez (TK-02, D4; DP-16): corre replica/datos-iniciales/cargar.sh con el cliente de MySQL, cuando la
+  # réplica ya migró. Si los datos ya están, no hace nada; si la base no es la esperada, sale con error. Se deshace
+  # recreando la base (down -v). Monta solo replica/datos-iniciales/, de solo lectura.
+  carga:
+    image: mysql:8.4.13@sha256:a81d043930e51745522bd5c430961cf8286f0a23f0a9a2a6e0108f7ea71b0902
+    command: ["sh", "/datos-iniciales/cargar.sh"]
+    environment:
+      DB_HOST: ${DB_HOST:-}
+      DB_PORT: ${DB_PORT:-}
+      DB_USER: ${DB_USER:-}
+      DB_PASSWORD: ${DB_PASSWORD:-}
+      DB_NAME: ${DB_NAME:-}
+    volumes:
+      - ./replica/datos-iniciales:/datos-iniciales:ro
+    depends_on:
+      replica:
+        condition: service_healthy
+    restart: "no"
+
+  # Solo para que `up --wait` termine en 0 cuando la carga termina bien: Compose da error por un servicio que sale (aunque
+  # sea con 0) salvo que otro servicio del mismo `up` dependa de él con service_completed_successfully, y `pruebas` y
+  # `cuentas` tienen perfil. Si la carga sale con otro código, este servicio no arranca y `up --wait` falla. No hace nada más.
+  carga-lista:
+    image: mysql:8.4.13@sha256:a81d043930e51745522bd5c430961cf8286f0a23f0a9a2a6e0108f7ea71b0902
+    command: ["sh", "-c", "exec tail -f /dev/null"]
+    depends_on:
+      carga:
+        condition: service_completed_successfully
+
+  # Cuentas de prueba en Firebase (TK-02, D6; DP-71). Perfil `firebase`: lista, plan o crear, con local.env.
+  # Solo crea las que faltan; nunca actualiza ni borra. Las contraseñas salen de replica/entornos/cuentas.env.
+  cuentas:
+    profiles: ["firebase"]
+    build: ./replica/firebase
+    environment:
+      DB_HOST: ${DB_HOST:-}
+      DB_PORT: ${DB_PORT:-}
+      DB_USER: ${DB_USER:-}
+      DB_PASSWORD: ${DB_PASSWORD:-}
+      DB_NAME: ${DB_NAME:-}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
+      FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY:-}
+      FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL:-}
+    env_file:
+      - path: ./replica/entornos/cuentas.env
+        required: false
+    depends_on:
+      carga:
+        condition: service_completed_successfully
+
   redis:
     image: redis:7.4.12-alpine@sha256:7f7d30b7fdd09467bac58198a1f166dd69789d348d4fe859cccb20e0cf287fbe
     # Sin persistencia: las solicitudes de cobro vencen solas (infraestructura.md, 2.1).
@@ -122,11 +174,19 @@ services:
       OPENAPI_PATH: /repo/docs/api/openapi.yaml
       REPO_PATH: /repo
       PRUEBAS_LOCALES: ${PRUEBAS_LOCALES:-}
+      FIREBASE_WEB_API_KEY: ${FIREBASE_WEB_API_KEY:-}
+      SEGUNDA_CORRIDA_DESDE: ${SEGUNDA_CORRIDA_DESDE:-}
+    # Las contraseñas de las cuentas de prueba (solo las pruebas locales); en la CI el archivo no existe.
+    env_file:
+      - path: ./replica/entornos/cuentas.env
+        required: false
     volumes:
       - .:/repo:ro
     depends_on:
       replica:
         condition: service_healthy
+      carga:
+        condition: service_completed_successfully
 
 volumes:
   mysql-datos:
