@@ -41,5 +41,5 @@ Lo que este cambio **no** hace (ticket, "No incluye"):
 - **`compose.yaml`:** un servicio nuevo de carga que corre una sola vez.
 - **CI (`.github/workflows/replica.yml`):** la suite corre con los datos cargados; la carga y SEG-c11 entran en la CI (DP-43).
 - **Hook `datos-que-no-salen`:** bloquea las contraseñas de las cuentas de prueba (DP-07) y deja pasar los emails del dominio reservado, sin debilitarse.
-- **Proyecto de Firebase de Tabbie:** cinco cuentas de prueba, una por fila `user`. Las creó el humano; el script las encontró (`crear`: 0 creadas, 5 existentes, dos veces) y no toca las existentes. La prueba de DP-58 suma, una sola vez, la cuenta sin email `waiterapp-dp58-sin-email`.
+- **Proyecto de Firebase de Tabbie:** cinco cuentas de prueba, una por fila `user`. Cuatro las creó el humano; la del comensal la creó el script (`crear`: 1 creada, 4 existentes; la segunda corrida, 0 creadas), después de que el humano la borrara para probar la creación (hallazgo 2 de la revisión adversarial). El script no toca las existentes. La prueba de DP-58 suma, una sola vez, la cuenta sin email `waiterapp-dp58-sin-email`.
 - **Documentos:** `Readme.md` y `docs/architecture/infraestructura.md` (2.1); `estructura.md` si una carpeta queda distinta.
