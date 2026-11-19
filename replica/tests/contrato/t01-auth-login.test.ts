@@ -1,7 +1,8 @@
 // Change tk-01-replica-base · spec contrato-replica · requirement "Contrato T01 · POST /auth/login".
-// Scenarios: "T01 es público", "T01 con USE_FIREBASE desactivada" y "T01 rechaza un ID token inválido (local, con Firebase)".
+// Scenarios: "T01 es público", "T01 con USE_FIREBASE desactivada", "T01 rechaza un ID token inválido (local, con Firebase)"
+// y "T01 rechaza un body sin firebaseIdToken (local, con Firebase)".
 // Decisiones: DP-58 (errores 401), DP-59 (503 sin Firebase). El canje real contra Firebase es de TK-02 (DP-15).
-// Los dos primeros corren solo con USE_FIREBASE desactivada; el local, solo con PRUEBAS_LOCALES=1 y USE_FIREBASE=true.
+// Los dos primeros corren solo con USE_FIREBASE desactivada; los locales, solo con PRUEBAS_LOCALES=1 y USE_FIREBASE=true.
 import request from 'supertest';
 import { abrirConexion, contarFilas } from '../apoyo/base';
 import type { Conexion } from '../apoyo/base';
@@ -76,6 +77,23 @@ describe('T01 · POST /auth/login', () => {
       expect(respuesta.status).toBe(401);
       expect(respuesta.body).not.toHaveProperty('access_token');
       expect(respuesta.text).not.toMatch(FORMA_DE_JWT);
+      expect(await contarFilas(base, 'user')).toBe(usuariosAntes);
+    });
+
+    siLocalConFirebase('T01 · rechaza un body sin firebaseIdToken (local, con Firebase)', async () => {
+      const base = conexion as Conexion;
+      const usuariosAntes = await contarFilas(base, 'user');
+
+      const respuesta = await request(urlReplica()).post('/auth/login').send({});
+
+      // 401, no 400 ni 503: con Firebase activado el body sin el campo es un rechazo de autenticación (DP-58).
+      expect(respuesta.status).toBe(401);
+      // El mensaje nombra el campo que falta.
+      expect(String(respuesta.body.message)).toContain('firebaseIdToken');
+      // Sin emitir ningún JWT.
+      expect(respuesta.body).not.toHaveProperty('access_token');
+      expect(respuesta.text).not.toMatch(FORMA_DE_JWT);
+      // Sin insertar ninguna fila en user.
       expect(await contarFilas(base, 'user')).toBe(usuariosAntes);
     });
   });
