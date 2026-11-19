@@ -2,7 +2,8 @@
 # Carga los datos iniciales de la réplica (TK-02, D4; DP-16). Corre en la imagen de MySQL, como servicio `carga`.
 #
 # En orden:
-#   1. Las migraciones: si la tabla `migrations` no existe o no tiene filas, sale con 1 (la réplica no creó el esquema).
+#   1. Las migraciones: si la tabla `migrations` no existe o no registra la migración inicial por su nombre, sale con 1
+#      (la réplica no creó el esquema, o la base no es la esperada).
 #   2. La guardia: si los dos restaurantes de los datos ya están, dice "ya estaban" y sale con 0 sin tocar nada;
 #      si hay otro restaurante, sale con 1 sin insertar.
 #   3. La carga: datos-iniciales.sql, en una sola transacción.
@@ -15,6 +16,8 @@ set -u
 
 RESTAURANTE_1="11111111-1111-4111-8111-111111111111"
 RESTAURANTE_2="22222222-2222-4222-8222-222222222222"
+# El nombre que TypeORM guarda en migrations.name para replica/src/migrations/1794990000000-esquema-inicial.ts.
+MIGRACION_INICIAL="EsquemaInicial1794990000000"
 SQL="/datos-iniciales/datos-iniciales.sql"
 
 faltan=""
@@ -41,17 +44,18 @@ if [ "$rc" -ne 0 ]; then
   echo "carga: no se pudo consultar MySQL (código $rc)" >&2
   exit "$rc"
 fi
-migraciones=0
-if [ "$salida" != "0" ]; then
-  migraciones=$(consulta "SELECT COUNT(*) FROM migrations")
-  rc=$?
-  if [ "$rc" -ne 0 ]; then
-    echo "carga: no se pudo leer la tabla de migraciones (código $rc)" >&2
-    exit "$rc"
-  fi
+if [ "$salida" = "0" ]; then
+  echo "carga: la base no tiene la tabla de migraciones: la réplica todavía no creó el esquema, no se carga nada" >&2
+  exit 1
 fi
-if [ "$migraciones" = "0" ]; then
-  echo "carga: no hay migraciones corridas en la base: la réplica todavía no creó el esquema, no se carga nada" >&2
+inicial=$(consulta "SELECT COUNT(*) FROM migrations WHERE name = '$MIGRACION_INICIAL'")
+rc=$?
+if [ "$rc" -ne 0 ]; then
+  echo "carga: no se pudo leer la tabla de migraciones (código $rc)" >&2
+  exit "$rc"
+fi
+if [ "$inicial" = "0" ]; then
+  echo "carga: las migraciones no registran la inicial ($MIGRACION_INICIAL): la base no tiene el esquema esperado, no se carga nada" >&2
   exit 1
 fi
 
