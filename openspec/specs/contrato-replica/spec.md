@@ -48,6 +48,14 @@ La réplica SHALL atender `POST /auth/login` **sin guards** (público), con el b
 - **THEN** la réplica responde 401 con un mensaje que nombra el campo, sin emitir ningún JWT y sin insertar ninguna fila en `user` (DP-58)
 - Esta prueba se marca **local**: no corre en la CI (DP-43), y su evidencia va en el PR.
 
+#### Scenario: T01 rechaza un ID token válido sin `email` (local, con Firebase; DP-58)
+
+- **GIVEN** la réplica arrancada con `USE_FIREBASE` activada y las credenciales del archivo local de variables
+- **AND** un ID token válido, emitido por el proyecto de Firebase de Tabbie, de una cuenta que no tiene `email`: la prueba firma un custom token con la cuenta de servicio, para el uid fijo `waiterapp-dp58-sin-email`, y lo canjea con REST `accounts:signInWithCustomToken`
+- **WHEN** se llama `POST /auth/login` con ese `firebaseIdToken`
+- **THEN** la réplica responde 401 con un mensaje que nombra el `email` que falta, sin emitir ningún JWT y sin insertar ninguna fila en `user` (DP-58)
+- Lo prueba TK-02 porque necesita un ID token válido de una cuenta de Firebase (DP-15, DP-58). T01 ya lo cumple desde TK-01, así que el test nace en verde: su rojo se comprueba por mutación. El canje crea en Firebase, una sola vez, la cuenta sin email de ese uid. Esta prueba se marca **local**: no corre en la CI (DP-43), y su evidencia va en el PR.
+
 ### Requirement: Contrato de los guards (`JwtAuthGuard` y `RolesGuard`)
 
 Fuente: contexto, sección 0 ("Convenciones del backend"), sección 2 (columna "Guards y roles"), sección 5 y C1; DP-15.
