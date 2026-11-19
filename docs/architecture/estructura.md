@@ -57,7 +57,9 @@ tabbie-waiter/
 │           └── androidTest/     Pruebas en el dispositivo, con los mismos paquetes que main
 │
 ├── simulator/                   Simulador de comensales: CLI en TypeScript sobre Node 20 (0002, 0003)
-│   └── src/                     Línea de comandos, sesión y cliente HTTP del comensal, escenarios, registro y medición
+│   ├── src/                     Línea de comandos, sesión y cliente HTTP del comensal, escenarios, registro y medición
+│   ├── test/                    Sus pruebas: un proyecto aparte que corre la línea de comandos contra la réplica, sin importar src/
+│   └── registros/               El registro del turno de cada corrida, fuera del repo (.gitignore); solo se versiona .gitkeep
 │
 └── docs/                        La documentación del proyecto
     ├── prd/                     PRD del MVP
