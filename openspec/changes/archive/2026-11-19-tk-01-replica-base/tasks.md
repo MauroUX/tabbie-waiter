@@ -45,8 +45,8 @@ Un test por scenario, con su ID o su entrada del contrato en el nombre. Cada uno
 
 - [x] 4.1 Suite entera en verde, corrida por la sesión principal, y `sha256sum -c congelados.sha` en OK.
 - [x] 4.2 Parada del humano: arranque con `USE_FIREBASE` activada y test 1.5 en local, juntos.
-- [ ] 4.3 `.github/workflows/replica.yml` con gitleaks, el control del OpenAPI y la suite; se verifica en la CI del PR.
-- [ ] 4.4 gitleaks sobre todo el historial y todas las ramas en local, en verde; y el humano corre `replica/scripts/buscar-valores-de-secretos.sh` con su archivo local, sin hallazgos.
+- [x] 4.3 `.github/workflows/replica.yml` con gitleaks, el control del OpenAPI y la suite; se verifica en la CI del PR.
+- [x] 4.4 gitleaks sobre todo el historial y todas las ramas en local, en verde; y el humano corre `replica/scripts/buscar-valores-de-secretos.sh` con su archivo local, sin hallazgos.
 
 ## 5. Documentación y cierre
 
