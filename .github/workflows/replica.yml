@@ -86,6 +86,10 @@ jobs:
         run: bash replica/tests/datos/carga-desde-cero.sh replica/entornos/pruebas.env
       - name: Suite de contrato
         run: docker compose --env-file replica/entornos/pruebas.env --profile pruebas run --rm --build pruebas
+      # Después de la de la réplica, sobre la misma base: el simulador deja mesas ocupadas, invitados y pedidos, que
+      # romperían las pruebas de la carga (TK-03, design D4).
+      - name: Suite del simulador
+        run: docker compose --env-file replica/entornos/pruebas.env --profile pruebas run --rm --build pruebas-simulador
       - name: Registro de la réplica (solo si falló)
         if: failure()
         run: docker compose --env-file replica/entornos/pruebas.env logs --no-color --tail 200 replica
