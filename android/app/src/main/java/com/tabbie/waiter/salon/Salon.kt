@@ -23,15 +23,22 @@ import androidx.lifecycle.viewModelScope
 import com.tabbie.waiter.R
 import com.tabbie.waiter.comun.diagnostico.RegistroDiagnostico
 import com.tabbie.waiter.comun.red.ApiTabbie
+import com.tabbie.waiter.comun.red.ClienteHttp
 import com.tabbie.waiter.sesion.SesionEnMemoria
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.io.IOException
 import java.net.UnknownServiceException
 import javax.inject.Inject
+import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.SerializationException
 import retrofit2.HttpException
 
@@ -48,16 +55,28 @@ sealed interface ResultadoMesas {
 }
 
 /** Salón, lo mínimo: una consulta de T05 con el restaurantId de la sesión (PA-2). */
-class RepositorioDeSalon @Inject constructor(
+class RepositorioDeSalon(
     private val api: ApiTabbie,
     private val sesionEnMemoria: SesionEnMemoria,
-    private val registro: RegistroDiagnostico
+    private val registro: RegistroDiagnostico,
+    private val contextoDelTope: CoroutineContext = Dispatchers.IO
 ) {
+    @Inject
+    constructor(
+        api: ApiTabbie,
+        sesionEnMemoria: SesionEnMemoria,
+        registro: RegistroDiagnostico
+    ) : this(api, sesionEnMemoria, registro, Dispatchers.IO)
+
     suspend fun consultarMesas(): ResultadoMesas {
         val restaurantId = sesionEnMemoria.sesion.value?.restaurantId
             ?: return fallo(ResultadoMesas.SinSesion, "sin-sesion")
         val respuesta = try {
-            api.mesasActivas(restaurantId)
+            withContext(contextoDelTope) {
+                withTimeout(ClienteHttp.ESPERA_CONSULTA) { api.mesasActivas(restaurantId) }
+            }
+        } catch (e: TimeoutCancellationException) {
+            return fallo(ResultadoMesas.SinConexion, "sin-respuesta")
         } catch (e: UnknownServiceException) {
             return fallo(ResultadoMesas.SinConexion, "http-sin-cifrar-bloqueado")
         } catch (e: IOException) {
@@ -66,6 +85,10 @@ class RepositorioDeSalon @Inject constructor(
             return fallo(ResultadoMesas.Fallida, "respuesta-http", "codigo" to e.code())
         } catch (e: SerializationException) {
             return fallo(ResultadoMesas.Fallida, "respuesta-invalida")
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return fallo(ResultadoMesas.Fallida, "error-inesperado")
         }
         val mesas = respuesta.mapNotNull { mesa ->
             mesa.activeSession?.let { MesaActiva(numero = mesa.number, sesionDeMesaId = it.id) }

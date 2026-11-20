@@ -43,7 +43,8 @@ class AutenticacionFirebaseSdk @Inject constructor(
             val usuario = auth.signInWithEmailAndPassword(email, contrasena).await().user
             val token = usuario?.getIdToken(true)?.await()?.token
             if (token == null) {
-                ResultadoFirebase.CredencialesRechazadas
+                // Sin usuario o sin ID token y sin excepción: no es una credencial rechazada (DP-102).
+                ResultadoFirebase.Fallida
             } else {
                 ResultadoFirebase.IdToken(token)
             }

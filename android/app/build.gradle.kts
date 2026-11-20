@@ -31,14 +31,13 @@ android {
         versionName = "0.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        // La cuenta de prueba de androidTest/ sale del entorno, nunca del código (DP-93).
+        // La cuenta de prueba de androidTest/ sale del entorno, nunca del código (DP-93). La contraseña
+        // no pasa por Gradle, que guarda los argumentos en su historial (DP-101): la pasa
+        // android/scripts/pruebas-en-dispositivo.sh con `am instrument`.
         testInstrumentationRunnerArguments["emailMozo"] =
             providers.environmentVariable(
                 "EMAIL_MOZO1_R1"
             ).orElse("waiterapp.mozo1.r1@example.com").get()
-        providers.environmentVariable("CONTRASENA_MOZO1_R1").orNull?.let {
-            testInstrumentationRunnerArguments["contrasenaMozo"] = it
-        }
     }
 
     flavorDimensions += "entorno"
