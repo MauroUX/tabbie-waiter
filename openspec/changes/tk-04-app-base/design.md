@@ -143,6 +143,21 @@ Comprobadas en Maven Central y en el Maven de Google el 2026-11-19. Regla: la ú
 
 Sin `avdmanager`, se crea a mano en `%USERPROFILE%\.android\avd\`, como los AVD que ya hay: `config.ini` con la imagen `android-35;google_apis_playstore;x86_64`, `hw.lcd.width=1280`, `hw.lcd.height=800`, `hw.lcd.density=213`, `hw.initialOrientation=landscape` y 2 GB de RAM, y su `.ini` con `target=android-35`. Es configuración de la máquina, no del repo. Se crea con el OK del humano.
 
+### D14 · Lo que cambia la revisión adversarial del PR (DP-97 a DP-102)
+
+Decisión que el humano delegó en la IA, que eligió la opción recomendada para cada hallazgo de la revisión adversarial del PR de TK-04 (MauroUX/tabbie-waiter#23).
+
+- **Hallazgo 1, otro rol llega al Salón (PA-1):** no cambia en TK-04. El ticket deja el rechazo de quien no es mozo para TK-11, y D7 lo dice. Ninguna compilación sale del entorno de pruebas antes de TK-11.
+- **DP-97 · Nada sale de la tablet por copia ni por transferencia (PA-3):** `allowBackup="false"` solo apaga la copia en la nube. El manifiesto declara `android:dataExtractionRules="@xml/reglas_de_extraccion"`, que excluye todos los dominios, con `path="."`, en `<cloud-backup>` y en `<device-transfer>`.
+- **DP-98 · La variante local en una tablet física (PA-7):** `10.0.2.2` es la máquina de desarrollo solo en el emulador. En una tablet física, la variante local se compila siempre con `-PurlBase=http://localhost:<puerto>/` y `adb reverse tcp:<puerto> tcp:<puerto>`. Queda en `android/CLAUDE.md`.
+- **DP-99 · Un error no previsto termina en el estado de error, no cierra la app:** los repositorios atrapan, después de los casos conocidos, cualquier otra excepción y devuelven `Fallida` con `motivo=error-inesperado`, sin anotar su mensaje. `CancellationException` se vuelve a lanzar.
+- **DP-100 · Una consulta tiene un tope total de 4 s:** los 4 s por fase del cliente no ponen un límite al total, y el `callTimeout` de OkHttp no se puede cambiar por llamada sin reemplazar el `Call.Factory`. Cada repositorio pone la consulta dentro de `withContext(contextoDelTope) { withTimeout(ClienteHttp.ESPERA_CONSULTA) { … } }`: al cancelarse la corrutina se cancela la llamada. Vencido el tope, el resultado es `SinConexion`, con `motivo=sin-respuesta`. `contextoDelTope` es por defecto `Dispatchers.IO`, así que en la app el tope cuenta en tiempo real. El borde se prueba con el tiempo virtual: el test le pasa `EmptyCoroutineContext`, y 3999 ms responde mientras que 4000 ms no. Así lo decidió el humano en la disputa de DP-100. Sin el contexto inyectable, el tope en el hilo del test vencía al instante en los tests con MockWebServer real, porque `runTest` adelanta el reloj virtual mientras espera a OkHttp.
+- **DP-101 · La contraseña de la cuenta de prueba no pasa por Gradle:** como argumento de instrumentación, Gradle la guardaba en texto claro en `android/.gradle/…/executionHistory.bin`. Ahora `app/build.gradle.kts` pasa solo `emailMozo`, y los tests en el dispositivo corren con `android/scripts/pruebas-en-dispositivo.sh`. El script instala con Gradle y corre `am instrument` con `contrasenaMozo`, tomada de `CONTRASENA_MOZO1_R1` sin mostrarla. Reemplaza la parte de la contraseña de DP-93.
+- **DP-102 · Lo menor de la revisión:**
+  - La CI valida el `gradle-wrapper.jar` con `gradle/actions/wrapper-validation@v6.4.1` antes de ejecutarlo.
+  - Si Firebase no devuelve usuario o ID token sin lanzar una excepción, el resultado es `ResultadoFirebase.Fallida`, no `CredencialesRechazadas`.
+  - Los insets de borde a borde quedan para TK-09, con RNF-10.
+
 ## Risks / Trade-offs
 
 - [AGP 9 es nuevo y el plugin de Hilt lo exige] → Si la combinación no compila, se baja a AGP 8.13.2 con Hilt 2.58 y Kotlin 2.2.21, que no exigen AGP 9, y se anota.

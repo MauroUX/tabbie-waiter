@@ -28,3 +28,10 @@
 - [x] 4.2 La sección "Comandos" de `android/CLAUDE.md` con los comandos reales, y `estructura.md`, `infraestructura.md` y DP-88 a DP-96 en `docs/backlog/tickets/README.md`; se comprueba que ningún documento contradice el código
 - [x] 4.3 ktlint sin errores, ningún `!!`, `retryOnConnectionFailure` solo en `false`, ningún `Level.HEADERS` ni `Level.BODY`, y la huella de los tests congelados en OK
 - [x] 4.4 `/opsx:verify` sin hallazgos críticos
+
+## 5. Revisión adversarial (D14)
+
+- [x] 5.1 Tests nuevos de DP-97, DP-99 y DP-100, escritos antes del arreglo; se ven fallar y se congelan
+- [x] 5.2 Reglas de extracción (DP-97), error inesperado (DP-99) y tope de 4 s por consulta (DP-100); los tests nuevos y los anteriores pasan
+- [x] 5.3 La contraseña fuera de Gradle (DP-101): `app/build.gradle.kts` sin `contrasenaMozo`, el script `android/scripts/pruebas-en-dispositivo.sh` y el historial de Gradle sin la contraseña; los tests en el dispositivo pasan con el script en `local` y en `demo`
+- [x] 5.4 Lo menor (DP-102): la validación del wrapper en la CI y el token nulo de Firebase; DP-98 en `android/CLAUDE.md`; DP-97 a DP-102 en `docs/backlog/tickets/README.md`
