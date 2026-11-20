@@ -44,15 +44,17 @@ tabbie-waiter/
 │   ├── gradle/                  Wrapper de Gradle y catálogo de versiones
 │   └── app/                     Único módulo: la app
 │       └── src/
-│           ├── main/…/<paquete base>/
+│           ├── main/…/com/tabbie/waiter/   El paquete base (DP-88)
 │           │   ├── sesion/          Inicio de sesión, canje, renovación, control del rol y cierre de sesión
 │           │   ├── salon/           Mesas activas, pedidos, "Órdenes", sus acciones y las marcas de "Atendido"
 │           │   ├── cobros/          Solicitudes y cobros de cada mesa, "Pagos" y sus acciones
 │           │   ├── impresora/       La impresora virtual
 │           │   └── comun/           Lo que comparten las funcionalidades
 │           │       ├── red/             Cliente HTTP y Monitor de conexión
+│           │       ├── diagnostico/     El registro de diagnóstico, en Logcat (DP-91)
 │           │       ├── eventos/         La conexión única a /sse/waiters
 │           │       └── almacenamiento/  DataStore cifrado de la sesión y DataStore de las marcas
+│           ├── local/           Lo propio de la variante local: la configuración de seguridad de red que permite HTTP hacia la máquina de desarrollo (PA-7)
 │           ├── test/            Pruebas locales, con los mismos paquetes que main
 │           └── androidTest/     Pruebas en el dispositivo, con los mismos paquetes que main
 │
@@ -94,13 +96,14 @@ Los componentes de [componentes.md](componentes.md), sección 1, se reparten as�
 | `cobros/` | Cobros; pantalla "Pagos"; las acciones de "Pagos": confirmar y eliminar una solicitud, y cerrar una mesa |
 | `impresora/` | Pantalla de la impresora virtual, con los datos de Salón |
 | `comun/red/` | Cliente HTTP, sin reintentos en las acciones que cambian datos (0007); Monitor de conexión |
+| `comun/diagnostico/` | El registro de diagnóstico (walking skeleton, sección 4; DP-91) |
 | `comun/eventos/` | Eventos |
 | `comun/almacenamiento/` | DataStore cifrado con una clave del Android Keystore, para la sesión; DataStore de las marcas (0005) |
-| Raíz de `<paquete base>` | La aplicación de Hilt, la actividad y la navegación principal, que junta lo de todas las funcionalidades |
+| Raíz del paquete base | La aplicación de Hilt, la actividad y la navegación principal, que junta lo de todas las funcionalidades |
 
 El componente Acciones de [componentes.md](componentes.md) queda repartido: cada acción vive en la funcionalidad de la pantalla desde la que se dispara, y aplica ahí la revisión previa, el bloqueo y la actualización posterior (0007). La regla de no reintentar es del Cliente HTTP, en `comun/red/`.
 
-El nombre de `<paquete base>` se fija al crear el proyecto Gradle.
+El paquete base es `com.tabbie.waiter`, igual que el `applicationId` de las tres variantes (DP-88).
 
 ## 2. Patrones y por qué
 

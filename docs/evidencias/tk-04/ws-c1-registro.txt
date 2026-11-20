@@ -1,0 +1,2 @@
+2026-11-20T01:14:02.272004Z sesion iniciada origen=inicio-de-sesion rol=waiter restaurante=11111111-1111-4111-8111-111111111111 vence=2026-11-20T17:14:02Z
+2026-11-20T01:14:02.315707Z mesas actualizadas origen=consulta cantidad=2 sesiones=[1,2]

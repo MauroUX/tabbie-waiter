@@ -65,7 +65,7 @@ Un número de cuatro cifras remite a un ADR; los demás IDs son los de cada docu
 
 ## Comandos
 
-Los de la réplica, desde TK-01. Los de la app se suman con TK-04. No inventes comandos.
+Los de la réplica, desde TK-01. Los de la app, desde TK-04, están en `android/CLAUDE.md`, sección "Comandos". No inventes comandos.
 
 Todo corre en contenedores de Node 20 (0003): en la máquina no hace falta Node. El perfil se elige con `--env-file`: `replica/entornos/pruebas.env` (sin Firebase, el de la suite) o `replica/entornos/local.env` (con Firebase). Esos archivos los carga el humano y no se leen.
 

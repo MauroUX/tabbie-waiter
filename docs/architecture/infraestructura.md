@@ -208,7 +208,9 @@ Ninguna se borra al volver a empezar.
 | Tabbie | El backend real de Tabbie | Cuando se pase al backend real (0002) |
 
 - Las variantes cambian **solo la URL base** (0002). Con la réplica propia, eso es la intención para la variante Tabbie: las diferencias que aparezcan al conectar se ajustan entonces (0010). La única otra diferencia es técnica: la variante local permite HTTP sin cifrar, solo hacia la máquina de desarrollo, porque Toxiproxy y la réplica local no tienen TLS. Las otras dos exigen HTTPS.
-- Las tres usan el **proyecto de Firebase de Tabbie** (0002), donde hay que registrar la app Android. Como el identificador de la app es el mismo en las tres, alcanza con un registro, y en un mismo dispositivo se instala una variante a la vez.
+- Las tres usan el **proyecto de Firebase de Tabbie** (0002), donde hay que registrar la app Android. Como el identificador de la app es el mismo en las tres (`com.tabbie.waiter`, DP-88), alcanza con un registro, y en un mismo dispositivo se instala una variante a la vez.
+- **En el proyecto Gradle (TK-04):** son los `productFlavors` `local`, `demo` y `tabbie`. La URL base va a `BuildConfig.URL_BASE`: `http://10.0.2.2:3000/` en `local`; en `demo` y `tabbie`, un host `.invalid` hasta que existan la réplica de demo y la URL del backend real, que no están en ningún documento (DP-90). `-PurlBase=…` la reemplaza en la variante que se compila. La variante local permite HTTP sin cifrar solo hacia `10.0.2.2` (el emulador) y `localhost` (una tablet con `adb reverse`), en `android/app/src/local/res/xml/network_security_config.xml`.
+- **La configuración de Firebase** es `android/app/google-services.json`, un archivo local que deja el humano y no se versiona (DP-89).
 
 ### 2.4 Secretos
 
@@ -301,7 +303,7 @@ La réplica no tiene una variable para sincronizar el esquema: corre sus migraci
 
 ## 6. Integración continua
 
-Hay CI con GitHub Actions desde el primer PR de código, en `.github/workflows/` (DP-11). Corre en cada PR y bloquea el merge si algo falla. Desde TK-01 está `.github/workflows/replica.yml`, con los pasos de la réplica (tests, OpenAPI y gitleaks); ktlint y los tests de la app se suman con TK-04, cuando exista `android/`:
+Hay CI con GitHub Actions desde el primer PR de código, en `.github/workflows/` (DP-11). Corre en cada PR y bloquea el merge si algo falla. Desde TK-01 está `.github/workflows/replica.yml`, con los pasos de la réplica (tests, OpenAPI y gitleaks), y desde TK-04 `.github/workflows/app.yml`, con ktlint, los tests de la app y la compilación de sus tres variantes, con JDK 17 (DP-94):
 
 | Paso | Qué comprueba |
 |---|---|
