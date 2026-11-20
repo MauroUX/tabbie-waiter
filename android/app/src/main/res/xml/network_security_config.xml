@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Demo y Tabbie: solo HTTPS (PA-7, SEG-c7). La variante local la reemplaza en src/local/res/xml/. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+</network-security-config>

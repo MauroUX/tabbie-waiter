@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nombre_de_la_app">Tabbie Mozo</string>
+
+    <!-- Inicio de sesión (TK-04, sin diseño: el diseño es de TK-11) -->
+    <string name="campo_email">Email</string>
+    <string name="campo_contrasena">Contraseña</string>
+    <string name="boton_entrar">Entrar</string>
+    <string name="inicio_enviando">Iniciando sesión…</string>
+    <string name="inicio_rechazado">El email o la contraseña no son correctos.</string>
+    <string name="inicio_sin_conexion">No hay conexión. Revisá la red y volvé a intentar.</string>
+    <string name="inicio_error">No se pudo iniciar sesión. Volvé a intentar.</string>
+
+    <!-- Salón, lo mínimo (TK-04) -->
+    <string name="salon_cargando">Cargando mesas…</string>
+    <string name="salon_mesa">Mesa %1$d</string>
+    <string name="salon_vacio">No hay mesas ocupadas.</string>
+    <string name="salon_error">No se pudieron cargar las mesas.</string>
+    <string name="salon_sin_conexion">No hay conexión. No se pudieron cargar las mesas.</string>
+    <string name="boton_volver_a_cargar">Volver a cargar</string>
+</resources>
