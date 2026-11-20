@@ -1,0 +1,50 @@
+# CI de la app (design D10 del change tk-04-app-base, DP-11, DP-94).
+# ktlint, los tests locales sobre Robolectric (sin emulador) y la compilación de las tres variantes, con JDK 17.
+# Corre sin google-services.json y sin secretos: el plugin de Firebase se aplica solo si el archivo existe (DP-89),
+# y las pruebas que necesitan Firebase o el emulador (androidTest/) no corren acá (DP-43).
+name: app
+
+on:
+  pull_request:
+  push:
+    branches:
+      - "mc/**"
+      - "feature/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: app-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    name: app (ktlint, tests locales y variantes)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+      - name: Sin google-services.json en el repo
+        run: test ! -e app/google-services.json
+      - name: ktlint
+        run: ./gradlew spotlessCheck --console=plain
+      - name: Tests locales
+        run: ./gradlew testLocalDebugUnitTest --console=plain
+      - name: Las tres variantes compilan
+        run: ./gradlew assembleLocalDebug assembleDemoDebug assembleTabbieDebug --console=plain
+      - name: Informe de los tests (solo si falló)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: informe-tests-app
+          path: android/app/build/reports/tests/
+          retention-days: 7
