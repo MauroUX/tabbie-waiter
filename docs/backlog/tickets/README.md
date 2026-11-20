@@ -342,6 +342,20 @@ Fuente: decisión que el humano delegó en la IA, que eligió la opción recomen
 - **DP-86 · Cuerpo de la solicitud de cobro:** se desenvuelve `{body: "<JSON>"}` solo si `body` es un string con el JSON de un objeto; si no, el body se guarda tal como llegó, con `body` incluido (contexto, 3.3). El OpenAPI declara el cuerpo de entrada aparte de la solicitud guardada: sin `id` (lo genera la réplica) y con `restaurantId` como único campo obligatorio. Ajusta DP-79. Afecta a TK-03 y TK-13.
 - **DP-87 · Cantidad de una línea de pedido:** un entero entre 1 y 2147483647, el rango de la columna `int`; fuera de ese rango, 400. Ajusta DP-75. Afecta a TK-03.
 
+## Decisiones tomadas en TK-04 (2026-11-19)
+
+Fuente: decisión del humano sobre el cambio de OpenSpec de TK-04 (`tk-04-app-base`) y su plan, y sobre la disputa de WS-c1 (DP-96).
+
+- **DP-88 · `applicationId` y paquete base:** `com.tabbie.waiter`, el mismo en las tres variantes, sin sufijo, así la app se registra una sola vez en el proyecto de Firebase de Tabbie (infraestructura.md, 2.3). Afecta a TK-04.
+- **DP-89 · La configuración de Firebase no se versiona:** `android/app/google-services.json` es un archivo local que deja el humano, ignorado por `.gitignore` y bloqueado por el hook `datos-que-no-salen`. El plugin `google-services` se aplica solo si el archivo existe: sin él (la CI) la app compila, y el inicio de sesión falla con `motivo=sin-configuracion-de-firebase`. Afecta a TK-04.
+- **DP-90 · Variantes y URL base:** `local` usa `http://10.0.2.2:3000/` (la máquina de desarrollo vista desde el emulador). Las URLs de la réplica de demo y del backend real no están en ningún documento: son un hueco, con hosts `.invalid` que no resuelven hasta que existan. `-PurlBase=…` reemplaza la URL de la variante que se compila. Afecta a TK-04 y al despliegue de la demo.
+- **DP-91 · El registro de diagnóstico va a Logcat:** etiqueta `TabbieDiag`, nivel INFO, una línea `<instante ISO-8601 UTC> <qué> origen=<origen> <clave>=<valor> …`, que se lee con `adb logcat -d -v raw -s TabbieDiag:I`. No es un archivo, porque un archivo en la tablet rompe PA-3 y SEG-c5. Afecta a TK-04 a TK-07.
+- **DP-92 · Tiempos de espera por llamada:** las consultas se marcan con `@Consulta` en la interfaz de Retrofit y usan 4 s; las demás llamadas, 10 s. El canje de T01 no es una consulta periódica y usa 10 s. Afecta a TK-04 y TK-07.
+- **DP-93 · La cuenta de prueba de `androidTest/`:** `CONTRASENA_MOZO1_R1` (obligatoria) y `EMAIL_MOZO1_R1` (opcional; por defecto, el email de los datos iniciales) pasan como los argumentos de instrumentación `contrasenaMozo` y `emailMozo`. La carga el humano como variable de entorno; no se escribe en el APK ni en el repo. Afecta a TK-04 y a cada ticket con pruebas en el dispositivo.
+- **DP-94 · CI de la app:** `.github/workflows/app.yml`, con JDK 17, ktlint, los tests locales sobre Robolectric en la variante `local` y la compilación de las tres variantes, sin emulador ni `google-services.json` (DP-11, DP-43). Afecta a TK-04 en adelante.
+- **DP-95 · Versiones de la app:** la última estable de cada librería cuya metadata de AAR pide `minCompileSdk` 35 o menos, con `compileSdk` y `targetSdk` 35 y JDK 17. Por eso quedan Compose BOM 2026.06.01, `core-ktx` 1.16.0, `activity-compose` 1.10.1, `lifecycle` 2.10.0, `hilt-lifecycle-viewmodel-compose` 1.3.0 y OkHttp 5.3.2. El catálogo completo está en `android/gradle/libs.versions.toml`. Afecta a TK-04 en adelante.
+- **DP-96 · El email del mozo que escribe el SDK de Firebase:** `firebase-auth` 25.0.0 escribe el email al iniciar sesión, con la etiqueta `FirebaseAuth`, y la app no lo controla. La prueba de WS-c1 busca el email fuera de las etiquetas del SDK de Firebase; la contraseña y `token=` se buscan en todo el Logcat. Queda como riesgo conocido en [seguridad.md](../../architecture/seguridad.md) (PA-6 y SEG-c6). Afecta a TK-04 y a SEG-c6.
+
 ## Decisiones pendientes
 
 Ninguna. Las que quedaban se cerraron con DP-36 a DP-44.

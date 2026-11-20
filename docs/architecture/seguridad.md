@@ -68,6 +68,7 @@ Cada práctica dice qué hace, por qué y de dónde sale. El criterio que la pru
   - emails o nombres de comensales, ni credenciales del restaurante.
 - **Por qué:** los cuerpos traen lo de O4, y hasta que TK-05 compruebe 0008 la URL del stream puede llevar el JWT (RA-6). Un registro se copia, se adjunta a un reporte de error y se lee fuera de la tablet.
 - **Evidencia:** RF-9, O4; 0004, 0006, 0008; walking skeleton, sección 4 ("Registro de diagnóstico").
+- **Riesgo conocido (DP-96):** el SDK `firebase-auth` 25.0.0 escribe en el registro del sistema de Android, con la etiqueta `FirebaseAuth`, el email del mozo al iniciar sesión con email y contraseña ("Logging in as … with empty reCAPTCHA token"). La app no controla esa línea. Las pruebas de la app buscan el email fuera de las etiquetas del SDK de Firebase; SEG-c6, que busca los emails de los datos iniciales en el registro del sistema, lo va a encontrar mientras el SDK lo escriba. Las salidas posibles, sin decidir: habilitar reCAPTCHA en el proyecto de Firebase de Tabbie, si con eso el SDK deja de escribir la línea, o iniciar sesión con la API REST de Firebase en lugar del SDK.
 
 **PA-7 · Solo HTTPS, salvo en la variante de réplica local**
 
