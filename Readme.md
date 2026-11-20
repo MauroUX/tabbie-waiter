@@ -29,15 +29,15 @@ Tabbie Waiter App es una app Android para tablet con la que el mozo opera el sal
 
 > Puede ser pública o privada, en cuyo caso deberás compartir los accesos de manera segura. Puedes enviarlos a [alvaro@lidr.co](mailto:alvaro@lidr.co) usando algún servicio como [onetimesecret](https://onetimesecret.com/).
 
-https://github.com/MauroUX/tabbie-waiter/tree/feature/entrega-1-mc
+https://github.com/MauroUX/tabbie-waiter/tree/feature/entrega-2-mc
 
-Todavía no hay despliegue, porque la Entrega 1 es solo documentación.
+Todavía no hay despliegue público: en la Entrega 2 el sistema se verifica en local, con las [instrucciones de instalación](#14-instrucciones-de-instalación). El entorno de demo en Railway y el APK en GitHub Releases llegan al final de la ampliación ([infraestructura.md](docs/architecture/infraestructura.md), secciones 2.2 y 3).
 
 ### 0.5. URL o archivo comprimido del repositorio
 
 > Puedes tenerlo alojado en público o en privado, en cuyo caso deberás compartir los accesos de manera segura. Puedes enviarlos a [alvaro@lidr.co](mailto:alvaro@lidr.co) usando algún servicio como [onetimesecret](https://onetimesecret.com/). También puedes compartir por correo un archivo zip con el contenido
 
-https://github.com/MauroUX/tabbie-waiter/tree/feature/entrega-1-mc
+https://github.com/MauroUX/tabbie-waiter/tree/feature/entrega-2-mc
 
 
 ---
@@ -87,14 +87,69 @@ Además:
 
 > Proporciona imágenes y/o videotutorial mostrando la experiencia del usuario desde que aterriza en la aplicación, pasando por todas las funcionalidades principales.
 
-Se completa con el desarrollo.
+**Estado en la Entrega 2:** la app tiene las dos pantallas del walking skeleton, **sin diseño** a propósito (TK-04): primero se conecta todo de punta a punta, y el diseño llega con las pantallas del lote 1.
+
+1. **Inicio de sesión:** email y contraseña del mozo. Inicia sesión en Firebase y canjea el ID token por el JWT de la réplica (T01). Tiene sus estados de carga, error y sin conexión.
+2. **Salón:** la lista de mesas ocupadas del restaurante del mozo (T05), con sus estados de carga, error, vacío y sin conexión. Las mesas las ocupa el simulador de comensales (ESC-1).
+
+La tablet es horizontal y en español, con la referencia de 10,1" a 1920×1200 y el mínimo de 8" a 1280×800. Las pantallas con diseño ("Órdenes", "Pagos" y el inicio de sesión completo) parten de wireframes de baja fidelidad en `docs/design/` (DP-10), en los tickets TK-09 a TK-16.
 
 ### **1.4. Instrucciones de instalación:**
 > Documenta de manera precisa las instrucciones para instalar y poner en marcha el proyecto en local (librerías, backend, frontend, servidor, base de datos, migraciones y semillas de datos, etc.)
 
-Se completa con el desarrollo.
+Lo que funciona en la Entrega 2 (TK-01 a TK-04): la réplica con MySQL y Redis, los datos iniciales, el simulador de comensales y la app, que inicia sesión y muestra las mesas ocupadas. La lista completa de comandos está en [AGENTS.md](AGENTS.md#comandos) (réplica, datos y simulador) y en [android/CLAUDE.md](android/CLAUDE.md) (app).
 
-**Cuentas de prueba:** las credenciales de las cuentas de prueba (los mozos y los demás usuarios de los datos iniciales) se entregan con el formulario de entrega y no se publican en el repositorio.
+**Requisitos**
+
+- Docker con Docker Compose. La réplica, las pruebas y el simulador corren en contenedores de Node 20: en la máquina no hace falta Node.
+- Para la app: JDK 17, el SDK de Android con la plataforma 35 y un emulador de tablet (el de referencia es un AVD de 8" a 1280×800, `tablet-8-1280x800`).
+- Para iniciar sesión desde la app: el proyecto de Firebase de desarrollo (ADR 0009). Sin Firebase se levanta y se prueba la réplica, pero no se inicia sesión.
+
+**1. Variables de entorno.** Cada archivo de `replica/entornos/` se crea copiando su `.example`, que trae solo los nombres de las variables. Los valores no se versionan.
+
+| Perfil | Archivo | Para qué |
+|---|---|---|
+| Pruebas | `replica/entornos/pruebas.env` | Sin Firebase (`USE_FIREBASE` desactivada): la suite de la réplica y la del simulador, como en la CI |
+| Local | `replica/entornos/local.env` | Con Firebase: iniciar sesión desde la app |
+| Cuentas | `replica/entornos/cuentas.env` | El script que crea las cuentas de prueba en Firebase |
+
+**2. Réplica, base de datos y datos iniciales.** Un solo comando levanta la réplica, MySQL 8 y Redis 7. La réplica corre sus migraciones al arrancar, y un servicio carga una vez los datos iniciales sintéticos: dos restaurantes, con sus mesas, su menú y sus mozos.
+
+```bash
+docker compose --env-file replica/entornos/local.env up -d --build --wait
+```
+
+Para volver a empezar desde cero, o al cambiar de perfil: `docker compose --env-file replica/entornos/local.env down -v`.
+
+**3. Ocupar mesas con el simulador.** Los datos iniciales no traen mesas ocupadas (TK-02), así que sin este paso el Salón sale vacío. ESC-1 hace entrar comensales invitados a una mesa:
+
+```bash
+docker compose --env-file replica/entornos/local.env --profile simulador run --rm --build simulador esc-1 --mesa 1 --comensales 2
+```
+
+ESC-2 confirma pedidos (evento `order-confirmed-notification`) y ESC-5 pide un cobro presencial (evento `in-person-payment-request`).
+
+**4. La app.** `android/app/google-services.json` es la configuración de Firebase de la app y no se versiona (DP-89). Sin él la app compila, pero el inicio de sesión falla con `motivo=sin-configuracion-de-firebase`. Desde `android/`, con el emulador levantado:
+
+```bash
+./gradlew installLocalDebug
+```
+
+La variante `local` apunta a `http://10.0.2.2:3000/`, que es la máquina de desarrollo vista desde el emulador. En una tablet física se compila con `-PurlBase=http://localhost:<puerto>/` y se usa `adb reverse tcp:<puerto> tcp:<puerto>` (DP-98).
+
+**5. Qué verificar.** Con la cuenta del primer mozo del restaurante 1, el inicio de sesión lleva al Salón, que muestra la mesa que ocupó ESC-1. El registro de diagnóstico se lee con `adb logcat -d -v raw -s TabbieDiag:I`.
+
+**Pruebas**
+
+| Qué | Comando |
+|---|---|
+| Suite de la réplica (sin Firebase, con el stack levantado con `pruebas.env` sobre una base recién cargada) | `docker compose --env-file replica/entornos/pruebas.env --profile pruebas run --rm --build pruebas` |
+| Suite del simulador, después de la de la réplica | `docker compose --env-file replica/entornos/pruebas.env --profile pruebas run --rm --build pruebas-simulador` |
+| Carga de datos desde cero | `bash replica/tests/datos/carga-desde-cero.sh replica/entornos/pruebas.env` |
+| Tests locales de la app y ktlint, desde `android/` | `./gradlew testLocalDebugUnitTest spotlessCheck` |
+| Tests de la app en el emulador, contra la réplica de `local.env`, desde `android/` | `bash scripts/pruebas-en-dispositivo.sh local` |
+
+**Cuentas de prueba:** usan un dominio reservado para ejemplos (`@example.com`). Las credenciales de las cuentas de prueba (los mozos y los demás usuarios de los datos iniciales) se entregan con el formulario de entrega y no se publican en el repositorio.
 
 ---
 
@@ -103,7 +158,7 @@ Se completa con el desarrollo.
 ### **2.1. Diagrama de arquitectura:**
 > Usa el formato que consideres más adecuado para representar los componentes principales de la aplicación y las tecnologías utilizadas. Explica si sigue algún patrón predefinido, justifica por qué se ha elegido esta arquitectura, y destaca los beneficios principales que aportan al proyecto y justifican su uso, así como sacrificios o déficits que implica.
 
-La vista general está en [docs/architecture/README.md](docs/architecture/README.md), con el diagrama de contexto (C4, nivel 1), el patrón y la tabla completa de beneficios y sacrificios. Es una arquitectura propuesta: todavía no hay código, y los diagramas se regeneran desde él cuando exista.
+La vista general está en [docs/architecture/README.md](docs/architecture/README.md), con el diagrama de contexto (C4, nivel 1), el patrón y la tabla completa de beneficios y sacrificios. En la Entrega 2 ya existen la réplica, MySQL, Redis, el simulador y la app base (TK-01 a TK-04), conectados como muestra el diagrama de contenedores, sin Toxiproxy; el resto de los componentes llega con los tickets del lote 1.
 
 Diagrama de contenedores (C4, nivel 2) del sistema de pruebas: la app contra la réplica del backend, con el simulador en lugar del comensal y Toxiproxy en el medio para provocar cortes. Toxiproxy entra con la ampliación del backlog: en el lote 1 la app llega directo a la réplica.
 
@@ -198,7 +253,7 @@ El [walking skeleton](docs/architecture/walking-skeleton.md) es la épica facili
 
 > Representa la estructura del proyecto y explica brevemente el propósito de las carpetas principales, así como si obedece a algún patrón o arquitectura específica.
 
-Es un monorepo, para que un cambio y su spec entren en el mismo commit. La estructura es una propuesta: las carpetas fuera de `docs/` se crean al armar el proyecto.
+Es un monorepo, para que un cambio y su spec entren en el mismo commit. En la Entrega 2 existen `replica/`, `simulator/`, `android/`, `openspec/`, `.claude/` y `.github/`; `docs/design/` y Toxiproxy llegan con los tickets que los usan.
 
 ```text
 tabbie-waiter/
@@ -206,8 +261,9 @@ tabbie-waiter/
 ├── android/      La app del mozo, organizada por funcionalidad y por capas
 ├── simulator/    El simulador de comensales
 ├── docs/         PRD, contexto, backlog, ADRs, arquitectura, API (OpenAPI) y wireframes
-├── .claude/      El hook de pre-commit que bloquea credenciales y cuentas
-├── .github/      La CI con GitHub Actions
+├── openspec/     Las specs y los changes de cada ticket (SDD)
+├── .claude/      El harness: hooks (entre ellos el que bloquea credenciales y cuentas), skills y subagentes
+├── .github/      La CI con GitHub Actions: replica.yml y app.yml
 ├── compose.yaml  MySQL, Redis, Toxiproxy y la carga de los datos iniciales del entorno local
 ├── Readme.md
 └── Prompts.md
@@ -276,6 +332,8 @@ flowchart TB
 - **CI:** GitHub Actions desde el primer PR de código, con ktlint, los tests de la app, los tests de la réplica, el control de que el OpenAPI generado no difiere del commiteado y gitleaks, sin credenciales de Firebase: las pruebas que las necesitan corren en local.
 - **Demo:** la réplica en Railway, con MySQL y Redis administrados y HTTPS, sin Toxiproxy; el APK de la variante de demo se publica en GitHub Releases.
 
+**Estado en la Entrega 2:** funcionan el entorno local (sin Toxiproxy) y la CI, con dos workflows: `replica.yml` (gitleaks sobre todo el historial, el control del OpenAPI, la carga de datos desde cero, la suite de la réplica y la del simulador) y `app.yml` (validación del wrapper de Gradle, `spotlessCheck`, los tests locales con Robolectric y la compilación de las tres variantes). La demo en Railway y el APK quedan para el final de la ampliación; mientras tanto, las URLs de las variantes `demo` y `tabbie` son hosts `.invalid` (DP-90).
+
 **Una sola instancia:** el backend real y la réplica corren en una sola instancia, porque los eventos salen de la memoria del proceso y con dos un evento no llega a los mozos conectados a la otra. Cada despliegue corta todas las conexiones, y la app se recupera sola.
 
 Cada entorno, el proceso de despliegue de la demo, los requisitos de prueba y las variables de entorno de la réplica están en [docs/architecture/infraestructura.md](docs/architecture/infraestructura.md).
@@ -306,7 +364,19 @@ Cada práctica con su porqué, cada riesgo con lo que hace la app para acotarlo,
 
 > Describe brevemente algunos de los tests realizados
 
-Se completa con el desarrollo. La estrategia está en la [Definition of Done](docs/backlog/definition-of-done.md): el test de cada scenario se escribe primero y falla, la réplica se prueba por HTTP contra MySQL y Redis reales, y la app se prueba en el dispositivo contra la réplica. Los criterios del [walking skeleton](docs/architecture/walking-skeleton.md) dicen cómo se provoca y se mide cada uno.
+La estrategia está en la [Definition of Done](docs/backlog/definition-of-done.md): cada criterio heredado es un scenario del change de OpenSpec del ticket, y su test se escribe **primero** y se lo ve fallar antes de escribir el código. Los tests quedan congelados con una huella (`sha256sum`) que se comprueba al final: el código no puede cambiar los tests para pasar. Si un test nace en verde, su rojo se comprueba por mutación.
+
+| Suite | Dónde | Cómo prueba | Ejemplos |
+|---|---|---|---|
+| Contrato de la réplica | `replica/tests/contrato/` | Jest y Supertest **por HTTP**, desde fuera del código, contra la réplica levantada con Docker Compose y MySQL y Redis reales (DP-14). Valida las respuestas contra `docs/api/openapi.yaml` | T01 sin Firebase responde 503; los guards aceptan el JWT por encabezado o por `?token=` y responden 401 sin él; T05 devuelve la forma de DP-60 y reproduce O4 a propósito; el stream responde 403 a un usuario sin restaurante; un invitado de `/auth/guest` se une a una mesa libre y la mesa aparece en T05 |
+| Seguridad | `replica/tests/seguridad/` | Sobre el repo y la base cargada | SEG-c10: los únicos archivos de variables versionados son ejemplos sin valores; SEG-c11: los datos iniciales son sintéticos y las cuentas usan `@example.com` |
+| Datos iniciales | `replica/tests/datos/` | Contra MySQL real, sobre una base recién cargada | Los datos respetan el modelo de datos (enums, FK, uuid, umbrales); recargar desde cero deja la misma foto; un `up` sobre la base cargada no duplica; la carga falla en alto sin migraciones |
+| Cuentas de prueba | `replica/tests/cuentas/` | Solo en local, contra el proyecto de Firebase de desarrollo (DP-43) | El script crea solo las cuentas que faltan y una segunda corrida no cambia nada; el ID token de una cuenta de prueba se canjea en T01 |
+| Simulador | `simulator/test/` | Corre los escenarios contra la réplica y escucha `/sse/waiters` | ESC-2 hace llegar `order-confirmed-notification` y ESC-5 `in-person-payment-request` al stream de mozos; argumentos inválidos salen con un error explícito |
+| App, locales | `android/app/src/test/` | JUnit, MockK y Robolectric, sin emulador (en la CI) | El cliente HTTP no reintenta; las consultas tienen un tope total de 4 s (DP-100); un error no previsto termina en el estado de error (DP-99); el registro de diagnóstico no anota datos sensibles (PA-6) |
+| App, en el dispositivo | `android/app/src/androidTest/` | En el emulador, contra la réplica de `local.env` y Firebase | WS-c1 (en parte): el primer mozo del restaurante 1 inicia sesión y ve en la lista las mesas que ocupó ESC-1; SEG-c7: la variante de demo con una URL `http://` no llega a la réplica |
+
+Las pruebas que necesitan Firebase corren solo en local, y su evidencia queda en el PR (DP-43); el resto corre en la CI en cada PR. Antes del merge, el subagente `adversarial-reviewer` revisa el PR contra los criterios del ticket, y sus hallazgos se resuelven en el mismo PR (por ejemplo, DP-83 a DP-87 en TK-03 y DP-97 a DP-102 en TK-04). Los criterios del [walking skeleton](docs/architecture/walking-skeleton.md) dicen cómo se provoca y se mide cada uno.
 
 ---
 
@@ -1502,11 +1572,29 @@ Por su fila de la [tabla de trazabilidad](docs/context/panel-mozos-actual.md#2-t
 
 > Documenta 3 de las Pull Requests realizadas durante la ejecución del proyecto
 
-No aplica en la Entrega 1: todavía no hay código ni pull requests.
+Cada ticket se trabaja en su rama `mc/tk-NN-<slug>` y entra en `feature/entrega-2-mc` por un PR con `Closes #n`. Todos siguen el mismo ciclo: change de OpenSpec aprobado por el humano, tests primero en rojo, implementación hasta el verde, CI en verde, revisión adversarial y merge del humano. En la Entrega 2 se mergearon [#19](https://github.com/MauroUX/tabbie-waiter/pull/19) (TK-01), [#20](https://github.com/MauroUX/tabbie-waiter/pull/20) y [#21](https://github.com/MauroUX/tabbie-waiter/pull/21) (TK-02), [#22](https://github.com/MauroUX/tabbie-waiter/pull/22) (TK-03) y [#23](https://github.com/MauroUX/tabbie-waiter/pull/23) (TK-04).
 
 **Pull Request 1**
 
+[#19 · TK-01 · Réplica base: proyecto, migraciones, inicio de sesión, mesas activas y stream](https://github.com/MauroUX/tabbie-waiter/pull/19)
+
+- **Qué trae:** el proyecto NestJS de `replica/` sobre Node 20 en contenedor; la migración inicial con las 13 tablas y su `down`, con `synchronize` desactivado; T01 (`POST /auth/login`) con Firebase Admin, que responde 503 sin Firebase; los guards; T05 (`GET /restaurants/:id/tables/active`), que reproduce O4 a propósito; el stream `GET /sse/waiters`; `docs/api/openapi.yaml` generado con `@nestjs/swagger`, con las marcas `x-sensitive`, y la CI con gitleaks, el control del OpenAPI y la suite.
+- **Cómo se probó:** cada scenario se vio fallar dos veces antes del código (sin réplica, y con la réplica sin el endpoint), y la huella de los tests siguió intacta al final.
+- **Decisiones:** DP-55 a DP-64, los huecos del contrato que el contexto no fijaba, aprobados por el humano en el change.
+
 **Pull Request 2**
 
+[#22 · TK-03 · Simulador: ocupar mesas, confirmar pedidos y pedir cobros](https://github.com/MauroUX/tabbie-waiter/pull/22)
+
+- **Qué trae:** siete endpoints de la réplica (los del comensal, T06 y T07), con los eventos T16 y T17 por `/sse/waiters`, y el simulador de comensales en `simulator/`, con ESC-1, ESC-2 y ESC-5 y su registro del turno fuera del repo. T07 reproduce O2 a propósito, y el PR lo dice para que no se lea como un fallo.
+- **Cómo se probó:** el riesgo técnico del walking skeleton primero (un invitado se une a una mesa libre y la mesa aparece en T05); 21 tests nuevos de contrato vistos en rojo con TK-01 y TK-02 en verde, y la suite del simulador sobre la misma base.
+- **Decisiones:** DP-72 a DP-82 en el change, y DP-83 a DP-87, de la revisión adversarial.
+
 **Pull Request 3**
+
+[#23 · TK-04 · App: proyecto, variantes, inicio de sesión mínimo y registro de diagnóstico](https://github.com/MauroUX/tabbie-waiter/pull/23)
+
+- **Qué trae:** el proyecto Android con Compose, Hilt, Retrofit, OkHttp y Firebase Authentication; tres variantes (`local`, `demo` y `tabbie`) que cambian solo la URL base, y solo `local` permite HTTP sin cifrar; `google-services.json` fuera del repo; la sesión mínima (Firebase y el canje en T01); un único cliente HTTP sin reintentos; el Salón mínimo con T05; el registro de diagnóstico en Logcat, y la CI de la app.
+- **Cómo se probó:** tests locales con Robolectric en la CI, y en el emulador, contra la réplica y Firebase, WS-c1 (el primer mozo inicia sesión y ve las mesas que ocupó ESC-1) y SEG-c7.
+- **Decisiones:** DP-88 a DP-96 en el change y el plan, y DP-97 a DP-102, de la revisión adversarial.
 

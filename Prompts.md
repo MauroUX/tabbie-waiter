@@ -13,9 +13,14 @@ Puedes añadir adicionalmente la conversación completa como link o archivo adju
 - Claude Opus 5.5 en todo el trabajo: para las consultas y el armado de los prompts, y para leer el código de Tabbie y escribir los documentos.
 
 **Skills, subagentes, rules y comandos**
-- Todavía no hay ninguno propio.
 - En `1·P1` (sección 1, prompt 1) se usaron subagentes `Explore` para leer en paralelo el front y el back de Tabbie.
-- Los propios llegan con la configuración del proyecto, en la Entrega 2: `AGENTS.md` con la Definition of Done, OpenSpec, un hook que bloquea datos sensibles en el commit, un subagente de revisión adversarial y una skill de commit.
+- Desde la Entrega 2, el harness del repo (inventario completo en [docs/ia/harness.md](docs/ia/harness.md)):
+  - **Contexto:** `AGENTS.md`, con lo que no se toca, el ciclo de cada ticket, la Definition of Done importada y los comandos reales; `CLAUDE.md`, con la instrucción de compactación, y un `CLAUDE.md` propio en `android/` y en `replica/`.
+  - **OpenSpec:** un change por ticket, con un scenario por criterio heredado, y `/opsx:propose`, `/opsx:apply`, `/opsx:verify` y `/opsx:archive`.
+  - **Skills:** `replica-feature` (backend), `datos-iniciales` (datos) y `app-feature` (app), que hacen el ciclo test primero, en rojo, y después la implementación; y `commit`.
+  - **Subagentes:** `test-writer` e `implementer` para la réplica, `android-test-writer` y `android-implementer` para la app, y `adversarial-reviewer`, que el humano lanza contra cada PR antes del merge.
+  - **Hooks:** `datos-que-no-salen` bloquea en el commit credenciales, contraseñas de las cuentas de prueba y correos reales; `ramas-protegidas` impide commitear en `main` o en una `feature/entrega-*`, y `ktlint-formato` formatea el Kotlin.
+  - **Permisos** en `.claude/settings.json`: el agente no lee archivos `.env` ni la configuración de Firebase.
 
 **Workflow**: desarrollo guiado por especificaciones (SDD), en este orden:
 1. contexto del sistema actual, trazado hasta el código;
@@ -27,6 +32,16 @@ Puedes añadir adicionalmente la conversación completa como link o archivo adju
 7. Definition of Done y tickets.
 
 Así quedan los documentos de `docs/`; el `Readme.md` los resume y los enlaza.
+
+**Cada ticket, desde la Entrega 2** (SDD: especificación → arquitectura → código), con dos paradas del humano:
+1. El issue y el change de OpenSpec, con un scenario por criterio heredado. Los huecos del contrato van como preguntas. **Gate 1:** el humano aprueba el change.
+2. El plan de la skill del tipo de ticket. **Gate 2:** el humano aprueba el plan.
+3. Un subagente escribe los tests y los ve fallar; se congelan con su huella. Otro subagente implementa hasta el verde sin tocarlos.
+4. `/opsx:verify`, commits con la skill `commit`, PR con la CI en verde.
+5. El humano lanza la revisión adversarial y decide sobre cada hallazgo; después mergea.
+6. `/opsx:archive`, y lo aprendido pasa a la skill ("Lo que ya se aprendió haciéndolo").
+
+Los secretos los carga siempre el humano: la IA escribe los `.example` con los nombres y para.
 
 **Cómo se escriben los prompts**
 - Un solo objetivo por prompt.
@@ -46,7 +61,10 @@ Así quedan los documentos de `docs/`; el `Readme.md` los resume y los enlaza.
 - El humano escribió el camino feliz de cada historia, y la IA buscó los huecos.
 - Se descartó el planning poker y se aceptó la estimación de la IA.
 - La app no tiene base local (sale Room), y la réplica valida con el Firebase de Tabbie, contra la recomendación de la IA.
-- Por la fecha, los tickets viven en el repo y el gestor queda para la Entrega 2.
+- Por la fecha, los tickets viven en el repo y el gestor queda para la Entrega 2. Ya en la Entrega 2, cada ticket tiene su issue en GitHub.
+- En la revisión de la Entrega 1, la réplica dejó de ser una copia del backend de Tabbie: se construye desde el contrato documentado, sin leer su código y sin oráculo, contra la recomendación de la IA (ADR 0010).
+- Los huecos del contrato y del modelo de datos los decidió el humano en cada change (DP-55 a DP-96), y las credenciales las cargó siempre el humano.
+- Después de dos tickets con prompts largos, se pidió que el prompt de cada ticket diga solo lo propio del ticket, y el ritual quedó en `AGENTS.md` y las skills.
 
 ---
 
@@ -1090,8 +1108,182 @@ No planifiques todos los tickets en detalle antes de escribir el primero.
 
 ### 7. Pull Requests
 
+Cada prompt de esta sección ejecuta un ticket de punta a punta y termina en un PR, así que van acá. En la Entrega 2 hubo cuatro (TK-01 a TK-04); estos son los tres que muestran cada tipo de ticket: backend, datos y frontend. El de TK-03 ya era más corto, porque el ritual del ticket pasó al harness.
+
 **Prompt 1:**
+
+```text
+[Sección 7 · Prompt 1]
+
+## Contexto
+Arrancamos TK-01, el primer ticket de código: la réplica base. Es también la calibración del harness, porque la skill `replica-feature` y sus subagentes corren por primera vez sobre código real. La skill `ticket-a-change` todavía no existe, así que el change se propone a mano.
+
+## Antes de nada
+1. `git branch --show-current`, `git status --short` y `git fetch`. Tenés que estar en `feature/entrega-2-mc`, al día con `origin` y sin cambios. Si no, pará.
+2. Creá la rama `mc/tk-01-replica` desde ahí. Te lo pido yo.
+3. Comprobá `docker info`, `openspec config list` y `gh auth status`. Si algo falla, pará y decime.
+
+## Objetivo
+TK-01 terminado según su DoD, en `mc/tk-01-replica`, con el PR abierto hacia `feature/entrega-2-mc` y `Closes #2`.
+
+## Cómo se trabaja
+Seguí "Cómo se trabaja un ticket" de `AGENTS.md`, en orden, sin saltear pasos:
+1. **El issue:** `gh issue view 2`, solo lectura, y el ticket entero: `docs/backlog/tickets/TK-01-replica.md`.
+2. **El change** (`/opsx:propose`):
+   - un scenario por criterio heredado, con su ID y su texto copiado (DP-08): SEG-c10, y WS-c1 solo en la parte que dice el ticket;
+   - la spec del contrato, con una entrada por pieza de la base (T01, T05 y el stream de `/sse/waiters`), tomada del contexto;
+   - el no-alcance del ticket.
+3. **Gate 1.** Mostrame el change y **esperá mi OK**. Sin OK no hay código.
+4. **`/opsx:apply` con la skill `replica-feature`.** Su plan es el segundo gate: **esperá mi OK** antes de lanzar `test-writer`.
+5. `/opsx:verify`, commits con la skill `commit`, el PR y el informe final.
+
+## Lo que el plan tiene que resolver
+Ya sé que estos puntos están abiertos. Traelos al plan como propuesta, con su porqué:
+- **Node 20** (0003): la máquina tiene Node 24. ¿Cómo se fija Node 20 en el Dockerfile, en la CI y en el proyecto (`engines`, `.nvmrc`)? ¿Dónde corre la suite, en la máquina o en un contenedor?
+- **El detector de secretos** (paso 8): `gitleaks` no está instalado. Proponé cómo se corre en local sobre todo el historial y todas las ramas (por ejemplo, la imagen oficial de Docker, con la versión fijada) y cómo en la CI. No instales nada sin mi OK.
+- **`x-sensitive: true`** con `@nestjs/swagger`: cómo se logra la marca. El ticket lo deja para acá.
+- **Los huecos del contrato** que aparezcan en T01, T05 o el stream: van como preguntas. No inventes, y no leas el código de Tabbie.
+- **Los comandos reales** para la sección "Comandos" de `AGENTS.md`.
+
+## Paradas del humano
+- **El archivo local de variables (paso 4 del ticket):** vos escribís los ejemplos de `replica/entornos/`, solo con los nombres. Del archivo local me decís la ruta y la lista de variables, y **pará**. Los valores los cargo yo. No lo leas, no lo muestres y no lo escribas con valores.
+- **Las pruebas y la CI** corren con `USE_FIREBASE` desactivada y un `JWT_SECRET` de prueba (DP-43). El arranque con `USE_FIREBASE` activada lo comprobamos juntos, después de que yo cargue las credenciales.
+- **Un test que nace en verde, una disputa del `implementer` o una huella que no cuadra:** pará y traémelo tal cual, como dice la skill.
+
+## Reglas
+- No leas el código de Tabbie. No toques `docs/context/` ni el `Prompts.md` del repo.
+- Ningún valor de secreto en el repo, en el chat ni en los logs que guardes.
+- **Commits:** solo con la skill `commit`, y cada uno con mi OK. **Push y PR:** con mi OK. **Merge:** nunca.
+- La revisión adversarial la lanzo yo (DP-12). Al abrir el PR, dame el comando para lanzarla con el ticket, el change y el diff.
+- Si el contexto pasa del 70 %, compactá según `CLAUDE.md` antes de seguir.
+
+## Criterios de éxito
+- La DoD de "Para todos", la de Backend y la propia de TK-01 se cumplen, cada punto con su evidencia.
+- La traza muestra el rojo de cada test, con su motivo, antes del código, y la huella intacta al final.
+- La réplica arranca desde cero con `compose.yaml`, siguiendo solo `infraestructura.md`, y corre sus migraciones.
+- `docs/api/openapi.yaml` sale generado, con T01, T05 y el stream, y la CI falla si difiere.
+- El detector de secretos pasa sobre todo el historial y todas las ramas.
+
+## Informe final
+- Pieza → archivo, incluidas las que no hicieron falta.
+- Scenario → test → resultado, y la huella.
+- Los huecos del contrato, con cómo los resolvimos.
+- Los desvíos respecto del ticket o de la skill, con su motivo.
+- **Calibración del harness:** qué costó y no estaba escrito en `replica-feature`, `test-writer`, `implementer`, los hooks o `AGENTS.md`. Es lo que va a "Lo que ya se aprendió haciéndolo" de la skill. Proponé el texto, pero no lo escribas sin mi OK.
+```
+
+**Ajuste humano:** Pedí el OK antes de cada commit, porque en los prompts de la revisión anterior la IA había commiteado sin que se lo pidiera. Antes de este prompt cambié de idea sobre la réplica: en lugar de copiar el backend de Tabbie, la réplica se construye desde el contrato documentado y sin leer su código (ADR 0010). La IA recomendaba usar el backend real como oráculo, y elegí no usarlo. En el gate del change resolví los huecos del contrato que el contexto no fijaba (DP-55 a DP-64). Cargué yo las credenciales de Firebase en el archivo local, sin que la IA las leyera. Cuando el hook de datos bloqueó los correos de los avisos `deprecated` de npm en los `package-lock.json`, decidí quitar esos campos y no debilitar el hook (DP-65).
 
 **Prompt 2:**
 
+```text
+[Sección 7 · Prompt 2]
+
+## Contexto
+Arrancamos TK-02: los datos iniciales sintéticos y las cuentas de prueba. TK-01 está mergeado y archivado, y su calibración ya está en `replica-feature`. Es el primer ticket de tipo Datos: la skill `datos-iniciales` todavía no existe y `dbhub` tampoco. TK-04, el corte de la Entrega 2, depende de este ticket.
+
+## Antes de nada
+1. `git branch --show-current`, `git status --short` y `git fetch`. Tenés que estar en `feature/entrega-2-mc`, al día con `origin` y sin cambios. Si no, pará.
+2. Creá la rama `mc/tk-02-datos-iniciales` desde ahí. Te lo pido yo.
+3. Comprobá `docker info`, `openspec config list` y `gh auth status`. Si algo falla, pará y decime.
+4. Comprobá si existe `.claude/hooks/valores-prohibidos.local`, solo con `test -f`. No lo abras. Decime si está.
+
+## Objetivo
+TK-02 terminado según su DoD, en `mc/tk-02-datos-iniciales`, con el PR abierto hacia `feature/entrega-2-mc` y `Closes #3`.
+
+## Cómo se trabaja
+Seguí "Cómo se trabaja un ticket" de `AGENTS.md`, en orden, sin saltear pasos:
+1. **El issue:** `gh issue view 3`, solo lectura, y el ticket entero: `docs/backlog/tickets/TK-02-datos-iniciales.md`.
+2. **El change** (`/opsx:propose`):
+   - un scenario por criterio heredado, con su ID y su texto copiado (DP-08): SEG-c11, y WS-c1 solo en la parte que dice el ticket;
+   - lo que el ticket pide probar aunque no sea un criterio (la recarga desde cero, el script de Firebase sin duplicados y DP-58: un ID token válido sin `email` recibe 401 sin JWT), con su origen (DoD o DP), nunca como criterio inventado;
+   - el no-alcance del ticket.
+3. **Gate 1.** Mostrame el change y **esperá mi OK**. Sin OK no hay código.
+4. **`/opsx:apply` con la skill `replica-feature`.** No hay skill de Datos todavía: usá su ciclo, con los controles de Datos dentro del plan (ver abajo). Su plan es el segundo gate: **esperá mi OK** antes de lanzar `test-writer`.
+5. `/opsx:verify`, commits con la skill `commit`, el PR y el informe final.
+
+## Lo que el plan tiene que resolver
+Traelo al plan como propuesta, con su porqué:
+- **Los controles de Datos** (DoD de Datos y M10 L1): cómo se comprueban contra la base real, no contra el código, los enums, las FK que aceptan nulos pero se llenan, el uuid de `restaurant.id`, los umbrales ordenados y los precios sin decimales; cómo se cuenta antes y después de cada carga; y cómo se demuestra que dos cargas desde cero dan el mismo resultado.
+- **`dbhub`:** cómo se enciende con un usuario de solo lectura sobre la base del Compose, con la contraseña leída del archivo local por el lanzador y nunca escrita en el repo. Si no entra en este ticket sin demorarlo, proponé dejarlo afuera y decime qué lo reemplaza para los controles.
+- **Las contraseñas de las cuentas de prueba:** de dónde las lee el script de `replica/firebase/` (archivo local ignorado con su `.example` de solo nombres, o variables de entorno), y cómo queda cubierto que el hook las bloquee.
+- **Los correos de las cuentas:** van en el SQL, y el hook bloquea correos (lo vimos en los `package-lock.json` de TK-01). Comprobá con los tests del hook qué pasa con el dominio reservado para ejemplos y proponé cómo se resuelve sin debilitar el hook.
+- **El ID token para la prueba de T01:** cómo lo obtiene la prueba local con email y contraseña (qué variable nueva hace falta), y cómo obtiene uno válido **sin** `email` para DP-58.
+- **Los permisos:** si `implementer` y `test-writer` pueden escribir en `replica/datos-iniciales/`, `replica/firebase/` y `compose.yaml`, y qué cambia si no.
+- **El servicio de carga** (DP-16, DP-51): cómo espera a que la réplica termine sus migraciones, y cómo se vuelve a cargar desde cero.
+- **Los huecos del modelo de datos** que aparezcan: van como preguntas. No inventes valores, y no leas el código de Tabbie.
+
+## Paradas del humano
+- **Antes de escribir datos con correos o contraseñas:** yo lleno `valores-prohibidos.local` (C-08a). Decime la ruta y el formato que espera el hook, y **pará**. No lo leas.
+- **Las contraseñas y la Web API key:** vos escribís el `.example` con los nombres. Del archivo local me decís la ruta y la lista de variables, y **pará**. Los valores los cargo yo. No lo leas, no lo muestres y no lo escribas con valores.
+- **El script de `replica/firebase/` contra el proyecto de Firebase de Tabbie:** crea cuentas reales. Lo corrés solo con mi OK, primero mostrando qué cuentas va a crear y cuáles ya existen. La segunda corrida (sin duplicados) también con mi OK.
+- **La carga y SEG-c11 corren en la CI;** el canje de cada cuenta por T01 es prueba local (DP-43), y su salida, sin tokens, va en el PR.
+- **Un test que nace en verde, una disputa del `implementer` o una huella que no cuadra:** pará y traémelo tal cual, como dice la skill.
+
+## Reglas
+- No leas el código de Tabbie. No toques `docs/context/` ni el `Prompts.md` del repo.
+- **No abras, no busques con `grep` ni listes el contenido de ningún archivo ignorado** (`replica/entornos/*.env`, el archivo de contraseñas, `valores-prohibidos.local`). Para saber si una variable está cargada, preguntame.
+- Ningún valor de secreto ni contraseña en el repo, en el chat ni en los logs que guardes. Ningún dato de Tabbie en los datos iniciales.
+- **Commits:** solo con la skill `commit`, y cada uno con mi OK. **Push y PR:** con mi OK. **Merge:** nunca.
+- La revisión adversarial la lanzo yo (DP-12). Al abrir el PR, dame el comando para lanzarla con el ticket, el change y el diff.
+- Si el contexto pasa del 70 %, compactá según `CLAUDE.md` antes de seguir.
+
+## Criterios de éxito
+- La DoD de "Para todos", la de Datos y la propia de TK-02 se cumplen, cada punto con su evidencia.
+- La traza muestra el rojo de cada test, con su motivo, antes del código, y la huella intacta al final.
+- Sobre una base recién creada, la carga deja los dos restaurantes con sus mesas, su menú y sus usuarios; recrear la base y volver a cargar da exactamente el mismo resultado (conteos y valores).
+- Cada fila `user` tiene su cuenta en Firebase y cada cuenta su fila; correr el script dos veces no duplica nada.
+- Cada mozo recibe por T01 el rol `waiter` y su `restaurantId`, y la cuenta que no es de mozo su rol y el restaurante 1; T05 con el primer mozo devuelve la lista vacía.
+- El `Readme.md` dice que las credenciales se entregan con el formulario, e `infraestructura.md` (2.1) tiene los comandos de carga y de recarga.
+- La CI en verde, y gitleaks pasa sobre todo el historial y todas las ramas.
+```
+
+**Ajuste humano:** Llené yo la lista de valores prohibidos del hook y las contraseñas de las cuentas de prueba, sin que la IA las leyera. En el plan resolví los huecos del modelo de datos que la IA trajo como preguntas: el estilo de cobro, los umbrales de demora, el límite de las opciones, el identificador de MercadoPago de mentira, el tamaño de los datos y las claves fijas (DP-66 a DP-71). Aprobé cada corrida del script que crea cuentas reales en Firebase, primero en modo `plan`. La disputa del `implementer` sobre un test de la lista de cuentas se resolvió comprobando su rojo por mutación, sin cambiar el test. Lo aprendido en este ticket se convirtió después en la skill `datos-iniciales`.
+
 **Prompt 3:**
+
+```text
+[Sección 7 · Prompt 4]
+
+## Contexto
+TK-04 es el corte de la Entrega 2 y el primer código de la app: `app-feature` y sus subagentes corren por primera vez.
+
+## Antes de nada
+1. Pasá a `feature/entrega-2-mc`, al día con `origin` y sin cambios, y comprobá que TK-01, TK-02 y TK-03 están mergeados. Si queda algo sin commitear de otra rama, pará y decime.
+2. Creá `mc/tk-04-app-base` desde ahí.
+3. `docker info`, `openspec config list`, `gh auth status`, `java -version` y `emulator -list-avds` (con la ruta de `android/CLAUDE.md`).
+
+## Cómo se trabaja
+"Cómo se trabaja un ticket" de `AGENTS.md`, con el issue #5 y la skill `app-feature`. Dos gates: el change y el plan.
+
+## Lo que el plan tiene que resolver
+- **La configuración de Firebase sin versionarla:** `google-services.json` hoy no está en `.gitignore`. Cómo llega a la app (archivo local ignorado o valores desde un archivo local), cómo compila la CI sin él y qué `applicationId` comparten las tres variantes, para registrar la app una sola vez.
+- **El AVD `tablet-8-1280x800` no existe.** Proponé crearlo con la imagen `android-35` que está instalada.
+- **La réplica para la prueba en el dispositivo:** con el perfil `local.env`, porque T01 verifica en Firebase (cambiar de perfil exige `down -v`), las mesas ocupadas con ESC-1 del simulador y la URL `10.0.2.2` solo en la variante local.
+- **La cuenta de prueba en `androidTest/`:** qué variables de entorno pasan a los argumentos de instrumentación.
+- **SEG-c7:** cómo falla la variante de demo con una URL `http://`, y qué test lo muestra.
+- **El registro de diagnóstico:** dónde se escribe, cómo se lee desde la máquina con `adb` y cómo se prueba que no trae nada de PA-6.
+- **La CI de la app** (DP-11): ktlint y los tests locales con Robolectric, sin emulador.
+- **Las versiones** de AGP, Kotlin, el BOM de Compose, Hilt y Firebase, compatibles con JDK 17 y el SDK 35. Comprobá que existen; no inventes números.
+- **Lo que ya se aprendió** en `replica-feature` que vale acá: los subagentes en segundo plano, la parada en dos fases, el rojo por mutación y la huella copiada cuando cambia el scratchpad.
+
+## Paradas del humano
+- **El registro en Firebase:** me das el `applicationId` y la ruta del archivo local, y **parás**. Lo registro y lo dejo yo. No lo leas.
+- **Crear el AVD** y **levantar la réplica con `local.env`:** con mi OK.
+- **La contraseña del mozo para `androidTest/`:** me das los nombres de las variables, y la cargo yo.
+
+## Reglas
+- Cada commit con la skill `commit` y con mi OK. Push y PR con mi OK. Al abrir el PR, dame el comando para lanzar `adversarial-reviewer`.
+
+## Criterios de éxito
+- La DoD de "Para todos", la de Frontend y la propia de TK-04, cada punto con su evidencia.
+- En el emulador de 1280×800, el primer mozo del restaurante 1 inicia sesión contra la réplica local y ve en la lista las mesas que ocupó ESC-1. Con su captura.
+- Las tres variantes compilan; solo la local permite HTTP sin cifrar, y la de demo con `http://` falla.
+- `google-services.json` está ignorado, y la CI de la app sale en verde sin él.
+- La sección "Comandos" de `android/CLAUDE.md`, con los comandos reales.
+
+## Informe final
+El de `app-feature`, más el texto propuesto para su "Lo que ya se aprendió haciéndolo". No lo escribas sin mi OK.
+```
+
+**Ajuste humano:** Este prompt es más corto que los dos anteriores porque pedí que dijera solo lo propio del ticket: el ritual (rama, issue, gates, commits) ya está en `AGENTS.md` y en las skills. Antes de correrlo detecté que `google-services.json` no estaba en `.gitignore`, y lo puse como lo primero que el plan tenía que resolver, para que lo garantice el repo y no una instrucción. Registré yo la app en Firebase, dejé la configuración y la contraseña del mozo, y aprobé crear el AVD de tablet. En el gate decidí el `applicationId`, las variantes, el registro en Logcat, las versiones y la CI (DP-88 a DP-95). En la disputa de WS-c1, acepté como riesgo conocido que el SDK de Firebase escriba el email del mozo en Logcat, porque la app no lo controla, y la prueba busca el email fuera de las etiquetas del SDK (DP-96). Los hallazgos de la revisión adversarial los delegué en la IA, que eligió la opción recomendada en cada uno (DP-97 a DP-102), salvo el rechazo de quien no es mozo, que dejé para TK-11, como dice el ticket.
