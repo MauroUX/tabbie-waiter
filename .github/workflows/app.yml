@@ -27,6 +27,8 @@ jobs:
         working-directory: android
     steps:
       - uses: actions/checkout@v4
+      - name: El gradle-wrapper.jar es uno oficial de Gradle (DP-102)
+        uses: gradle/actions/wrapper-validation@v6.4.1
       - name: JDK 17
         uses: actions/setup-java@v4
         with:
