@@ -42,6 +42,7 @@ tabbie-waiter/
 │
 ├── android/                     Proyecto Gradle de la app del mozo (0001, 0003)
 │   ├── gradle/                  Wrapper de Gradle y catálogo de versiones
+│   ├── scripts/                 pruebas-en-dispositivo.sh: corre androidTest/ con `am instrument`, sin pasar la contraseña de la cuenta de prueba por Gradle (DP-101)
 │   └── app/                     Único módulo: la app
 │       └── src/
 │           ├── main/…/com/tabbie/waiter/   El paquete base (DP-88)
