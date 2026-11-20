@@ -89,13 +89,15 @@ Desde `android/`, en Bash (`./gradlew`) o en PowerShell (`.\gradlew.bat`). No in
 | Levantar el emulador (en segundo plano) | `"$LOCALAPPDATA/Android/Sdk/emulator/emulator" -avd tablet-8-1280x800 -no-snapshot-save` |
 | Esperar a que arranque | `adb wait-for-device shell 'while [ "$(getprop sys.boot_completed)" != 1 ]; do sleep 1; done'` |
 | Instalar la variante local en el emulador | `./gradlew installLocalDebug` |
-| Tests en el dispositivo, variante local (WS-c1 y SEG-c7 local), con la réplica de `local.env` y ESC-1 en las mesas 1 y 2 | `./gradlew connectedLocalDebugAndroidTest` |
-| SEG-c7 de la demo, con la variante de demo apuntando por `http://` a la réplica local | `./gradlew connectedDemoDebugAndroidTest -PurlBase=http://10.0.2.2:3000/` |
-| Un solo test o clase en el dispositivo | `-Pandroid.testInstrumentationRunnerArguments.class=com.tabbie.waiter.WsC1DispositivoTest` |
+| Tests en el dispositivo, variante local (WS-c1 y SEG-c7 local), con la réplica de `local.env` y ESC-1 en las mesas 1 y 2 | `bash scripts/pruebas-en-dispositivo.sh local` |
+| SEG-c7 de la demo, con la variante de demo apuntando por `http://` a la réplica local | `bash scripts/pruebas-en-dispositivo.sh demo -- -PurlBase=http://10.0.2.2:3000/` |
+| Una sola clase en el dispositivo | `bash scripts/pruebas-en-dispositivo.sh local com.tabbie.waiter.WsC1DispositivoTest` |
 | Leer el registro de diagnóstico | `adb logcat -d -v raw -s TabbieDiag:I` |
 | La captura (solo en Bash) | `adb exec-out screencap -p > <archivo>.png` |
 
-- **La cuenta de prueba de los tests en el dispositivo** sale de las variables de entorno `CONTRASENA_MOZO1_R1` (obligatoria) y `EMAIL_MOZO1_R1` (opcional; por defecto, `waiterapp.mozo1.r1@example.com`), que `app/build.gradle.kts` pasa como argumentos de instrumentación (DP-93). La carga el humano; si es una variable de usuario de Windows, una terminal abierta antes no la ve: se toma con `[Environment]::GetEnvironmentVariable('CONTRASENA_MOZO1_R1','User')` sin mostrarla.
+- **Los tests en el dispositivo no se corren con `connected…AndroidTest`** (DP-101): Gradle guarda los argumentos de instrumentación en su historial (`android/.gradle/`), y la contraseña quedaría en texto claro. El script instala con Gradle y pasa la cuenta a `am instrument`.
+- **La cuenta de prueba** sale de `CONTRASENA_MOZO1_R1` (obligatoria) y `EMAIL_MOZO1_R1` (opcional; por defecto, `waiterapp.mozo1.r1@example.com`) (DP-93). La carga el humano. Si es una variable de usuario de Windows que la terminal no ve, el script la toma de las variables de usuario sin mostrarla.
+- **En una tablet física,** la variante local se compila con `-PurlBase=http://localhost:<puerto>/` y se usa con `adb reverse tcp:<puerto> tcp:<puerto>`: `10.0.2.2` es la máquina de desarrollo solo en el emulador (DP-98).
 - **`google-services.json`** va en `app/` y no se versiona (DP-89). Sin él, la app compila y el inicio de sesión falla con `motivo=sin-configuracion-de-firebase`.
 - **Las URLs de `demo` y `tabbie`** son hosts `.invalid` hasta que existan (DP-90). `-PurlBase=…` reemplaza la URL de la variante que se compila.
 - **Con `adb shell` en Git Bash,** `MSYS_NO_PATHCONV=1`: si no, `/sdcard/…` se convierte en una ruta de Windows.
