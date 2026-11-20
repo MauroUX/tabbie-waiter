@@ -10,6 +10,7 @@ import java.time.Instant
 import java.util.Base64
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -105,6 +106,10 @@ class RepositorioDeSesion @Inject constructor(
             }
         } catch (e: SerializationException) {
             return fallo(ResultadoInicioDeSesion.Fallida, "respuesta-invalida")
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return fallo(ResultadoInicioDeSesion.Fallida, "error-inesperado")
         }
         val vence = vencimientoDe(respuesta.accessToken)
             ?: return fallo(ResultadoInicioDeSesion.Fallida, "respuesta-invalida")

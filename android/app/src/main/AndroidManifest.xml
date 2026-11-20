@@ -3,10 +3,11 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- allowBackup en false: en la tablet solo quedan la sesión y las marcas, y no se copian (0005, PA-3). -->
+    <!-- allowBackup en false y reglas de extracción que excluyen todo: la sesión y las marcas no salen de la tablet ni en la copia en la nube ni en la transferencia a otro dispositivo (0005, PA-3, DP-97). -->
     <application
         android:name=".TabbieWaiterApp"
         android:allowBackup="false"
+        android:dataExtractionRules="@xml/reglas_de_extraccion"
         android:label="@string/nombre_de_la_app"
         android:networkSecurityConfig="@xml/network_security_config"
         android:supportsRtl="true"
