@@ -20,6 +20,9 @@ captures/
 *.jks
 *.keystore
 
+# Configuración de Firebase de la app (TK-04, DP-89): la deja el humano en android/app/ y no se versiona.
+google-services.json
+
 # Variables de entorno: solo entran los ejemplos.
 # Los nuestros se llaman <perfil>.env.example, en replica/entornos/.
 .env*

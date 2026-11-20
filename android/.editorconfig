@@ -1,0 +1,10 @@
+root = true
+
+[*.{kt,kts}]
+ktlint_code_style = android_studio
+# Las funciones @Composable se nombran en mayúscula (PantallaSalon).
+ktlint_function_naming_ignore_when_annotated_with = Composable
+
+# Los tests llevan el ID del criterio en el nombre (WS_c1_…, `SEG-c7 · …`), como pide android-test-writer.
+[{**/src/test/**,**/src/androidTest/**}]
+ktlint_standard_function-naming = disabled
